@@ -38,15 +38,45 @@ export async function parseGG(): Promise<{ m: Record<number, number>; b: string;
     return ggCache;
 }
 
-export async function fetchMeta(gid: number): Promise<{
+export interface HitomiMeta {
     title: string;
-    files: { hash: string; name: string; width: number; height: number }[]
-}> {
+    title_jpn: string;
+    type: string;
+    language: string;
+    language_localname: string;
+    date: string;
+    datepublished: string;
+    artists: string[];
+    groups: string[];
+    parody: string[];
+    characters: string[];
+    tags: { tag: string; female?: string; male?: string }[];
+    files: { hash: string; name: string; width: number; height: number }[];
+    gallery_id: number;
+}
+
+export async function fetchMeta(gid: number): Promise<HitomiMeta> {
     const text = await fetchText(METADATA_URL(gid), `https://hitomi.la/reader/${gid}.html`);
     const raw = JSON.parse(text.split('=')[1].trim().replace(/;$/, ''));
     return {
-        title: raw.title,
-        files: raw.files.map((f: { hash: string; name: string; width: number; height: number }) => f),
+        title: raw.title || '',
+        title_jpn: raw.japanese_title || '',
+        type: raw.type || '',
+        language: raw.language || '',
+        language_localname: raw.language_localname || '',
+        date: raw.date || '',
+        datepublished: raw.datepublished || '',
+        artists: (raw.artists || []).map((a: { artist: string }) => a.artist),
+        groups: (raw.groups || []).map((g: { group: string }) => g.group),
+        parody: (raw.parodys || []).map((p: { parody: string }) => p.parody),
+        characters: (raw.characters || []).map((c: { character: string }) => c.character),
+        tags: (raw.tags || []).map((t: { tag: string; female?: string; male?: string }) => ({
+            tag: t.tag,
+            female: t.female,
+            male: t.male,
+        })),
+        files: (raw.files || []).map((f: { hash: string; name: string; width: number; height: number }) => f),
+        gallery_id: raw.id || gid,
     };
 }
 

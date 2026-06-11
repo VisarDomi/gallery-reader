@@ -1,5 +1,6 @@
 import {thumbUrl} from '../hitomi/hitomi';
 import {isFav, toggleFav} from '../hitomi/db';
+import {show as showInfo} from '../info-modal/info-modal';
 
 export const CSS = '.hs-row{display:flex;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;cursor:pointer}' +
     '.hs-row::-webkit-scrollbar{display:none}' +
@@ -38,7 +39,7 @@ export function render(gid: number, files: { hash: string }[]): HTMLDivElement {
     infoBtn.textContent = 'i';
     infoBtn.onclick = (e) => {
         e.stopPropagation();
-        // info modal not implemented yet
+        showInfo(gid);
     };
     actions.appendChild(infoBtn);
     const favBtn = document.createElement('button');
