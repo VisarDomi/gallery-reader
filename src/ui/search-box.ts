@@ -91,6 +91,13 @@ export function buildPage(): HTMLElement | null {
                 // Let the default navigation happen
             }
         };
+        // Scroll input cursor to end
+        requestAnimationFrame(function () {
+            const len = input.value.length;
+            input.setSelectionRange(len, len);
+            input.scrollLeft = input.scrollWidth;
+        });
+
         // Render saved searches
         renderSavedSearches(savedContainer, input);
     }
