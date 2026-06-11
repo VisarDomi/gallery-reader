@@ -7,9 +7,9 @@ const SEARCH_CSS = 'body{font-size:16px}#search-button{display:none}#search:afte
     '#hs-wrap #query-input{width:100%!important;min-width:100%!important;font-size:16px;box-sizing:border-box}';
 
 const SAVED_CSS = '.hs-saved-searches{display:flex;flex-wrap:wrap;gap:6px;padding:6px 4px}' +
-    '.hs-saved-chip{background:#222;color:#888;padding:4px 8px;border-radius:4px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;border:none}' +
+    '.hs-saved-chip{background:#222;color:#888;padding:4px 8px;border-radius:4px;font-size:16px;cursor:pointer;display:flex;align-items:center;gap:6px;border:none}' +
     '.hs-saved-chip:hover{color:#fff}' +
-    '.hs-saved-chip .hs-saved-x{color:#555;font-size:15px;line-height:1}' +
+    '.hs-saved-chip .hs-saved-x{color:#555;font-size:16px;line-height:1}' +
     '.hs-saved-chip .hs-saved-x:hover{color:#f44}';
 
 function injectSearchCSS(): void {
