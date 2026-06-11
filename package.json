@@ -1,0 +1,16 @@
+{
+  "name": "hitomi",
+  "version": "180",
+  "description": "Hitomi/Exhentai gallery browser with OCR support",
+  "type": "module",
+  "scripts": {
+    "build": "node increase.js && vite build",
+    "dev": "vite build --watch"
+  },
+  "devDependencies": {
+    "@types/tampermonkey": "^5.0.4",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.9",
+    "vite-plugin-monkey": "^7.1.4"
+  }
+}
