@@ -2,8 +2,7 @@ import {fetchMeta, imageUrl} from '../hitomi/hitomi';
 import {clean} from './cleanup';
 
 const CSS = 'body{background:#000;margin:0;font-size:16px;overflow:visible!important}' +
-    'img.hs-r-img{display:block;width:100%;height:auto}'
-    ;
+    'img.hs-r-img{display:block;width:100%;height:auto}';
 
 async function applySrc(files: { hash: string; name: string; width: number; height: number }[], gid: number) {
     const urls = await Promise.all(
@@ -27,41 +26,38 @@ export async function open(gid: number, startPage: number): Promise<void> {
 
     const meta = await fetchMeta(gid);
     const files = meta.files || [];
-    const pages: HTMLElement[] = [];
     for (let idx = 0; idx < files.length; idx++) {
         const div = document.createElement('div');
         div.style.cssText = 'width:100%';
         div.style.aspectRatio = files[idx].width + '/' + files[idx].height;
+        div.dataset.pageIndex = String(idx);
         const img = document.createElement('img');
         img.id = `img-${idx}`;
         img.className = 'hs-r-img';
         img.loading = 'lazy';
-        img.dataset.pageIndex = String(idx);
         div.appendChild(img);
         document.body.appendChild(div);
-        pages.push(div);
     }
 
-    if (pages[startPage]) {
-        const el = pages[startPage];
-        const maxST = document.documentElement.scrollHeight - window.innerHeight;
-        window.scrollTo(0, Math.max(0, Math.min(maxST, el.offsetTop - window.innerHeight / 2)));
+    if (startPage) {
+        const el = document.querySelector(`[data-page-index="${startPage}"]`);
+        if (el instanceof HTMLElement) {
+            const maxST = document.documentElement.scrollHeight - window.innerHeight;
+            window.scrollTo(0, Math.max(0, Math.min(maxST, el.offsetTop - window.innerHeight / 2)));
+        }
     }
+
     // await applySrc(files, gid);
 
-    let scrollTimer: ReturnType<typeof setTimeout>;
-    window.onscroll = function () {
-        clearTimeout(scrollTimer);
-        scrollTimer = setTimeout(function () {
-            let bestIdx = 0, bestVis = 0;
-            for (let i = 0; i < pages.length; i++) {
-                const p = pages[i];
-                const vis = Math.min(p.offsetTop + p.offsetHeight, window.scrollY + window.innerHeight) - Math.max(p.offsetTop, window.scrollY);
-                if (vis > bestVis) { bestVis = vis; bestIdx = i; }
-            }
-            if (window.location.hash !== '#' + (bestIdx + 1)) {
-                history.replaceState(null, '', '#' + (bestIdx + 1));
+    window.addEventListener('scrollend', () => {
+        setTimeout(() => {
+            const el = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+            const page = el?.closest('[data-page-index]');
+            if (page) {
+                const idx = Number((page as HTMLElement).dataset.pageIndex);
+                const hash = '#' + (idx + 1);
+                if (window.location.hash !== hash) history.replaceState(null, '', hash);
             }
         }, 100);
-    };
+    });
 }
