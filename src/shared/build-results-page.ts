@@ -1,5 +1,5 @@
 import {CSS as rowCSS} from '../gallery-row/gallery-row';
-import {loadSearches, addSearch, removeSearch} from './saved-searches';
+import {addSearch, loadSearches, removeSearch} from './saved-searches';
 
 const SAVED_CSS = '.hs-saved-searches{display:flex;flex-wrap:wrap;gap:6px;padding:6px 4px}' +
     '.hs-saved-chip{background:#222;color:#888;padding:4px 8px;border-radius:4px;font-size:16px;cursor:pointer;display:flex;align-items:center;gap:6px;border:none}' +
@@ -34,10 +34,10 @@ function renderSavedSearches(container: HTMLElement, input: HTMLInputElement): v
     }
 }
 
-export function buildPage(): HTMLElement | null {
-    const s = document.createElement('style');
-    s.textContent = SAVED_CSS + rowCSS;
-    document.head.appendChild(s);
+export function buildGrid(): HTMLElement | null {
+    const styleEl = document.createElement('style');
+    styleEl.textContent = SAVED_CSS + rowCSS;
+    document.head.appendChild(styleEl);
 
     // Saved searches below the header (header already populated by cleanUp)
     const savedContainer = document.createElement('div');
@@ -56,6 +56,5 @@ export function buildPage(): HTMLElement | null {
         renderSavedSearches(savedContainer, input);
     }
 
-    const grid = document.getElementById('hs-grid');
-    return grid;
+    return document.getElementById('hs-grid');
 }

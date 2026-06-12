@@ -1,4 +1,4 @@
-import {buildPage} from '../shared/build-results-page';
+import {buildGrid} from '../shared/build-results-page';
 import {renderGrid} from '../gallery-row/render-grid';
 import {getAllFavs} from '../hitomi/db';
 import {type PageInfo} from '../search-page/pagination';
@@ -12,8 +12,8 @@ let favAllIds: number[] = [];
 function loadPage(): number {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-        const n = parseInt(saved);
-        if (!isNaN(n) && n > 0) return n;
+        const savedPage = parseInt(saved);
+        if (!isNaN(savedPage) && savedPage > 0) return savedPage;
     }
     return 1;
 }
@@ -25,13 +25,13 @@ function savePage(page: number): void {
 function renderPage(page: number): void {
     if (!favGrid) return;
     const totalPages = Math.max(1, Math.ceil(favAllIds.length / HITOMI_ITEMS_PER_PAGE));
-    const cp = Math.min(page, totalPages);
-    const start = (cp - 1) * HITOMI_ITEMS_PER_PAGE;
+    const currentPage = Math.min(page, totalPages);
+    const start = (currentPage - 1) * HITOMI_ITEMS_PER_PAGE;
     const pageIds = favAllIds.slice(start, start + HITOMI_ITEMS_PER_PAGE);
 
     const pageInfo: PageInfo = {
         totalCount: String(favAllIds.length) + ' Favorites',
-        currentPage: cp,
+        currentPage,
         totalPages,
     };
 
@@ -42,7 +42,7 @@ function renderPage(page: number): void {
 }
 
 export function init(): void {
-    const grid = buildPage();
+    const grid = buildGrid();
     if (!grid) { setTimeout(init, 100); return; }
     favGrid = grid;
 

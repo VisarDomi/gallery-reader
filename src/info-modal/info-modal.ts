@@ -15,10 +15,10 @@ const CSS = '.hs-modal-backdrop{position:fixed;top:0;left:0;width:100%;height:10
     '.hs-modal-footer{margin-top:16px;display:flex;justify-content:flex-end}' +
     '.hs-modal-ok-btn{background:#333;color:#fff;border:none;padding:8px 24px;border-radius:6px;font-size:0.95rem;cursor:pointer}';
 
-function esc(s: string): string {
-    const d = document.createElement('div');
-    d.textContent = s;
-    return d.innerHTML;
+function escapeHTML(text: string): string {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 function handleSearchClick(e: MouseEvent): void {
@@ -46,10 +46,10 @@ export async function show(gid: number): Promise<void> {
 
     // Inject CSS once
     if (!document.getElementById('hs-modal-style')) {
-        const s = document.createElement('style');
-        s.id = 'hs-modal-style';
-        s.textContent = CSS;
-        document.head.appendChild(s);
+        const styleEl = document.createElement('style');
+        styleEl.id = 'hs-modal-style';
+        styleEl.textContent = CSS;
+        document.head.appendChild(styleEl);
     }
 
     let meta: HitomiMeta;
@@ -61,8 +61,8 @@ export async function show(gid: number): Promise<void> {
     }
 
     let html = '<div class="hs-modal-header">';
-    if (meta.title_jpn) html += '<h2>' + esc(meta.title_jpn) + '</h2>';
-    html += '<h2>' + esc(meta.title) + '</h2></div>';
+    if (meta.title_jpn) html += '<h2>' + escapeHTML(meta.title_jpn) + '</h2>';
+    html += '<h2>' + escapeHTML(meta.title) + '</h2></div>';
 
     html += '<div class="hs-modal-body">';
 
@@ -70,7 +70,7 @@ export async function show(gid: number): Promise<void> {
         html += '<div class="hs-modal-row"><span class="hs-modal-label">Artist</span><span class="hs-modal-value">';
         for (let i = 0; i < meta.artists.length; i++) {
             if (i > 0) html += ', ';
-            html += '<span class="hs-modal-value-link" data-hs-ns="artist" data-hs-val="' + esc(meta.artists[i]) + '">' + esc(meta.artists[i]) + '</span>';
+            html += '<span class="hs-modal-value-link" data-hs-ns="artist" data-hs-val="' + escapeHTML(meta.artists[i]) + '">' + escapeHTML(meta.artists[i]) + '</span>';
         }
         html += '</span></div>';
     }
@@ -79,7 +79,7 @@ export async function show(gid: number): Promise<void> {
         html += '<div class="hs-modal-row"><span class="hs-modal-label">Group</span><span class="hs-modal-value">';
         for (let i = 0; i < meta.groups.length; i++) {
             if (i > 0) html += ', ';
-            html += '<span class="hs-modal-value-link" data-hs-ns="group" data-hs-val="' + esc(meta.groups[i]) + '">' + esc(meta.groups[i]) + '</span>';
+            html += '<span class="hs-modal-value-link" data-hs-ns="group" data-hs-val="' + escapeHTML(meta.groups[i]) + '">' + escapeHTML(meta.groups[i]) + '</span>';
         }
         html += '</span></div>';
     }
@@ -88,14 +88,14 @@ export async function show(gid: number): Promise<void> {
         html += '<div class="hs-modal-row"><span class="hs-modal-label">Series</span><span class="hs-modal-value">';
         for (let i = 0; i < meta.parody.length; i++) {
             if (i > 0) html += ', ';
-            html += '<span class="hs-modal-value-link" data-hs-ns="series" data-hs-val="' + esc(meta.parody[i]) + '">' + esc(meta.parody[i]) + '</span>';
+            html += '<span class="hs-modal-value-link" data-hs-ns="series" data-hs-val="' + escapeHTML(meta.parody[i]) + '">' + escapeHTML(meta.parody[i]) + '</span>';
         }
         html += '</span></div>';
     }
 
     if (meta.type) {
         html += '<div class="hs-modal-row"><span class="hs-modal-label">Type</span><span class="hs-modal-value">';
-        html += '<span class="hs-modal-value-link" data-hs-ns="type" data-hs-val="' + esc(meta.type) + '">' + esc(meta.type) + '</span>';
+        html += '<span class="hs-modal-value-link" data-hs-ns="type" data-hs-val="' + escapeHTML(meta.type) + '">' + escapeHTML(meta.type) + '</span>';
         html += '</span></div>';
     }
 
@@ -103,20 +103,20 @@ export async function show(gid: number): Promise<void> {
         html += '<div class="hs-modal-row"><span class="hs-modal-label">Characters</span><span class="hs-modal-value">';
         for (let i = 0; i < meta.characters.length; i++) {
             if (i > 0) html += ', ';
-            html += '<span class="hs-modal-value-link" data-hs-ns="character" data-hs-val="' + esc(meta.characters[i]) + '">' + esc(meta.characters[i]) + '</span>';
+            html += '<span class="hs-modal-value-link" data-hs-ns="character" data-hs-val="' + escapeHTML(meta.characters[i]) + '">' + escapeHTML(meta.characters[i]) + '</span>';
         }
         html += '</span></div>';
     }
 
     if (meta.language) {
         html += '<div class="hs-modal-row"><span class="hs-modal-label">Language</span><span class="hs-modal-value">';
-        html += '<span class="hs-modal-value-link" data-hs-ns="language" data-hs-val="' + esc(meta.language) + '">' + esc(meta.language) + '</span>';
+        html += '<span class="hs-modal-value-link" data-hs-ns="language" data-hs-val="' + escapeHTML(meta.language) + '">' + escapeHTML(meta.language) + '</span>';
         html += '</span></div>';
     }
     html += '<div class="hs-modal-row"><span class="hs-modal-label">Pages</span><span class="hs-modal-value">' + meta.files.length + '</span></div>';
 
     if (meta.date) {
-        html += '<div class="hs-modal-row"><span class="hs-modal-label">Date</span><span class="hs-modal-value">' + esc(meta.date) + '</span></div>';
+        html += '<div class="hs-modal-row"><span class="hs-modal-label">Date</span><span class="hs-modal-value">' + escapeHTML(meta.date) + '</span></div>';
     }
 
     if (meta.tags.length > 0) {
@@ -124,7 +124,7 @@ export async function show(gid: number): Promise<void> {
         for (let i = 0; i < meta.tags.length; i++) {
             const t = meta.tags[i];
             const fullTag = (t.female ? 'female:' : t.male ? 'male:' : '') + t.tag;
-            html += '<span class="hs-tag-chip" data-hs-ns="' + (t.female ? 'female' : t.male ? 'male' : 'tag') + '" data-hs-val="' + esc(t.tag) + '">' + esc(fullTag) + '</span>';
+            html += '<span class="hs-tag-chip" data-hs-ns="' + (t.female ? 'female' : t.male ? 'male' : 'tag') + '" data-hs-val="' + escapeHTML(t.tag) + '">' + escapeHTML(fullTag) + '</span>';
         }
         html += '</div></div>';
     }

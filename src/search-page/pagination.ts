@@ -30,18 +30,18 @@ export function renderPagination(info: PageInfo, onPage: (page: number) => void)
     favs.style.cssText = 'color:#888;text-decoration:none;padding:2px 8px;margin-right:8px;font-size:16px';
     pag.appendChild(favs);
 
-    for (let pi = 1; pi <= info.totalPages; pi++) {
-        if (pi === info.currentPage) {
+    for (let pageNum = 1; pageNum <= info.totalPages; pageNum++) {
+        if (pageNum === info.currentPage) {
             const cur = document.createElement('span');
-            cur.textContent = String(pi);
+            cur.textContent = String(pageNum);
             cur.style.cssText = ACTIVE_CSS;
             pag.appendChild(cur);
         } else {
-            const s = document.createElement('span');
-            s.textContent = String(pi);
-            s.style.cssText = LINK_CSS;
-            s.onclick = () => { onPage(pi); };
-            pag.appendChild(s);
+            const pageLink = document.createElement('span');
+            pageLink.textContent = String(pageNum);
+            pageLink.style.cssText = LINK_CSS;
+            pageLink.onclick = () => { onPage(pageNum); };
+            pag.appendChild(pageLink);
         }
     }
 

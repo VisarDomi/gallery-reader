@@ -5,7 +5,7 @@ export function loadSearches(): string[] {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
             const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) return parsed.filter(s => typeof s === 'string' && s.trim());
+            if (Array.isArray(parsed)) return parsed.filter(entry => typeof entry === 'string' && entry.trim());
         }
     } catch {}
     return [];
@@ -19,15 +19,13 @@ export function addSearch(query: string): void {
     const q = query.trim();
     if (!q) return;
     const searches = loadSearches();
-    // Remove if already exists, then add to front
-    const filtered = searches.filter(s => s !== q);
+    const filtered = searches.filter(entry => entry !== q);
     filtered.unshift(q);
-    // Keep max 20
     if (filtered.length > 20) filtered.length = 20;
     saveSearches(filtered);
 }
 
 export function removeSearch(query: string): void {
-    const searches = loadSearches().filter(s => s !== query);
+    const searches = loadSearches().filter(entry => entry !== query);
     saveSearches(searches);
 }

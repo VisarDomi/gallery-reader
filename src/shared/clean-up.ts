@@ -1,12 +1,12 @@
 const SEARCH_DOMAIN = 'ltn.gold-usergeneratedcontent.net';
 
-function loadScript(src: string): Promise<void> {
-    return new Promise(resolve => {
-        const s = document.createElement('script');
-        s.src = `https://${SEARCH_DOMAIN}/${src}`;
-        s.onload = () => resolve();
-        document.head.appendChild(s);
-    });
+export function loadScript(src: string): Promise<void> {
+    const { promise, resolve } = Promise.withResolvers<void>();
+    const scriptEl = document.createElement('script');
+    scriptEl.src = `https://${SEARCH_DOMAIN}/${src}`;
+    scriptEl.onload = () => resolve();
+    document.head.appendChild(scriptEl);
+    return promise;
 }
 
 const SEARCH_CSS = 'body{font-size:16px}#search-button{display:none}#search:after{display:none}' +
@@ -32,9 +32,9 @@ export async function cleanUp(): Promise<void> {
     cleanDocument();
     const header = document.createElement('div');
     header.id = 'hs-wrap';
-    const s = document.createElement('style');
-    s.textContent = SEARCH_CSS;
-    document.head.appendChild(s);
+    const styleEl = document.createElement('style');
+    styleEl.textContent = SEARCH_CSS;
+    document.head.appendChild(styleEl);
     header.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px;background:#111';
 
     if (search) header.appendChild(search);

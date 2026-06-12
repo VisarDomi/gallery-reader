@@ -1,80 +1,47 @@
-import {buildPage} from '../shared/build-results-page';
+import {buildGrid} from '../shared/build-results-page';
 import {renderGrid} from '../gallery-row/render-grid';
 import {type PageInfo} from './pagination';
+import {loadScript} from "../shared/clean-up";
 import {HITOMI_ITEMS_PER_PAGE} from "../shared/constants";
 
-function extractIds(): number[] {
-    const gc = document.querySelector('.gallery-content');
-    if (!gc) return [];
-    const ids: number[] = [];
-    for (let i = 0; i < gc.children.length; i++) {
-        const link = gc.children[i].querySelector('a');
-        if (link) {
-            const parts = link.href.split('-');
-            const last = parts[parts.length - 1];
-            const id = parseInt(last.replace('.html', ''));
-            if (!isNaN(id)) ids.push(id);
-        }
-    }
-    return ids;
-}
-
-function parseCount(text: string): number {
-    const m = text.match(/^([\d,]+)/);
-    return m ? parseInt(m[1].replace(/,/g, '')) : 0;
-}
+declare const results: number[] | undefined;
+declare const results_per_page: number;
 
 function currentPageNum(): number {
     const m = window.location.hash.match(/#(\d+)/);
     return m ? parseInt(m[1]) : 1;
 }
 
-function extractPageInfo(): PageInfo {
-    const countEl = document.getElementById('number-of-results');
-    const countText = countEl && countEl.textContent && countEl.textContent.trim().length > 0
-        ? countEl.textContent.trim()
-        : null;
+let grid: HTMLElement | null = null;
+let allIds: number[] = [];
 
-    if (!countText) {
-        throw new Error('number-of-results not found');
-    }
+function renderPage(page: number): void {
+    if (!grid) return;
+    const perPage = results_per_page || HITOMI_ITEMS_PER_PAGE;
+    const totalPages = Math.max(1, Math.ceil(allIds.length / perPage));
+    const currentPage = Math.min(page, totalPages);
+    const start = (currentPage - 1) * perPage;
+    const pageIds = allIds.slice(start, start + perPage);
 
-    const n = parseCount(countText);
-    const totalPages = n > 0 ? Math.max(1, Math.ceil(n / HITOMI_ITEMS_PER_PAGE)) : 1;
-    const currentPage = currentPageNum();
-    return {totalCount: countText, currentPage, totalPages};
+    const hash = '#' + currentPage;
+    if (window.location.hash !== hash) history.replaceState(null, '', hash);
+
+    const pageInfo: PageInfo = {
+        totalCount: allIds.length.toLocaleString() + ' Results',
+        currentPage,
+        totalPages,
+    };
+
+    renderGrid(grid, pageIds, pageInfo, (newPage) => renderPage(newPage));
 }
 
-let retryCount = 0;
+export async function init(): Promise<void> {
+    await loadScript('results.js');
 
-export function init(): void {
-    const ids = extractIds();
-    if (ids.length === 0) { retryCount++; setTimeout(init, 200); return; }
+    allIds = results ?? [];
+    if (allIds.length === 0) return;
 
-    const countEl = document.getElementById('number-of-results');
-    const hasCount = countEl && countEl.textContent && countEl.textContent.trim().length > 0;
+    grid = buildGrid();
 
-    if (!hasCount) {
-        retryCount++;
-        setTimeout(init, 200);
-        return;
-    }
-
-    retryCount = 0;
-
-    let pageInfo: PageInfo;
-    try {
-        pageInfo = extractPageInfo();
-    } catch (e) {
-        document.body.innerHTML = '<div style="color:#f44;padding:20px;font-size:16px;text-align:center">Failed to load search results</div>';
-        return;
-    }
-
-    const grid = buildPage();
-    if (!grid) return;
-
-    renderGrid(grid, ids, pageInfo, (page) => {
-        location.hash = '#' + page;
-        location.reload();
-    });
+    renderPage(currentPageNum());
 }
