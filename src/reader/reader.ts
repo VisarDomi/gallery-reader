@@ -1,4 +1,5 @@
 import {fetchMeta, imageUrl} from '../hitomi/hitomi';
+import {cleanDocument} from "../shared/clean-up";
 
 async function applySrc(files: { hash: string; name: string; width: number; height: number }[], gid: number) {
     const sources = await Promise.all(
@@ -11,19 +12,8 @@ async function applySrc(files: { hash: string; name: string; width: number; heig
     });
 }
 
-export async function cleanUp() {
-    // TODO: expand this into a proper reader cleanup function.
-    document.documentElement.innerHTML = '';
-}
-
 export async function open(gid: number, restoreHash: string): Promise<void> {
-    await cleanUp();
-    document.body.style.background = '#000';
-    document.body.style.margin = '0';
-    document.body.style.fontSize = '16px';
-    document.body.style.setProperty('overflow', 'visible', 'important');
-    document.documentElement.style.scrollBehavior = 'auto';
-
+    cleanDocument();
     const meta = await fetchMeta(gid);
     const files = meta.files;
     for (let index = 0; index < files.length; index++) {
