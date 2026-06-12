@@ -11,8 +11,13 @@ async function applySrc(files: { hash: string; name: string; width: number; heig
     });
 }
 
+export async function cleanUp() {
+    // TODO: expand this into a proper reader cleanup function.
+    document.documentElement.innerHTML = '';
+}
+
 export async function open(gid: number, restoreHash: string): Promise<void> {
-    document.documentElement.innerHTML = ''; // TODO: expand this into a proper reader cleanup function.
+    await cleanUp();
     document.body.style.background = '#000';
     document.body.style.margin = '0';
     document.body.style.fontSize = '16px';
@@ -36,7 +41,7 @@ export async function open(gid: number, restoreHash: string): Promise<void> {
     const maxST = document.documentElement.scrollHeight - window.innerHeight;
     window.scrollTo(0, Math.max(0, Math.min(maxST, restoreImg.offsetTop - window.innerHeight / 2)));
 
-    // await applySrc(files, gid);
+    await applySrc(files, gid);
 
     window.addEventListener('scrollend', () => {
         setTimeout(() => {
