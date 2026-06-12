@@ -19,7 +19,7 @@ if (path === '/' || path === '/index.html') {
 } else if (searchPrefixes.some(prefix => path.startsWith(prefix))) {
     searchInit();
 } else if (path.startsWith('/reader/')) {
-    const id = Number(path.slice('/reader/'.length).replace('.html', ''));
+    const id = Number(path.slice('/reader/'.length, -'.html'.length));
     const hash = window.location.hash.match(/#(\d+)/);
     void open(id, hash ? Number(hash[1]) - 1 : 0);
 }

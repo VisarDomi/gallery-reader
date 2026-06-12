@@ -1,4 +1,4 @@
-import {buildPage} from '../ui/search-box';
+import {buildPage} from '../shared/build-results-page';
 import {renderGrid} from '../gallery-row/render-grid';
 import {type PageInfo} from './pagination';
 import {HITOMI_ITEMS_PER_PAGE} from "../shared/constants";

@@ -1,4 +1,4 @@
-import {buildPage} from '../ui/search-box';
+import {buildPage} from '../shared/build-results-page';
 import {renderGrid} from '../gallery-row/render-grid';
 import {getAllFavs} from '../hitomi/db';
 import {type PageInfo} from '../search-page/pagination';

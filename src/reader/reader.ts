@@ -1,10 +1,20 @@
 import {fetchMeta, imageUrl} from '../hitomi/hitomi';
-import {clean} from '../cleanup';
-import {doOcr} from '../ocr-button/ocr-service';
+import {clean} from './cleanup';
 
 const CSS = 'body{background:#000;margin:0;font-size:16px;overflow:visible!important}' +
     'img.hs-r-img{display:block;width:100%;height:auto}'
     ;
+
+async function applySrc(files: { hash: string; name: string; width: number; height: number }[], gid: number) {
+    const urls = await Promise.all(
+        files.map((_, idx) => imageUrl(gid, idx))
+    );
+
+    urls.forEach((url, idx) => {
+        const img = document.getElementById(`img-${idx}`) as HTMLImageElement;
+        img.src = url;
+    });
+}
 
 export async function open(gid: number, startPage: number): Promise<void> {
     clean();
@@ -32,26 +42,12 @@ export async function open(gid: number, startPage: number): Promise<void> {
         pages.push(div);
     }
 
-    await new Promise<void>(resolve => {
-        requestAnimationFrame(function () {
-            if (pages[startPage]) {
-                const el = pages[startPage];
-                const maxST = document.documentElement.scrollHeight - window.innerHeight;
-                window.scrollTo(0, Math.max(0, Math.min(maxST, el.offsetTop - window.innerHeight / 2)));
-            }
-
-            resolve();
-        });
-    });
-
-    const urls = await Promise.all(
-        files.map((_, idx) => imageUrl(gid, idx))
-    );
-
-    urls.forEach((url, idx) => {
-        const img = document.getElementById(`img-${idx}`) as HTMLImageElement;
-        img.src = url;
-    });
+    if (pages[startPage]) {
+        const el = pages[startPage];
+        const maxST = document.documentElement.scrollHeight - window.innerHeight;
+        window.scrollTo(0, Math.max(0, Math.min(maxST, el.offsetTop - window.innerHeight / 2)));
+    }
+    // await applySrc(files, gid);
 
     let scrollTimer: ReturnType<typeof setTimeout>;
     window.onscroll = function () {
