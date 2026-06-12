@@ -11,7 +11,7 @@ async function applySrc(files: { hash: string; name: string; width: number; heig
     });
 }
 
-export async function open(gid: number, hash: string): Promise<void> {
+export async function open(gid: number, restoreHash: string): Promise<void> {
     document.documentElement.innerHTML = ''; // TODO: expand this into a proper reader cleanup function.
     document.body.style.background = '#000';
     document.body.style.margin = '0';
@@ -32,18 +32,17 @@ export async function open(gid: number, hash: string): Promise<void> {
         document.body.appendChild(img);
     }
 
-    const restoreImg = document.getElementById(hash) as HTMLImageElement;
+    const restoreImg = document.getElementById(restoreHash) as HTMLImageElement;
     const maxST = document.documentElement.scrollHeight - window.innerHeight;
     window.scrollTo(0, Math.max(0, Math.min(maxST, restoreImg.offsetTop - window.innerHeight / 2)));
-
 
     // await applySrc(files, gid);
 
     window.addEventListener('scrollend', () => {
         setTimeout(() => {
-            const img = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2) as HTMLImageElement;
-            const hash = img.id;
-            if (window.location.hash !== hash) history.replaceState(null, '', hash);
+            const saveImg = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2) as HTMLImageElement;
+            const saveHash = saveImg.id;
+            if (window.location.hash !== saveHash) history.replaceState(null, '', saveHash);
         }, 100);
     });
 }
