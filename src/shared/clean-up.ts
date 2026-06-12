@@ -37,6 +37,7 @@ export function cleanDocument() {
     document.documentElement.innerHTML = '';
     document.body.style.background = '#000';
     document.body.style.margin = '0';
+    document.body.style.fontFamily = "'SF Pro Display', 'SF Pro Text', -apple-system, sans-serif";
     document.body.style.fontSize = '16px';
     document.body.style.setProperty('overflow', 'visible', 'important');
     document.documentElement.style.scrollBehavior = 'auto';
