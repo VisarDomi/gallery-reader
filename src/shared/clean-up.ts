@@ -32,9 +32,9 @@ const SEARCH_CSS =
     '#search-button{display:none}';
 
 export function cleanDocument() {
-    // Nuke everything — inline ad scripts die here
-    window.stop();
-    document.documentElement.innerHTML = '';
+    document.open();
+    document.write('<!DOCTYPE html><html><head></head><body></body></html>');
+    document.close();
     document.body.style.background = '#000';
     document.body.style.margin = '0';
     document.body.style.fontFamily = "'SF Pro Display', 'SF Pro Text', -apple-system, sans-serif";
@@ -90,4 +90,21 @@ export async function cleanUp(): Promise<void> {
     await loadScript('common.js');
     await loadScript('searchlib.js');
     await loadScript('search.js');
+
+
+    // Block ad injections into body. Our elements all have hs-* classes.
+    new MutationObserver(mutations => {
+        for (const m of mutations) {
+            for (const node of m.addedNodes) {
+                if (!(node instanceof Element)) continue;
+                const tag = node.tagName;
+                const cls = (node as Element).className;
+                if (tag === 'SCRIPT' || tag === 'IFRAME' || tag === 'INS') {
+                    node.remove();
+                } else if (tag === 'DIV' && typeof cls === 'string' && cls.length > 0 && !cls.startsWith('hs-')) {
+                    node.remove();
+                }
+            }
+        }
+    }).observe(document.body, { childList: true });
 }
