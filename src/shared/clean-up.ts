@@ -16,6 +16,7 @@ const SEARCH_CSS = 'body{font-size:16px}#search-button{display:none}#search:afte
 
 export function cleanDocument() {
     // Nuke everything — inline ad scripts die here
+    window.stop();
     document.documentElement.innerHTML = '';
     document.body.style.background = '#000';
     document.body.style.margin = '0';
