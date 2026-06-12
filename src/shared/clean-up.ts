@@ -20,19 +20,16 @@ const SEARCH_CSS =
     '#search-suggestions{display:none;position:absolute;margin:5px 0 0 0;padding:0;width:100%;' +
     'z-index:99999;list-style:none;outline:1px solid #4488bb}' +
     '.active #search-suggestions,#search-suggestions:not(:empty){display:block}' +
-    '#search-suggestions li{background:#fff;position:relative}' +
+    '#search-suggestions li{background:#222;position:relative;border-bottom:1px solid #333}' +
+    '#search-suggestions li:last-child{border-bottom:none}' +
     '#search-suggestions li a{text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' +
-    'color:#333;padding:4px 8px;display:block;width:calc(100% - 60px)}' +
-    '.search-result{}' +
-    '.search-ns{color:#999}' +
-    '.search-suggestion_total{position:absolute;right:8px;top:4px;color:#999}' +
-    '.search-suggestion strong{color:#226699}' +
-    '.selected{background-color:#ddddee!important}' +
-    // Button
-    '#search-button{background:#3a3a3a;border:1px solid #555;color:#ccc;padding:0 12px;height:30px;' +
-    'font:bold 14px Arial,Helvetica,sans-serif;cursor:pointer;white-space:nowrap;flex-shrink:0}' +
-    '#search-button:hover{background:#555;color:#fff}' +
-    '#search-button:active{background:#2a2a2a}';
+    'color:#bbb;padding:6px 8px;display:block;width:calc(100% - 56px)}' +
+    '.search-suggestion strong{color:#6af}' +
+    '.search-ns{color:#777}' +
+    '.search-suggestion_total{position:absolute;right:8px;top:6px;color:#666;font-size:12px}' +
+    '.selected{background-color:#2a2a4a!important}' +
+    // Button — hidden, search.js binds Enter to it
+    '#search-button{display:none}';
 
 export function cleanDocument() {
     // Nuke everything — inline ad scripts die here
