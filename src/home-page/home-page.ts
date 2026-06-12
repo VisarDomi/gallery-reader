@@ -2,8 +2,8 @@ import {buildPage} from '../ui/search-box';
 import {renderGrid} from '../gallery-row/render-grid';
 import {getAllFavs} from '../hitomi/db';
 import {type PageInfo} from '../search-page/pagination';
+import {HITOMI_ITEMS_PER_PAGE} from "../shared/constants";
 
-const ITEMS_PER_PAGE = 25;
 const STORAGE_KEY = 'hitomi_favs_page';
 
 let favGrid: HTMLElement | null = null;
@@ -24,10 +24,10 @@ function savePage(page: number): void {
 
 function renderPage(page: number): void {
     if (!favGrid) return;
-    const totalPages = Math.max(1, Math.ceil(favAllIds.length / ITEMS_PER_PAGE));
+    const totalPages = Math.max(1, Math.ceil(favAllIds.length / HITOMI_ITEMS_PER_PAGE));
     const cp = Math.min(page, totalPages);
-    const start = (cp - 1) * ITEMS_PER_PAGE;
-    const pageIds = favAllIds.slice(start, start + ITEMS_PER_PAGE);
+    const start = (cp - 1) * HITOMI_ITEMS_PER_PAGE;
+    const pageIds = favAllIds.slice(start, start + HITOMI_ITEMS_PER_PAGE);
 
     const pageInfo: PageInfo = {
         totalCount: String(favAllIds.length) + ' Favorites',

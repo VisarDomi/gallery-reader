@@ -21,7 +21,7 @@ export default defineConfig({
                 match: ["https://hitomi.la/*"],
                 connect: ["192.168.1.197"],
                 grant: ["GM.xmlHttpRequest", "GM.getValue", "GM.setValue", "GM.deleteValue", "GM.listValues"],
-                "run-at": "document-end",
+                "run-at": "document-start",
             },
         }),
     ],

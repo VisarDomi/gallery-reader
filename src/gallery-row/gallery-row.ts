@@ -23,7 +23,7 @@ export function render(gid: number, files: { hash: string }[]): HTMLDivElement {
         const img = document.createElement('img');
         img.className = 'hs-thumb';
         img.loading = 'lazy';
-        img.src = thumbUrl(files[i]);
+        // img.src = thumbUrl(files[i]);
         img.onclick = () => {
             window.location.href = `https://hitomi.la/reader/${gid}.html#${i + 1}`;
         };

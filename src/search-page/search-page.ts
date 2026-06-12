@@ -1,8 +1,7 @@
 import {buildPage} from '../ui/search-box';
 import {renderGrid} from '../gallery-row/render-grid';
 import {type PageInfo} from './pagination';
-
-const ITEMS_PER_PAGE = 25;
+import {HITOMI_ITEMS_PER_PAGE} from "../shared/constants";
 
 function extractIds(): number[] {
     const gc = document.querySelector('.gallery-content');
@@ -41,7 +40,7 @@ function extractPageInfo(): PageInfo {
     }
 
     const n = parseCount(countText);
-    const totalPages = n > 0 ? Math.max(1, Math.ceil(n / ITEMS_PER_PAGE)) : 1;
+    const totalPages = n > 0 ? Math.max(1, Math.ceil(n / HITOMI_ITEMS_PER_PAGE)) : 1;
     const currentPage = currentPageNum();
     return {totalCount: countText, currentPage, totalPages};
 }
