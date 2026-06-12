@@ -2,7 +2,7 @@ import {fetchMeta, imageUrl} from '../hitomi/hitomi';
 
 async function applySrc(files: { hash: string; name: string; width: number; height: number }[], gid: number) {
     const sources = await Promise.all(
-        files.map((_, idx) => imageUrl(gid, idx))
+        files.map((_, index) => imageUrl(gid, index))
     );
 
     sources.forEach((source, index) => {
