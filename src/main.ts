@@ -20,6 +20,5 @@ if (path === '/' || path === '/index.html') {
     searchInit();
 } else if (path.startsWith('/reader/')) {
     const id = Number(path.slice('/reader/'.length, -'.html'.length));
-    const hash = window.location.hash.match(/#(\d+)/);
-    void open(id, hash ? Number(hash[1]) - 1 : 0);
+    void open(id, window.location.hash);
 }

@@ -16,10 +16,8 @@ export default defineConfig({
             userscript: {
                 name: `hitomi v${pkg.version}`,
                 namespace: "https://github.com/visar",
-                description: "Hitomi/Exhentai gallery browser with OCR",
+                description: "Hitomi gallery browser",
                 match: ["https://hitomi.la/*"],
-                connect: ["192.168.1.197"],
-                grant: ["GM.xmlHttpRequest", "GM.getValue", "GM.setValue", "GM.deleteValue", "GM.listValues"],
                 "run-at": "document-start",
             },
         }),

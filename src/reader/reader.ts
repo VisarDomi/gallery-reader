@@ -1,63 +1,49 @@
 import {fetchMeta, imageUrl} from '../hitomi/hitomi';
-import {clean} from './cleanup';
-
-const CSS = 'body{background:#000;margin:0;font-size:16px;overflow:visible!important}' +
-    'img.hs-r-img{display:block;width:100%;height:auto}';
 
 async function applySrc(files: { hash: string; name: string; width: number; height: number }[], gid: number) {
-    const urls = await Promise.all(
+    const sources = await Promise.all(
         files.map((_, idx) => imageUrl(gid, idx))
     );
 
-    urls.forEach((url, idx) => {
-        const img = document.getElementById(`img-${idx}`) as HTMLImageElement;
-        img.src = url;
+    sources.forEach((source, index) => {
+        const img = document.getElementById(`#${index}`) as HTMLImageElement;
+        img.src = source;
     });
 }
 
-export async function open(gid: number, startPage: number): Promise<void> {
-    clean();
-    const s = document.createElement('style');
-    s.textContent = CSS;
-    document.head.appendChild(s);
-    document.body.innerHTML = '';
+export async function open(gid: number, hash: string): Promise<void> {
+    document.documentElement.innerHTML = ''; // TODO: expand this into a proper reader cleanup function.
     document.body.style.background = '#000';
+    document.body.style.margin = '0';
+    document.body.style.fontSize = '16px';
+    document.body.style.setProperty('overflow', 'visible', 'important');
     document.documentElement.style.scrollBehavior = 'auto';
 
     const meta = await fetchMeta(gid);
-    const files = meta.files || [];
-    for (let idx = 0; idx < files.length; idx++) {
-        const div = document.createElement('div');
-        div.style.cssText = 'width:100%';
-        div.style.aspectRatio = files[idx].width + '/' + files[idx].height;
-        div.dataset.pageIndex = String(idx);
+    const files = meta.files;
+    for (let index = 0; index < files.length; index++) {
         const img = document.createElement('img');
-        img.id = `img-${idx}`;
-        img.className = 'hs-r-img';
+        img.id = `#${index}`; // hash
+        img.style.display = 'block';
+        img.style.width = '100%';
+        img.style.height = 'auto';
+        img.style.aspectRatio = files[index].width + '/' + files[index].height;
         img.loading = 'lazy';
-        div.appendChild(img);
-        document.body.appendChild(div);
+        document.body.appendChild(img);
     }
 
-    if (startPage) {
-        const el = document.querySelector(`[data-page-index="${startPage}"]`);
-        if (el instanceof HTMLElement) {
-            const maxST = document.documentElement.scrollHeight - window.innerHeight;
-            window.scrollTo(0, Math.max(0, Math.min(maxST, el.offsetTop - window.innerHeight / 2)));
-        }
-    }
+    const restoreImg = document.getElementById(hash) as HTMLImageElement;
+    const maxST = document.documentElement.scrollHeight - window.innerHeight;
+    window.scrollTo(0, Math.max(0, Math.min(maxST, restoreImg.offsetTop - window.innerHeight / 2)));
+
 
     // await applySrc(files, gid);
 
     window.addEventListener('scrollend', () => {
         setTimeout(() => {
-            const el = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
-            const page = el?.closest('[data-page-index]');
-            if (page) {
-                const idx = Number((page as HTMLElement).dataset.pageIndex);
-                const hash = '#' + (idx + 1);
-                if (window.location.hash !== hash) history.replaceState(null, '', hash);
-            }
+            const img = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2) as HTMLImageElement;
+            const hash = img.id;
+            if (window.location.hash !== hash) history.replaceState(null, '', hash);
         }, 100);
     });
 }

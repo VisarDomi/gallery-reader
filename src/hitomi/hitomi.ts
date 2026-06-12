@@ -75,7 +75,7 @@ export async function fetchMeta(gid: number): Promise<HitomiMeta> {
             female: t.female,
             male: t.male,
         })),
-        files: (raw.files || []).map((f: { hash: string; name: string; width: number; height: number }) => f),
+        files: raw.files.map((f: { hash: string; name: string; width: number; height: number }) => f),
         gallery_id: raw.id || gid,
     };
 }
