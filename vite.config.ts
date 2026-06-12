@@ -9,7 +9,6 @@ export default defineConfig({
         target: "esnext",
         modulePreload: false,
         cssCodeSplit: false,
-        rollupOptions: { output: { format: "iife", inlineDynamicImports: true } },
     },
     plugins: [
         monkey({

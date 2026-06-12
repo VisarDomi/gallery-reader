@@ -1,19 +1,6 @@
 import { init as homeInit } from './home-page/home-page';
 import { init as searchInit } from './search-page/search-page';
-import { open as readerOpen } from './reader/reader';
-
-const RouteKind = {
-    Home: 'home',
-    Search: 'search',
-    Reader: 'reader',
-    NotFound: 'notFound',
-} as const;
-
-type AppRoute =
-    | { kind: typeof RouteKind.Home }
-    | { kind: typeof RouteKind.Search }
-    | { kind: typeof RouteKind.Reader; id: number; page: number }
-    | { kind: typeof RouteKind.NotFound };
+import { open } from './reader/reader';
 
 const searchPrefixes = [
     '/search.html',
@@ -23,49 +10,16 @@ const searchPrefixes = [
     '/series/',
     '/character/',
     '/type/',
-] as const;
+];
 
-function parseRoute(path: string, hash: string): AppRoute {
-    if (path === '/' || path === '/index.html') {
-        return { kind: RouteKind.Home };
-    }
+const path = window.location.pathname;
 
-    if (searchPrefixes.some(prefix => path.startsWith(prefix))) {
-        return { kind: RouteKind.Search };
-    }
-
-    const readerMatch = path.match(/^\/reader\/(\d+)\.html$/);
-    if (readerMatch) {
-        const hashMatch = hash.match(/^#(\d+)$/);
-
-        return {
-            kind: RouteKind.Reader,
-            id: Number(readerMatch[1]),
-            page: hashMatch ? Number(hashMatch[1]) - 1 : 0,
-        };
-    }
-
-    return { kind: RouteKind.NotFound };
+if (path === '/' || path === '/index.html') {
+    homeInit();
+} else if (searchPrefixes.some(prefix => path.startsWith(prefix))) {
+    searchInit();
+} else if (path.startsWith('/reader/')) {
+    const id = Number(path.slice('/reader/'.length).replace('.html', ''));
+    const hash = window.location.hash.match(/#(\d+)/);
+    void open(id, hash ? Number(hash[1]) - 1 : 0);
 }
-
-function runRoute(route: AppRoute): void {
-    switch (route.kind) {
-        case RouteKind.Home:
-            homeInit();
-            return;
-
-        case RouteKind.Search:
-            searchInit();
-            return;
-
-        case RouteKind.Reader:
-            void readerOpen(route.id, route.page);
-            return;
-
-        case RouteKind.NotFound:
-            return;
-    }
-}
-
-const route = parseRoute(window.location.pathname, window.location.hash);
-runRoute(route);

@@ -10,7 +10,6 @@ export function renderGrid(
     info: PageInfo,
     onPage: (page: number) => void
 ): void {
-    // Remove previous bars
     const prev = grid.parentNode?.querySelectorAll('.hs-page-bar');
     if (prev) for (let i = 0; i < prev.length; i++) prev[i].remove();
 
@@ -28,7 +27,6 @@ export function renderGrid(
         parent.insertBefore(pagTop, grid);
     }
 
-    // Render rows
     grid.innerHTML = '';
     for (let i = 0; i < ids.length; i++) {
         const gid = ids[i];
@@ -42,7 +40,6 @@ export function renderGrid(
         });
     }
 
-    // Bottom: pagination after grid (like GalleryPageView has Pagination at bottom too)
     const pagBot = renderPagination(info, onPage);
     if (pagBot) {
         pagBot.className = 'hs-page-bar';
