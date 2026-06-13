@@ -22,14 +22,12 @@ export function cleanDocument() {
     document.head.appendChild(style);
 }
 
-export async function cleanUp(): Promise<void> {
-    cleanDocument();
-
+// ── search header (input + suggestions + button) ──────────────────
+function buildSearchHeader(): void {
     const header = document.createElement('div');
     header.id = 'hs-wrap';
 
-    // Wrapper with position:relative so absolute dropdown anchors correctly.
-    // search.js toggles .active on #query-input's parent — this div.
+    // search.js toggles .active on #query-input's parent — this div
     const searchWrap = document.createElement('div');
     searchWrap.className = 'hs-search-input';
 
@@ -51,27 +49,48 @@ export async function cleanUp(): Promise<void> {
 
     header.appendChild(searchWrap);
     header.appendChild(button);
-
     document.body.appendChild(header);
+}
 
-    // Grid placeholder
+// ── grid placeholder ──────────────────────────────────────────────
+function buildGridPlaceholder(): void {
     const grid = document.createElement('div');
     grid.id = 'hs-grid';
     document.body.appendChild(grid);
+}
 
+// ── external scripts ──────────────────────────────────────────────
+// Intercept jQuery .on() after jQuery loads so search.js never binds its
+// broken click handler to .search-suggestion_string elements.
+function detachJQueryFromSuggestionLinks(): void {
+    const jq = (window as any).jQuery;
+    if (!jq) return;
+    const origOn = jq.fn.on;
+    jq.fn.on = function (this: any, types: string, selector: any, handler: any) {
+        if (typeof selector === 'function') { handler = selector; selector = undefined; }
+        if (types === 'click' && typeof handler === 'function' && this.is('.search-suggestion_string')) {
+            return this;
+        }
+        return origOn.apply(this, arguments as any);
+    } as any;
+}
+
+// ── external scripts ──────────────────────────────────────────────
+async function loadSiteScripts(): Promise<void> {
     await loadScript('jquery.min.js');
+    detachJQueryFromSuggestionLinks();
     await loadScript('common.js');
     await loadScript('searchlib.js');
     await loadScript('search.js');
-    // setupDebug();
+}
 
-    // ── dropdown selection — replaces broken jQuery .bind() handler ─
+// ── dropdown selection (replaces broken jQuery .bind() handler) ────
+function setupDropdownHandler(): void {
     const sugg = document.getElementById('search-suggestions')!;
     sugg.addEventListener('click', (e) => {
         const a = (e.target as Element).closest<HTMLAnchorElement>('a.search-suggestion_string');
         if (!a) return;
         e.preventDefault(); // block href="#" navigation
-        // don't stopPropagation — document click handler needs to remove .active
 
         const resultSpan = a.querySelector('.search-result');
         const nsSpan = a.querySelector('.search-ns');
@@ -81,11 +100,11 @@ export async function cleanUp(): Promise<void> {
         const nsText = nsSpan?.textContent?.trim() ?? '';
         const ns = nsText.replace(/^\(|\)$/g, '').trim();
 
-        // Build "namespace:term" (spaces → underscores), matching searchGalleries format
         const underscored = name.replace(/\s/g, '_');
         const term = ns ? `${ns}:${underscored}` : underscored;
 
         // Replace last whitespace-delimited word, preserving - prefix
+        const input = document.getElementById('query-input') as HTMLInputElement;
         const val = input.value;
         const lastSpace = val.lastIndexOf(' ');
         const prefix = lastSpace >= 0 ? val.substring(0, lastSpace + 1) : '';
@@ -94,12 +113,13 @@ export async function cleanUp(): Promise<void> {
         input.value = prefix + dash + term + ' ';
         input.focus();
 
-        // Clear dropdown
         const origClear = (window as any).clear_page as Function | undefined;
         if (origClear) origClear();
     });
+}
 
-    // Block ad injections into body. Our elements all have hs-* classes.
+// ── ad blocker ────────────────────────────────────────────────────
+function startAdBlocker(): void {
     new MutationObserver(mutations => {
         for (const m of mutations) {
             for (const node of m.addedNodes) {
@@ -114,4 +134,15 @@ export async function cleanUp(): Promise<void> {
             }
         }
     }).observe(document.body, { childList: true });
+}
+
+// ── public ────────────────────────────────────────────────────────
+export async function initShell(): Promise<void> {
+    cleanDocument();
+    buildSearchHeader();
+    buildGridPlaceholder();
+    await loadSiteScripts();
+    // setupDebug();
+    setupDropdownHandler();
+    startAdBlocker();
 }

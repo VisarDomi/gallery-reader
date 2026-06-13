@@ -1,7 +1,7 @@
 import { init as homeInit } from './home-page/home-page';
 import { init as searchInit } from './search-page/search-page';
 import { open } from './reader/reader';
-import { cleanUp } from './shared/clean-up';
+import { initShell } from './shared/clean-up';
 
 const searchPrefixes = [
     '/search.html',
@@ -15,9 +15,9 @@ const searchPrefixes = [
 
 const path = window.location.pathname;
 if (path === '/' || path === '/index.html') {
-    void cleanUp().then(homeInit);
+    void initShell().then(homeInit);
 } else if (searchPrefixes.some(prefix => path.startsWith(prefix))) {
-    void cleanUp().then(searchInit);
+    void initShell().then(searchInit);
 } else if (path.startsWith('/reader/')) {
     const id = Number(path.slice('/reader/'.length, -'.html'.length));
     void open(id, window.location.hash);
