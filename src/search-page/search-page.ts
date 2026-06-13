@@ -8,28 +8,6 @@ function currentPageNum(): number {
     return m ? parseInt(m[1]) : 1;
 }
 
-let grid: HTMLElement | null = null;
-let allIds: number[] = [];
-
-function renderPage(page: number): void {
-    if (!grid) return;
-    const totalPages = Math.max(1, Math.ceil(allIds.length / HITOMI_ITEMS_PER_PAGE));
-    const currentPage = Math.min(page, totalPages);
-    const start = (currentPage - 1) * HITOMI_ITEMS_PER_PAGE;
-    const pageIds = allIds.slice(start, start + HITOMI_ITEMS_PER_PAGE);
-
-    const hash = '#' + currentPage;
-    if (window.location.hash !== hash) history.replaceState(null, '', hash);
-
-    const pageInfo: PageInfo = {
-        totalCount: allIds.length.toLocaleString() + ' Results',
-        currentPage,
-        totalPages,
-    };
-
-    renderGrid(grid, pageIds, pageInfo, (newPage) => renderPage(newPage));
-}
-
 function parseTerms(query: string): { positive: string[]; negative: string[]; orGroups: string[][] } {
     const terms = query.split(/\s+/).filter(t => t);
     const positive: string[] = [];
@@ -48,10 +26,7 @@ function parseTerms(query: string): { positive: string[]; negative: string[]; or
         const prevOr = i > 0 && terms[i - 1] === 'or';
         const nextOr = i + 1 < terms.length && terms[i + 1] === 'or';
         if (prevOr || nextOr) {
-            if (!currentOrGroup) {
-                currentOrGroup = [];
-                orGroups.push(currentOrGroup);
-            }
+            if (!currentOrGroup) { currentOrGroup = []; orGroups.push(currentOrGroup); }
             currentOrGroup.push(t);
         } else {
             positive.push(t);
@@ -63,7 +38,7 @@ function parseTerms(query: string): { positive: string[]; negative: string[]; or
 }
 
 export async function init(): Promise<void> {
-    grid = buildGrid();
+    const grid = buildGrid();
 
     const query = decodeURIComponent(window.location.search.replace(/^\?/, ''));
     const input = document.getElementById('query-input') as HTMLInputElement;
@@ -71,7 +46,6 @@ export async function init(): Promise<void> {
 
     const { positive, negative, orGroups } = parseTerms(query);
 
-    // Fetch positive terms and intersect
     let idSet: Set<number> | null = null;
     if (positive.length > 0) {
         for (const tag of positive) {
@@ -83,11 +57,8 @@ export async function init(): Promise<void> {
             }
         }
     }
-
-    // Fallback when no positive terms
     if (!idSet) idSet = new Set(await searchGalleries('language:japanese'));
 
-    // OR groups: union within group, intersect with main set
     for (const group of orGroups) {
         let groupSet: Set<number> | null = null;
         for (const tag of group) {
@@ -98,18 +69,33 @@ export async function init(): Promise<void> {
                 for (const id of ids) groupSet.add(id);
             }
         }
-        if (groupSet) {
-            idSet = new Set([...idSet!].filter(id => groupSet.has(id)));
-        }
+        if (groupSet) idSet = new Set([...idSet].filter(id => groupSet!.has(id)));
     }
 
-    // Subtract negative terms
     for (const tag of negative) {
         const ids = new Set(await searchGalleries(tag));
-        idSet = new Set([...idSet!].filter(id => !ids.has(id)));
+        idSet = new Set([...idSet].filter(id => !ids.has(id)));
     }
 
-    allIds = [...idSet];
+    const allIds = [...idSet];
+
+    function renderPage(page: number): void {
+        const totalPages = Math.max(1, Math.ceil(allIds.length / HITOMI_ITEMS_PER_PAGE));
+        const currentPage = Math.min(page, totalPages);
+        const start = (currentPage - 1) * HITOMI_ITEMS_PER_PAGE;
+        const pageIds = allIds.slice(start, start + HITOMI_ITEMS_PER_PAGE);
+
+        const hash = '#' + currentPage;
+        if (window.location.hash !== hash) history.replaceState(null, '', hash);
+
+        const pageInfo: PageInfo = {
+            totalCount: allIds.length.toLocaleString() + ' Results',
+            currentPage,
+            totalPages,
+        };
+
+        renderGrid(grid, pageIds, pageInfo, (newPage) => renderPage(newPage));
+    }
 
     renderPage(currentPageNum());
     window.addEventListener('hashchange', () => renderPage(currentPageNum()));
