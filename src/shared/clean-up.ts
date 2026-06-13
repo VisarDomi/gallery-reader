@@ -15,7 +15,6 @@ export function loadScript(filename: string): Promise<void> {
 
 export function cleanDocument() {
     document.open();
-    document.write('<!DOCTYPE html><html><head></head><body></body></html>');
     document.close();
     const style = document.createElement('style');
     style.textContent = cssContent;
