@@ -2,6 +2,7 @@ import { init as homeInit } from './home-page/home-page';
 import { init as searchInit } from './search-page/search-page';
 import { open } from './reader/reader';
 import { cleanUp } from './shared/clean-up';
+import './css/style.css'
 
 const searchPrefixes = [
     '/search.html',
