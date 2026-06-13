@@ -66,7 +66,7 @@ function detachJQueryFromSuggestionLinks(): void {
     if (!jq) return;
     const origOn = jq.fn.on;
     jq.fn.on = function (this: any, types: string, selector: any, handler: any) {
-        if (typeof selector === 'function') { handler = selector; selector = undefined; }
+        if (typeof selector === 'function') { handler = selector; }
         if (types === 'click' && typeof handler === 'function' && this.is('.search-suggestion_string')) {
             return this;
         }
