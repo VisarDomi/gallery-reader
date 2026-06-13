@@ -1,4 +1,5 @@
 import cssContent from '../css/style.css?inline';
+// import { setupDebug } from './debug';
 
 
 const SEARCH_DOMAIN = 'ltn.gold-usergeneratedcontent.net';
@@ -62,6 +63,41 @@ export async function cleanUp(): Promise<void> {
     await loadScript('common.js');
     await loadScript('searchlib.js');
     await loadScript('search.js');
+    // setupDebug();
+
+    // ── dropdown selection — replaces broken jQuery .bind() handler ─
+    const sugg = document.getElementById('search-suggestions')!;
+    sugg.addEventListener('click', (e) => {
+        const a = (e.target as Element).closest<HTMLAnchorElement>('a.search-suggestion_string');
+        if (!a) return;
+        e.preventDefault(); // block href="#" navigation
+        // don't stopPropagation — document click handler needs to remove .active
+
+        const resultSpan = a.querySelector('.search-result');
+        const nsSpan = a.querySelector('.search-ns');
+        if (!resultSpan) return;
+
+        const name = resultSpan.textContent?.trim() ?? '';
+        const nsText = nsSpan?.textContent?.trim() ?? '';
+        const ns = nsText.replace(/^\(|\)$/g, '').trim();
+
+        // Build "namespace:term" (spaces → underscores), matching searchGalleries format
+        const underscored = name.replace(/\s/g, '_');
+        const term = ns ? `${ns}:${underscored}` : underscored;
+
+        // Replace last whitespace-delimited word, preserving - prefix
+        const val = input.value;
+        const lastSpace = val.lastIndexOf(' ');
+        const prefix = lastSpace >= 0 ? val.substring(0, lastSpace + 1) : '';
+        const lastWord = val.substring(lastSpace + 1);
+        const dash = lastWord.startsWith('-') ? '-' : '';
+        input.value = prefix + dash + term + ' ';
+        input.focus();
+
+        // Clear dropdown
+        const origClear = (window as any).clear_page as Function | undefined;
+        if (origClear) origClear();
+    });
 
     // Block ad injections into body. Our elements all have hs-* classes.
     new MutationObserver(mutations => {
