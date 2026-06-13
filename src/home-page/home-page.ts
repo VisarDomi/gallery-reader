@@ -1,8 +1,8 @@
-import {buildGrid} from '../shared/build-results-page';
+import {buildGrid, HITOMI_ITEMS_PER_PAGE} from '../shared/build-results-page';
 import {renderGrid} from '../gallery-row/render-grid';
 import {getAllFavs} from '../hitomi/db';
 import {type PageInfo} from '../search-page/pagination';
-import {HITOMI_ITEMS_PER_PAGE} from "../shared/constants";
+
 
 const STORAGE_KEY = 'hitomi_favs_page';
 
@@ -42,9 +42,7 @@ function renderPage(page: number): void {
 }
 
 export function init(): void {
-    const grid = buildGrid();
-    if (!grid) { setTimeout(init, 100); return; }
-    favGrid = grid;
+    favGrid = buildGrid();
 
     getAllFavs().then(allIds => {
         if (allIds.length === 0) return;

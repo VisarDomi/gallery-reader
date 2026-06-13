@@ -1,8 +1,7 @@
-import {buildGrid} from '../shared/build-results-page';
+import {buildGrid, HITOMI_ITEMS_PER_PAGE} from '../shared/build-results-page';
 import {loadScript} from '../shared/clean-up';
 import {renderGrid} from '../gallery-row/render-grid';
 import {type PageInfo} from './pagination';
-import {HITOMI_ITEMS_PER_PAGE} from "../shared/constants";
 
 function currentPageNum(): number {
     const m = window.location.hash.match(/#(\d+)/);

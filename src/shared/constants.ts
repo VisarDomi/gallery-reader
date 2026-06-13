@@ -1,1 +1,0 @@
-export const HITOMI_ITEMS_PER_PAGE = 25;

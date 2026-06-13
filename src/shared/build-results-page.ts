@@ -1,6 +1,8 @@
 import {CSS as rowCSS} from '../gallery-row/gallery-row';
 import {addSearch, loadSearches, removeSearch} from './saved-searches';
 
+export const HITOMI_ITEMS_PER_PAGE = 25;
+
 const SAVED_CSS = '.hs-saved-searches{display:flex;flex-wrap:wrap;gap:6px;padding:6px 4px}' +
     '.hs-saved-chip{background:#222;color:#888;padding:4px 8px;border-radius:4px;font-size:16px;cursor:pointer;display:flex;align-items:center;gap:6px;border:none}' +
     '.hs-saved-chip:hover{color:#fff}' +
@@ -34,7 +36,7 @@ function renderSavedSearches(container: HTMLElement, input: HTMLInputElement): v
     }
 }
 
-export function buildGrid(): HTMLElement | null {
+export function buildGrid() {
     const styleEl = document.createElement('style');
     styleEl.textContent = SAVED_CSS + rowCSS;
     document.head.appendChild(styleEl);
@@ -56,5 +58,5 @@ export function buildGrid(): HTMLElement | null {
         renderSavedSearches(savedContainer, input);
     }
 
-    return document.getElementById('hs-grid');
+    return document.getElementById('hs-grid') as HTMLDivElement;
 }
