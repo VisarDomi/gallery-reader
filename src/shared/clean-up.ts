@@ -20,6 +20,17 @@ const SEARCH_CSS =
     // Button — hidden, search.js binds Enter to it
     '#search-button{display:none}';
 
+const SEARCH_DOMAIN = 'ltn.gold-usergeneratedcontent.net';
+
+export function loadScript(filename: string): Promise<void> {
+    return new Promise(resolve => {
+        const script = document.createElement('script');
+        script.src = `https://${SEARCH_DOMAIN}/${filename}`;
+        script.onload = () => resolve();
+        document.head.appendChild(script);
+    });
+}
+
 export function cleanDocument() {
     document.open();
     document.write('<!DOCTYPE html><html><head></head><body></body></html>');
@@ -73,6 +84,11 @@ export async function cleanUp(): Promise<void> {
     grid.id = 'hs-grid';
     grid.style.cssText = 'width:100%';
     document.body.appendChild(grid);
+
+    await loadScript('jquery.min.js');
+    await loadScript('common.js');
+    await loadScript('searchlib.js');
+    await loadScript('search.js');
 
     // Block ad injections into body. Our elements all have hs-* classes.
     new MutationObserver(mutations => {

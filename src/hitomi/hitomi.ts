@@ -14,6 +14,7 @@ async function fetchText(url: string, referer?: string): Promise<string> {
     xhr.send();
     return promise;
 }
+
 export async function parseGG(): Promise<{ multiplierMap: Record<number, number>; basePath: string; defaultOffset: number }> {
     if (ggCache) return ggCache;
     const text = await fetchText(GG_URL);
@@ -95,42 +96,3 @@ export async function imageUrl(gid: number, pageIndex: number): Promise<string> 
     return `https://w${offset}.${DOMAIN}/${gg.basePath}/${hashIndex}/${fileHash}.webp`;
 }
 
-export function decodeNozomi(data: ArrayBuffer): number[] {
-    const result: number[] = [];
-    const bytes = new Uint8Array(data);
-    for (let i = 0; i < bytes.length; i += 4) {
-        result.push((bytes[i] << 24) | (bytes[i + 1] << 16) | (bytes[i + 2] << 8) | bytes[i + 3]);
-    }
-    return result;
-}
-
-/** Fetch gallery IDs matching a single search term (e.g. "female:yuri") from hitomi's nozomi API. */
-export async function searchGalleries(term: string): Promise<number[]> {
-    const [ns, ...tagParts] = term.split(':');
-    const tag = tagParts.join(':');
-
-    let urlNs: string;
-    let urlTag: string;
-    let language = 'all';
-
-    if (ns === 'female' || ns === 'male') {
-        urlNs = 'tag/';
-        urlTag = term.replace(/_/g, ' ');
-    } else if (ns === 'language') {
-        urlNs = '';
-        language = tag;
-        urlTag = 'index';
-    } else if (tag) {
-        urlNs = ns + '/';
-        urlTag = tag.replace(/_/g, ' ');
-    } else {
-        urlNs = 'tag/';
-        urlTag = ns.replace(/_/g, ' ');
-    }
-
-    const url = `https://ltn.${DOMAIN}/n/${urlNs}${urlTag}-${language}.nozomi`;
-    const resp = await fetch(url, {
-        headers: { 'Origin': 'https://hitomi.la', 'Referer': 'https://hitomi.la/' },
-    });
-    return decodeNozomi(await resp.arrayBuffer());
-}

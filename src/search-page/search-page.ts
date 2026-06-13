@@ -1,8 +1,8 @@
 import {buildGrid} from '../shared/build-results-page';
+import {loadScript} from '../shared/clean-up';
 import {renderGrid} from '../gallery-row/render-grid';
 import {type PageInfo} from './pagination';
 import {HITOMI_ITEMS_PER_PAGE} from "../shared/constants";
-import {searchGalleries} from "../hitomi/hitomi";
 
 function currentPageNum(): number {
     const m = window.location.hash.match(/#(\d+)/);
@@ -11,6 +11,7 @@ function currentPageNum(): number {
 
 let grid: HTMLElement | null = null;
 let allIds: number[] = [];
+declare const results: number[];
 
 function renderPage(page: number): void {
     if (!grid) return;
@@ -32,70 +33,27 @@ function renderPage(page: number): void {
 }
 
 export async function init(): Promise<void> {
-    const raw = decodeURIComponent(window.location.search.replace(/^\?/, ''));
-    const terms = raw.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    if (terms.length === 0) return;
-
     grid = buildGrid();
+    await loadScript('results.js');
 
-    // Parse: positive, negative, and OR groups (from do_search in results.js)
-    const positive: string[] = [];
-    const negative: string[] = [];
-    const orGroups: string[][] = [[]];
-
-    for (let i = 0; i < terms.length; i++) {
-        const term = terms[i];
-        if (term === 'or') continue;
-        const orPrev = i > 0 && terms[i - 1] === 'or';
-        const orNext = i + 1 < terms.length && terms[i + 1] === 'or';
-        if (orPrev || orNext) {
-            orGroups[orGroups.length - 1].push(term);
-            if (!orNext) orGroups.push([]);
-            continue;
-        }
-        if (term.startsWith('-')) {
-            negative.push(term.slice(1));
+    // results.js populates the global `results` via do_search()
+    const { promise, resolve } = Promise.withResolvers<void>();
+    const check = () => {
+        if (results.length > 0) {
+            allIds = results;
+            resolve();
         } else {
-            positive.push(term);
+            setTimeout(check, 100);
         }
-    }
-    // Remove trailing empty OR group
-    if (orGroups[orGroups.length - 1].length === 0) orGroups.pop();
+    };
+    check();
+    await promise;
 
-    // Positive terms: intersect all
-    const resultSets = await Promise.all(positive.map(t => searchGalleries(t)));
-    if (resultSets.length === 0 && orGroups.length === 0) return;
-
-    if (resultSets.length > 0) {
-        allIds = resultSets[0];
-        for (let i = 1; i < resultSets.length; i++) {
-            const set = new Set(resultSets[i]);
-            allIds = allIds.filter(id => set.has(id));
-        }
-    }
-
-    // OR groups: union terms within each group, intersect group with main results
-    for (const group of orGroups) {
-        const groupResults = await Promise.all(group.map(t => searchGalleries(t)));
-        const union = new Set<number>();
-        for (const ids of groupResults) {
-            for (const id of ids) union.add(id);
-        }
-        if (allIds.length === 0) {
-            allIds = Array.from(union);
-        } else {
-            allIds = allIds.filter(id => union.has(id));
-        }
-    }
-
-    // Negative terms: subtract
-    for (const negTerm of negative) {
-        const negIds = await searchGalleries(negTerm);
-        const negSet = new Set(negIds);
-        allIds = allIds.filter(id => !negSet.has(id));
-    }
+    // do_search() sets input via jQuery, but may race — set ourselves
+    const query = decodeURIComponent(window.location.search.replace(/^\?/, ''));
+    const input = document.getElementById('query-input') as HTMLInputElement;
+    if (input && query) input.value = query;
 
     renderPage(currentPageNum());
-
     window.addEventListener('hashchange', () => renderPage(currentPageNum()));
 }
