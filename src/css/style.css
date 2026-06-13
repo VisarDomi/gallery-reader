@@ -16,7 +16,6 @@ html {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px;
     background: #111;
 }
 .hs-search-input {
