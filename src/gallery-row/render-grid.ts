@@ -16,18 +16,13 @@ export function renderGrid(
     const parent = grid.parentNode;
     if (!parent) return;
 
-    // Top: info + pagination
+    // Info bar at top
     const infoEl = renderInfo(info);
     infoEl.className = 'hs-page-bar';
     parent.insertBefore(infoEl, grid);
 
-    const pagTop = renderPagination(info, onPage);
-    if (pagTop) {
-        pagTop.className = 'hs-page-bar';
-        parent.insertBefore(pagTop, grid);
-    }
-
     grid.innerHTML = '';
+
     for (let i = 0; i < ids.length; i++) {
         const gid = ids[i];
         fetchMeta(gid).then(meta => {

@@ -1,14 +1,3 @@
-const SEARCH_DOMAIN = 'ltn.gold-usergeneratedcontent.net';
-
-export function loadScript(src: string): Promise<void> {
-    const { promise, resolve } = Promise.withResolvers<void>();
-    const scriptEl = document.createElement('script');
-    scriptEl.src = `https://${SEARCH_DOMAIN}/${src}`;
-    scriptEl.onload = () => resolve();
-    document.head.appendChild(scriptEl);
-    return promise;
-}
-
 const SEARCH_CSS =
     // Dark theme base
     '#hs-wrap{width:100%!important}' +
@@ -85,13 +74,6 @@ export async function cleanUp(): Promise<void> {
     grid.style.cssText = 'width:100%';
     document.body.appendChild(grid);
 
-    // Load only search scripts — no ads, no gallery cruft
-    await loadScript('jquery.min.js');
-    await loadScript('common.js');
-    await loadScript('searchlib.js');
-    await loadScript('search.js');
-
-
     // Block ad injections into body. Our elements all have hs-* classes.
     new MutationObserver(mutations => {
         for (const m of mutations) {
@@ -101,7 +83,7 @@ export async function cleanUp(): Promise<void> {
                 const cls = (node as Element).className;
                 if (tag === 'SCRIPT' || tag === 'IFRAME' || tag === 'INS') {
                     node.remove();
-                } else if (tag === 'DIV' && typeof cls === 'string' && cls.length > 0 && !cls.startsWith('hs-')) {
+                } else if (tag === 'DIV' && cls.length > 0 && !cls.startsWith('hs-')) {
                     node.remove();
                 }
             }

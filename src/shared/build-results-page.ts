@@ -47,12 +47,15 @@ export function buildGrid(): HTMLElement | null {
 
     const input = document.getElementById('query-input') as HTMLInputElement;
     if (input) {
-        input.onkeydown = function (e) {
+        input.addEventListener('keydown', function (e) {
             if (e.key === 'Enter') {
                 const val = input.value.trim();
-                if (val) addSearch(val);
+                if (val) {
+                    addSearch(val);
+                    window.location.href = 'https://hitomi.la/search.html?' + encodeURIComponent(val);
+                }
             }
-        };
+        });
         renderSavedSearches(savedContainer, input);
     }
 
