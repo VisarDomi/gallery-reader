@@ -1,11 +1,13 @@
 import {buildGrid, HITOMI_ITEMS_PER_PAGE} from '../shared/build-results-page';
 import {renderGrid} from '../gallery-row/render-grid';
 import {getAllFavs} from '../hitomi/db';
+import {initShell} from '../shared/clean-up';
 import {type PageInfo} from '../search-page/pagination';
 
 const STORAGE_KEY = 'hitomi_favs_page';
 
-export function init(): void {
+export async function init(): Promise<void> {
+    await initShell();
     const grid = buildGrid();
 
     function loadPage(): number {

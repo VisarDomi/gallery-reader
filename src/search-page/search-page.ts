@@ -1,6 +1,7 @@
 import {buildGrid, HITOMI_ITEMS_PER_PAGE} from '../shared/build-results-page';
 import {renderGrid} from '../gallery-row/render-grid';
 import {searchGalleries} from '../hitomi/hitomi';
+import {initShell} from '../shared/clean-up';
 import {type PageInfo} from './pagination';
 
 function currentPageNum(): number {
@@ -38,6 +39,7 @@ function parseTerms(query: string): { positive: string[]; negative: string[]; or
 }
 
 export async function init(): Promise<void> {
+    await initShell();
     const grid = buildGrid();
 
     const query = decodeURIComponent(window.location.search.replace(/^\?/, ''));
