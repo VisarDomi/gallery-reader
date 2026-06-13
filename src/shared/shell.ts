@@ -1,7 +1,6 @@
 import cssContent from '../css/style.css?inline';
 // import { setupDebug } from './debug';
 
-
 const SEARCH_DOMAIN = 'ltn.gold-usergeneratedcontent.net';
 
 export function loadScript(filename: string): Promise<void> {

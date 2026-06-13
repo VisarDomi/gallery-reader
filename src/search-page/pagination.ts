@@ -7,20 +7,24 @@ export interface PageInfo {
 }
 
 
-export function renderInfo(info: PageInfo): HTMLDivElement {
+export function renderInfoBar(info: PageInfo, grid: HTMLElement): void {
     const el = document.createElement('div');
     el.className = 'hs-page-bar';
     el.textContent = info.totalCount;
-    return el;
+    if (grid.parentNode) grid.parentNode.insertBefore(el, grid);
 }
 
-export function renderPagination(info: PageInfo, onPage: (page: number) => void): HTMLDivElement | null {
-    if (info.totalPages <= 1) return null;
+export function renderPaginationBar(
+    info: PageInfo,
+    onPage: (page: number) => void,
+    grid: HTMLElement,
+): void {
+    if (info.totalPages <= 1) return;
 
     const pag = document.createElement('div');
     pag.className = 'hs-page-bar hs-page-bar-pag';
 
-    // Favs link at position 0 — goes to home page
+    // Favs link at position 0
     const favs = document.createElement('a');
     favs.href = '/';
     favs.textContent = 'Favs';
@@ -42,5 +46,5 @@ export function renderPagination(info: PageInfo, onPage: (page: number) => void)
         }
     }
 
-    return pag;
+    if (grid.parentNode) grid.parentNode.insertBefore(pag, grid.nextSibling);
 }

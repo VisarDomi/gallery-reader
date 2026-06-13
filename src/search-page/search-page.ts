@@ -1,8 +1,8 @@
-import {buildGrid, HITOMI_ITEMS_PER_PAGE} from '../shared/build-results-page';
-import {renderGrid} from '../gallery-row/render-grid';
+import {setupSavedSearches, getGrid, HITOMI_ITEMS_PER_PAGE} from '../shared/saved-searches';
+import {renderGridRows} from '../gallery-row/render-grid';
 import {searchGalleries} from '../hitomi/hitomi';
-import {initShell} from '../shared/clean-up';
-import {type PageInfo} from './pagination';
+import {initShell} from '../shared/shell';
+import {renderInfoBar, renderPaginationBar, type PageInfo} from './pagination';
 
 function currentPageNum(): number {
     const m = window.location.hash.match(/#(\d+)/);
@@ -40,8 +40,8 @@ function parseTerms(query: string): { positive: string[]; negative: string[]; or
 
 export async function init(): Promise<void> {
     await initShell();
-    const grid = buildGrid();
-
+    setupSavedSearches();
+    const grid = getGrid();
     const query = decodeURIComponent(window.location.search.replace(/^\?/, ''));
     const input = document.getElementById('query-input') as HTMLInputElement;
     if (input && query) input.value = query;
@@ -96,7 +96,12 @@ export async function init(): Promise<void> {
             totalPages,
         };
 
-        renderGrid(grid, pageIds, pageInfo, (newPage) => renderPage(newPage));
+        const prev = grid.parentNode?.querySelectorAll('.hs-page-bar');
+        if (prev) for (let i = 0; i < prev.length; i++) prev[i].remove();
+
+        renderInfoBar(pageInfo, grid);
+        renderGridRows(grid, pageIds);
+        renderPaginationBar(pageInfo, (newPage) => renderPage(newPage), grid);
     }
 
     renderPage(currentPageNum());

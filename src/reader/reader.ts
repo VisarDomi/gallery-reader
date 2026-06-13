@@ -1,5 +1,5 @@
 import {fetchMeta, imageUrl} from '../hitomi/hitomi';
-import {cleanDocument} from "../shared/clean-up";
+import {cleanDocument} from "../shared/shell";
 
 async function applySrc(files: { hash: string; name: string; width: number; height: number }[], gid: number) {
     const sources = await Promise.all(

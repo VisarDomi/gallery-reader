@@ -1,15 +1,15 @@
-import {buildGrid, HITOMI_ITEMS_PER_PAGE} from '../shared/build-results-page';
-import {renderGrid} from '../gallery-row/render-grid';
+import {setupSavedSearches, getGrid, HITOMI_ITEMS_PER_PAGE} from '../shared/saved-searches';
+import {renderGridRows} from '../gallery-row/render-grid';
 import {getAllFavs} from '../hitomi/db';
-import {initShell} from '../shared/clean-up';
-import {type PageInfo} from '../search-page/pagination';
+import {initShell} from '../shared/shell';
+import {renderInfoBar, renderPaginationBar, type PageInfo} from '../search-page/pagination';
 
 const STORAGE_KEY = 'hitomi_favs_page';
 
 export async function init(): Promise<void> {
     await initShell();
-    const grid = buildGrid();
-
+    setupSavedSearches();
+    const grid = getGrid();
     function loadPage(): number {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
@@ -39,10 +39,15 @@ export async function init(): Promise<void> {
                 totalPages,
             };
 
-            renderGrid(grid, pageIds, pageInfo, (newPage) => {
+            const prev = grid.parentNode?.querySelectorAll('.hs-page-bar');
+            if (prev) for (let i = 0; i < prev.length; i++) prev[i].remove();
+
+            renderInfoBar(pageInfo, grid);
+            renderGridRows(grid, pageIds);
+            renderPaginationBar(pageInfo, (newPage) => {
                 savePage(newPage);
                 renderPage(newPage);
-            });
+            }, grid);
         }
 
         renderPage(loadPage());
