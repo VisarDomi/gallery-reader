@@ -2,7 +2,6 @@ import {render as renderRow} from './gallery-row';
 import {fetchMeta} from '../hitomi/hitomi';
 import {renderInfo, renderPagination, type PageInfo} from '../search-page/pagination';
 
-const ERR_CSS = 'width:100%;min-height:300px;display:flex;align-items:center;justify-content:center;font-size:16px;color:#f44';
 
 export function renderGrid(
     grid: HTMLElement,
@@ -29,7 +28,7 @@ export function renderGrid(
             grid.appendChild(renderRow(gid, meta.files));
         }).catch(() => {
             const err = document.createElement('div');
-            err.style.cssText = ERR_CSS;
+            err.className = 'hs-grid-error';
             err.textContent = 'Failed to load gallery ' + gid;
             grid.appendChild(err);
         });

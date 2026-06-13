@@ -1,19 +1,5 @@
 import {fetchMeta, type HitomiMeta} from '../hitomi/hitomi';
 
-const CSS = '.hs-modal-backdrop{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:2000;display:flex;justify-content:center;align-items:center}' +
-    '.hs-modal-content{background:#1e1e1e;color:#eee;padding:24px;border-radius:12px;width:90%;max-width:500px;max-height:85vh;overflow-y:auto;border:1px solid #333;box-shadow:0 10px 40px rgba(0,0,0,0.8)}' +
-    '.hs-modal-header h2{margin:0;font-size:1.2rem;line-height:1.4;color:#fff}' +
-    '.hs-modal-body{display:flex;flex-direction:column;gap:12px;font-size:0.95rem;margin-top:16px}' +
-    '.hs-modal-row{display:flex;border-bottom:1px solid #333;padding-bottom:8px}' +
-    '.hs-modal-label{flex:0 0 80px;color:#888;font-weight:500}' +
-    '.hs-modal-value{flex:1;color:#ddd}' +
-    '.hs-modal-value-link{color:#fff;text-decoration:underline;cursor:pointer}' +
-    '.hs-modal-value-link:active{color:#4af626}' +
-    '.hs-tag-cloud{display:flex;flex-wrap:wrap;gap:6px}' +
-    '.hs-tag-chip{background:#333;color:#ccc;padding:3px 8px;border-radius:4px;font-size:0.85rem;cursor:pointer;border:none}' +
-    '.hs-tag-chip:active{color:#4af626;background:#444}' +
-    '.hs-modal-footer{margin-top:16px;display:flex;justify-content:flex-end}' +
-    '.hs-modal-ok-btn{background:#333;color:#fff;border:none;padding:8px 24px;border-radius:6px;font-size:0.95rem;cursor:pointer}';
 
 function escapeHTML(text: string): string {
     const div = document.createElement('div');
@@ -40,23 +26,16 @@ export async function show(gid: number): Promise<void> {
     content.className = 'hs-modal-content';
 
     // Loading state
-    content.innerHTML = '<div class="hs-modal-body" style="text-align:center;padding:2rem">Loading...</div>';
+    content.innerHTML = '<div class="hs-modal-body hs-modal-body-loading">Loading...</div>';
     overlay.appendChild(content);
     document.body.appendChild(overlay);
 
-    // Inject CSS once
-    if (!document.getElementById('hs-modal-style')) {
-        const styleEl = document.createElement('style');
-        styleEl.id = 'hs-modal-style';
-        styleEl.textContent = CSS;
-        document.head.appendChild(styleEl);
-    }
 
     let meta: HitomiMeta;
     try {
         meta = await fetchMeta(gid);
     } catch {
-        content.innerHTML = '<div class="hs-modal-body" style="text-align:center;padding:2rem;color:#f44">Failed to load gallery info</div>';
+        content.innerHTML = '<div class="hs-modal-body hs-modal-body-error">Failed to load gallery info</div>';
         return;
     }
 
@@ -120,7 +99,7 @@ export async function show(gid: number): Promise<void> {
     }
 
     if (meta.tags.length > 0) {
-        html += '<div class="hs-modal-row" style="display:block;border:none"><div class="hs-modal-label" style="margin-bottom:6px">Tags</div><div class="hs-tag-cloud">';
+        html += '<div class="hs-modal-row hs-modal-row-tags"><div class="hs-modal-label hs-modal-label-tags">Tags</div><div class="hs-tag-cloud">';
         for (let i = 0; i < meta.tags.length; i++) {
             const t = meta.tags[i];
             const fullTag = (t.female ? 'female:' : t.male ? 'male:' : '') + t.tag;

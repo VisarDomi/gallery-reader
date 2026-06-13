@@ -19,9 +19,7 @@ export async function open(gid: number, restoreHash: string): Promise<void> {
     for (let index = 0; index < files.length; index++) {
         const img = document.createElement('img');
         img.id = `#${index}`; // hash
-        img.style.display = 'block';
-        img.style.width = '100%';
-        img.style.height = 'auto';
+        img.className = 'hs-reader-img';
         img.style.aspectRatio = files[index].width + '/' + files[index].height;
         img.loading = 'lazy';
         document.body.appendChild(img);

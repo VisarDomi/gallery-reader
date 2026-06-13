@@ -6,13 +6,10 @@ export interface PageInfo {
     totalPages: number;
 }
 
-const BAR_CSS = 'padding:8px 4px;font-size:16px;color:#888';
-const LINK_CSS = 'color:#888;text-decoration:none;padding:2px 6px;display:inline-block;font-size:16px;cursor:pointer';
-const ACTIVE_CSS = 'color:#fff;font-weight:bold;text-decoration:none;padding:2px 6px;display:inline-block;font-size:16px';
 
 export function renderInfo(info: PageInfo): HTMLDivElement {
     const el = document.createElement('div');
-    el.style.cssText = BAR_CSS;
+    el.className = 'hs-page-bar';
     el.textContent = info.totalCount;
     return el;
 }
@@ -21,25 +18,25 @@ export function renderPagination(info: PageInfo, onPage: (page: number) => void)
     if (info.totalPages <= 1) return null;
 
     const pag = document.createElement('div');
-    pag.style.cssText = BAR_CSS + ';display:flex;gap:4px;flex-wrap:wrap';
+    pag.className = 'hs-page-bar hs-page-bar-pag';
 
     // Favs link at position 0 — goes to home page
     const favs = document.createElement('a');
     favs.href = '/';
     favs.textContent = 'Favs';
-    favs.style.cssText = 'color:#888;text-decoration:none;padding:2px 8px;margin-right:8px;font-size:16px';
+    favs.className = 'hs-page-favs';
     pag.appendChild(favs);
 
     for (let pageNum = 1; pageNum <= info.totalPages; pageNum++) {
         if (pageNum === info.currentPage) {
             const cur = document.createElement('span');
             cur.textContent = String(pageNum);
-            cur.style.cssText = ACTIVE_CSS;
+            cur.className = 'hs-page-active';
             pag.appendChild(cur);
         } else {
             const pageLink = document.createElement('span');
             pageLink.textContent = String(pageNum);
-            pageLink.style.cssText = LINK_CSS;
+            pageLink.className = 'hs-page-link';
             pageLink.onclick = () => { onPage(pageNum); };
             pag.appendChild(pageLink);
         }
