@@ -5,6 +5,20 @@
 `@run-at document-start`. `cleanDocument()` calls `document.open()` / `write()` / `close()` —
 this aborts the entire original page load. No original scripts, styles, or ads execute.
 
+## Dropdown autocomplete
+
+All 4 site scripts required for full autocomplete with tag counts:
+- `jquery.min.js` — DOM manipulation (`search.js` uses `$` everywhere)
+- `common.js` — `domain`, `retry`, timer/loading helpers; provides tag metadata
+  (namespace + count) to `get_suggestions_for_query`
+- `searchlib.js` — B-tree index traversal, tag suggestion retrieval
+- `search.js` — dropdown UI (`handle_keyup_in_search_box`, `to_page`)
+
+Without `common.js` + `searchlib.js`: suggestions appear but missing namespace
+labels and total counts. The stubs (`domain`, `retry`, `gg`, etc.) keep
+`search.js` from crashing but don't populate suggestion metadata.
+
+
 On search/home pages, `cleanUp()` then builds our header (search input + dropdown +
 button) and grid placeholder. Site scripts (jquery, common.js, searchlib.js, search.js)
 are loaded for the dropdown autocomplete only — no gallery rendering code runs.
