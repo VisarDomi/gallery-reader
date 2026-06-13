@@ -1,48 +1,99 @@
-# hitomi userscript decisions
+# decisions
 
-## Hostile takeover — prevent ads/interceptors
+## Page takeover
 
-Three-layer defense in cleanup.ts:
+`@run-at document-start`. `cleanDocument()` calls `document.open()` / `write()` / `close()` —
+this aborts the entire original page load. No original scripts, styles, or ads execute.
 
-1. Remove ad scripts: Delete script tags loading from capndr.com/advertising.js
-2. CSS pointer-events takeover: pointer-events: none !important on all elements, re-enable on our own
-3. MutationObserver: Nuke any hostile fixed overlays (high z-index, low opacity) as they appear
+On search/home pages, `cleanUp()` then builds our header (search input + dropdown +
+button) and grid placeholder. Site scripts (jquery, common.js, searchlib.js, search.js)
+are loaded for the dropdown autocomplete only — no gallery rendering code runs.
 
-Key insight: hitomi's advertising.js adds an invisible fixed div with z-index 2147483647 and opacity 0.01 that captures clicks/touches and redirects to ad sites.
+## Reader
 
-## Search pagination
+Own code path — `open(id, hash)` calls `cleanDocument()` directly then renders images.
+No site scripts loaded on reader pages.
 
-- Use span onclick with onPage callback so both search (full page reload) and home (localStorage-based) use the same module
-- Items per page: 25
-- Show ALL page numbers, no ellipsis
+- Scroll tracking: `scrollend` listener + 100ms timeout → `elementFromPoint` →
+  `history.replaceState(null, '', img.id)`.
+- Images: appending `<img id="#N">` directly to body. No wrapper div.
+- Navigation: keyboard left/right arrows.
 
-## State restoration
+## Search
 
-- Reader: URL hash only (history.replaceState)
-- Home/favs: localStorage (hitomi_favs_page)
-- Saved searches: localStorage (hitomi_saved_searches)
+Direct nozomi API (gallery-dl style). `searchGalleries(term)` in `hitomi.ts`
+constructs the correct nozomi URL and decodes the binary response.
 
-## DOM reading order
+URL pattern: `https://ltn.gold-usergeneratedcontent.net/n/{ns}{tag}-{language}.nozomi`
+- `female:X` / `male:X` → `tag/female:X-all.nozomi`
+- `language:X` → `index-X.nozomi`
+- Other namespaces → `ns/tag-all.nozomi`
+- Bare words → `tag/word-all.nozomi`
+- `_` in tags → ` ` (spaces) before constructing URL
 
-Critical: read hitomi DOM elements BEFORE buildPage() clears body.innerHTML.
+### Why NOT results.js
 
-## Gallery scraping
+`results.js`'s `do_search()` runs asynchronously via jQuery ready → `get_index_version`
+→ `.then(do_search)`. Multiple failure modes:
+- `get_index_version` can fail silently (promise hangs via `.catch(console.error)`)
+- Index versions (`galleries_index_version`, `nozomiurl_index_version`) are fetched
+  by the original page's inline scripts which we nuke — they stay empty
+- `get_galleryids_for_query` needs `nozomiurl_index_version` to construct valid
+  B-tree lookup URLs; with empty versions, lookup fails → unfiltered results (540K)
+- `put_results_on_page` calls functions (`moveimages`, etc.) defined in scripts
+  we don't load → crashes
 
-Enumerate ALL children of .gallery-content, not just .dj.
+Direct nozomi API avoids all of this. We parse the query ourselves, call the
+nozomi endpoint directly, decode the binary, intersect/subtract.
 
-## OCR service
+### Query parsing
 
-- Uses GM_xmlhttpRequest with @connect 192.168.1.197
-- Picks image at viewport center
-- Scales viewport coords to image coords via naturalWidth/clientWidth
-- Resets spinner before navigation
+From gallery-dl `HitomiSearchExtractor.gallery_ids()` + `do_search()`:
+- Split terms by whitespace
+- Classify: positive, negative (prefix `-`), OR groups (`a or b`)
+- OR groups: union terms within group, intersect group with main results
+- Positive terms: intersect all
+- Negative terms: subtract all
+- Fallback (no positive terms): `language:japanese`
 
-## Info modal
+## Pagination
 
-- Uses full metadata from fetchMeta (title, artists, groups, parody, characters, type, language, tags, files)
-- Clickable values navigate to hitomi search
-- Tag cloud with namespace chips
+In-page via `history.replaceState(hash)`. `renderPage(page)` slices `allIds`,
+creates pagination bar at bottom only, renders gallery rows into `#hs-grid`.
 
-## Font size
+- Search: `hashchange` listener re-renders current page slice
+- Home: `localStorage` for page persistence across reloads
 
-All text 16px minimum for Safari iOS.
+## Ad blocking
+
+MutationObserver on `document.body` (childList, not subtree). Removes:
+- `<script>`, `<iframe>`, `<ins>` — always
+- `<div>` with non-`hs-*` class — ad containers
+
+All our body-children have `hs-*` prefixed class or id.
+
+## Script loading
+
+`loadScript(filename)` in clean-up.ts appends `<script>` to `<head>`.
+Order: jquery → common.js → searchlib.js → search.js.
+These provide: jQuery, the dropdown autocomplete (`search.js` + `searchlib.js`),
+and utility functions (`retry`, `domain`, etc. from `common.js`).
+
+`searchlib.js` is ~12KB and includes the B-tree index traversal, SHA-256,
+nozomi decode, and tag suggestion logic.
+
+## Home
+
+`homeInit()` calls `buildGrid()` (adds saved searches bar + Enter handler) →
+`getAllFavs()` from IndexedDB → `renderPage()`.
+
+## Font
+
+`'SF Pro Display', 'SF Pro Text', -apple-system, sans-serif` on body.
+Base 16px. "i" button keeps Georgia italic for the convention.
+
+## State persistence
+
+- Reader: URL hash only
+- Home favorites page: localStorage `hitomi_favs_page`
+- Saved searches: localStorage `hitomi_saved_searches`
