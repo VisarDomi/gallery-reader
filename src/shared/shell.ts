@@ -1,7 +1,6 @@
 import cssContent from '../css/style.css?inline';
 import {setupDebug} from "../debug";
 
-export const HITOMI_ITEMS_PER_PAGE = 25;
 const SEARCH_DOMAIN = 'ltn.gold-usergeneratedcontent.net';
 
 export function loadScript(filename: string): Promise<void> {

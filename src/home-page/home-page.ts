@@ -1,8 +1,7 @@
-import {setupSavedSearches, getGrid} from '../shared/saved-searches';
-import {renderGridRows} from '../gallery-row/render-grid';
+import {setupSavedSearches} from '../shared/saved-searches';
 import {getAllFavs} from '../hitomi/db';
-import {HITOMI_ITEMS_PER_PAGE, initShell} from '../shared/shell';
-import {renderInfoBar, renderPaginationBar, type PageInfo} from '../search-page/pagination';
+import {initShell} from '../shared/shell';
+import {renderPaginatedGrid} from "../shared/paginated-grid";
 
 const STORAGE_KEY = 'hitomi_favs_page';
 const COUNT_KEY = ' Favorites';
@@ -21,23 +20,14 @@ function savePage(page: number): void {
 }
 
 function renderPage(ids: number[], page: number): void {
-    const totalPages = Math.max(1, Math.ceil(ids.length / HITOMI_ITEMS_PER_PAGE));
-    const currentPage = Math.min(page, totalPages);
-    const start = (currentPage - 1) * HITOMI_ITEMS_PER_PAGE;
-    const pageIds = ids.slice(start, start + HITOMI_ITEMS_PER_PAGE);
-    const pageInfo: PageInfo = {
-        totalCount: String(ids.length) + COUNT_KEY,
-        currentPage,
-        totalPages,
-    };
-    const grid = getGrid();
-    const prev = grid.parentNode?.querySelectorAll('.hs-page-bar');
-    if (prev) for (let i = 0; i < prev.length; i++) prev[i].remove();
-    renderInfoBar(pageInfo, grid);
-    renderGridRows(grid, pageIds);
-    renderPaginationBar(pageInfo, (newPage) => renderPage(ids, newPage), grid);
+    const pageInfo = renderPaginatedGrid(
+        ids,
+        page,
+        COUNT_KEY,
+        (newPage) => renderPage(ids, newPage),
+    );
 
-    savePage(currentPage);
+    savePage(pageInfo.currentPage);
 }
 
 export async function init(): Promise<void> {
