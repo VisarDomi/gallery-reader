@@ -43,17 +43,8 @@ function syncInputFromUrl(query: string): void {
    if (input && query) input.value = query;
 }
 
-export async function init(): Promise<void> {
-    await initShell();
-    setupSavedSearches();
-    const grid = getGrid();
-
-    const query = decodeURIComponent(window.location.search.replace(/^\?/, ''));
-    syncInputFromUrl(query);
-    window.addEventListener('pagereveal', () => syncInputFromUrl(query));
-
+async function getIds(query: string) {
     const { positive, negative, orGroups } = parseTerms(query);
-
     let idSet: Set<number> | null = null;
     if (positive.length > 0) {
         for (const tag of positive) {
@@ -85,7 +76,19 @@ export async function init(): Promise<void> {
         idSet = new Set([...idSet].filter(id => !ids.has(id)));
     }
 
-    const allIds = [...idSet];
+    return [...idSet];
+}
+
+export async function init(): Promise<void> {
+    await initShell();
+    setupSavedSearches();
+    const grid = getGrid();
+
+    const query = decodeURIComponent(window.location.search.replace(/^\?/, ''));
+    syncInputFromUrl(query);
+    window.addEventListener('pagereveal', () => syncInputFromUrl(query)); // ios bfcache
+
+    const allIds = await getIds(query);
 
     function renderPage(page: number): void {
         const totalPages = Math.max(1, Math.ceil(allIds.length / HITOMI_ITEMS_PER_PAGE));
