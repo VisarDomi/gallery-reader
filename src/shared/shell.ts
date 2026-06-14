@@ -135,12 +135,13 @@ function startAdBlocker(): void {
 }
 
 // ── public ────────────────────────────────────────────────────────
-export async function initShell(debug = false): Promise<void> {
+export async function initShell(): Promise<void> {
     cleanDocument();
     buildSearchHeader();
     buildGridPlaceholder();
     await loadSiteScripts();
     setupDropdownHandler();
     startAdBlocker();
+    const debug = false;
     if (debug) setupDebug();
 }
