@@ -1,7 +1,7 @@
-import {setupSavedSearches, getGrid, HITOMI_ITEMS_PER_PAGE} from '../shared/saved-searches';
+import {setupSavedSearches, getGrid} from '../shared/saved-searches';
 import {renderGridRows} from '../gallery-row/render-grid';
 import {searchGalleries} from '../hitomi/hitomi';
-import {initShell} from '../shared/shell';
+import {HITOMI_ITEMS_PER_PAGE, initShell} from '../shared/shell';
 import {renderInfoBar, renderPaginationBar, type PageInfo} from './pagination';
 
 function currentPageNum(): number {

@@ -95,8 +95,8 @@ html {
 /* === Saved Searches === */
 .hs-saved-searches {
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
+    flex-direction: column;
+    gap: 4px;
     padding: 6px 4px;
 }
 .hs-saved-chip {
@@ -121,6 +121,19 @@ html {
 }
 .hs-saved-chip .hs-saved-x:hover {
     color: #f44;
+}
+
+.hs-saved-show-more {
+    background: none;
+    border: none;
+    color: #6af;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 8px;
+    text-align: left;
+}
+.hs-saved-show-more:hover {
+    color: #8cf;
 }
 
 /* === Gallery Rows === */

@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'hitomi_saved_searches';
+const VISIBLE_DEFAULT = 3;
 
 export function loadSearches(): string[] {
     try {
@@ -15,29 +16,38 @@ function saveSearches(searches: string[]): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(searches));
 }
 
-export function addSearch(query: string): void {
+function addSearch(query: string): void {
     const q = query.trim();
     if (!q) return;
     const searches = loadSearches();
     const filtered = searches.filter(entry => entry !== q);
     filtered.unshift(q);
     saveSearches(filtered);
+    render();
 }
 
-export function removeSearch(query: string): void {
+function removeSearch(query: string): void {
     const searches = loadSearches().filter(entry => entry !== query);
     saveSearches(searches);
+    render();
 }
 
 // ── UI ──────────────────────────────────────────────────────────────
 
-export const HITOMI_ITEMS_PER_PAGE = 25;
+function render(): void {
+    const container = document.querySelector('.hs-saved-searches') as HTMLElement | null;
+    const input = document.getElementById('query-input') as HTMLInputElement | null;
+    if (!container || !input) return;
 
-function renderSavedSearches(container: HTMLElement, input: HTMLInputElement): void {
     container.innerHTML = '';
     const searches = loadSearches();
-    for (let i = 0; i < searches.length; i++) {
-        const q = searches[i];
+    if (searches.length === 0) return;
+
+    const expanded = container.dataset.expanded === 'true';
+    const visible = expanded ? searches : searches.slice(0, VISIBLE_DEFAULT);
+
+    for (let i = 0; i < visible.length; i++) {
+        const q = visible[i];
         const chip = document.createElement('span');
         chip.className = 'hs-saved-chip';
         const text = document.createElement('span');
@@ -49,13 +59,24 @@ function renderSavedSearches(container: HTMLElement, input: HTMLInputElement): v
         x.onclick = (e) => {
             e.stopPropagation();
             removeSearch(q);
-            chip.remove();
         };
         chip.appendChild(x);
         chip.onclick = () => {
             input.value = q;
         };
         container.appendChild(chip);
+    }
+
+    if (!expanded && searches.length > VISIBLE_DEFAULT) {
+        const remaining = searches.length - VISIBLE_DEFAULT;
+        const btn = document.createElement('button');
+        btn.className = 'hs-saved-show-more';
+        btn.textContent = `Show ${remaining} more`;
+        btn.onclick = () => {
+            container.dataset.expanded = 'true';
+            render();
+        };
+        container.appendChild(btn);
     }
 }
 
@@ -67,22 +88,19 @@ function createSavedSearchesBar(): HTMLDivElement {
     return container;
 }
 
-function bindEnterToSaveSearch(input: HTMLInputElement): void {
+export function setupSavedSearches(): void {
+    createSavedSearchesBar();
+    const input = document.getElementById('query-input') as HTMLInputElement;
+    if (!input) return;
+
     input.onkeydown = function (e) {
         if (e.key === 'Enter') {
             const val = input.value.trim();
             if (val) addSearch(val);
         }
     };
-}
 
-export function setupSavedSearches(): void {
-    const container = createSavedSearchesBar();
-    const input = document.getElementById('query-input') as HTMLInputElement;
-    if (input) {
-        bindEnterToSaveSearch(input);
-        renderSavedSearches(container, input);
-    }
+    render();
 }
 
 export function getGrid(): HTMLDivElement {
