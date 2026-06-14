@@ -1,5 +1,5 @@
 import cssContent from '../css/style.css?inline';
-// import { setupDebug } from './debug';
+import {setupDebug} from "../debug";
 
 const SEARCH_DOMAIN = 'ltn.gold-usergeneratedcontent.net';
 
@@ -135,12 +135,12 @@ function startAdBlocker(): void {
 }
 
 // ── public ────────────────────────────────────────────────────────
-export async function initShell(): Promise<void> {
+export async function initShell(debug = false): Promise<void> {
     cleanDocument();
     buildSearchHeader();
     buildGridPlaceholder();
     await loadSiteScripts();
-    // setupDebug();
     setupDropdownHandler();
     startAdBlocker();
+    if (debug) setupDebug();
 }

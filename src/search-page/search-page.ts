@@ -38,13 +38,19 @@ function parseTerms(query: string): { positive: string[]; negative: string[]; or
     return { positive, negative, orGroups };
 }
 
+function syncInputFromUrl(query: string): void {
+   const input = document.getElementById('query-input') as HTMLInputElement;
+   if (input && query) input.value = query;
+}
+
 export async function init(): Promise<void> {
     await initShell();
     setupSavedSearches();
     const grid = getGrid();
+
     const query = decodeURIComponent(window.location.search.replace(/^\?/, ''));
-    const input = document.getElementById('query-input') as HTMLInputElement;
-    if (input && query) input.value = query;
+    syncInputFromUrl(query);
+    window.addEventListener('pagereveal', () => syncInputFromUrl(query));
 
     const { positive, negative, orGroups } = parseTerms(query);
 

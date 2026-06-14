@@ -15,7 +15,7 @@ export function render(gid: number, files: { hash: string }[]): HTMLDivElement {
         img.loading = 'lazy';
         img.src = thumbUrl(files[i]);
         img.onclick = () => {
-            window.location.href = `https://hitomi.la/reader/${gid}.html#${i + 1}`;
+            window.location.href = `https://hitomi.la/reader/${gid}.html#${i}`;
         };
         strip.appendChild(img);
     }
