@@ -6,7 +6,7 @@ import {renderInfoBar, renderPaginationBar, type PageInfo} from '../search-page/
 
 const STORAGE_KEY = 'hitomi_favs_page';
 
-function loadPage(): number {
+function getPage(): number {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
         const savedPage = parseInt(saved);
@@ -48,6 +48,5 @@ export async function init(): Promise<void> {
     setupSavedSearches();
     const ids = await getAllFavs()
     if (ids.length === 0) return;
-    const page = loadPage();
-    renderPage(ids, page);
+    renderPage(ids, getPage());
 }

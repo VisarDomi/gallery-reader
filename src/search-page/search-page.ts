@@ -4,7 +4,7 @@ import {searchGalleries} from '../hitomi/hitomi';
 import {HITOMI_ITEMS_PER_PAGE, initShell} from '../shared/shell';
 import {renderInfoBar, renderPaginationBar, type PageInfo} from './pagination';
 
-function currentPageNum(): number {
+function getPage(): number {
     const m = window.location.hash.match(/#(\d+)/);
     return m ? parseInt(m[1]) : 1;
 }
@@ -79,40 +79,37 @@ async function getIds(query: string) {
     return [...idSet];
 }
 
+function renderPage(ids: number[], page: number): void {
+    const grid = getGrid();
+    const totalPages = Math.max(1, Math.ceil(ids.length / HITOMI_ITEMS_PER_PAGE));
+    const currentPage = Math.min(page, totalPages);
+    const start = (currentPage - 1) * HITOMI_ITEMS_PER_PAGE;
+    const pageIds = ids.slice(start, start + HITOMI_ITEMS_PER_PAGE);
+
+    const hash = '#' + currentPage;
+    if (window.location.hash !== hash) history.replaceState(null, '', hash);
+
+    const pageInfo: PageInfo = {
+        totalCount: ids.length.toLocaleString() + ' Results',
+        currentPage,
+        totalPages,
+    };
+
+    const prev = grid.parentNode?.querySelectorAll('.hs-page-bar');
+    if (prev) for (let i = 0; i < prev.length; i++) prev[i].remove();
+
+    renderInfoBar(pageInfo, grid);
+    renderGridRows(grid, pageIds);
+    renderPaginationBar(pageInfo, (newPage) => renderPage(ids, newPage), grid);
+}
+
 export async function init(): Promise<void> {
     await initShell();
     setupSavedSearches();
-    const grid = getGrid();
-
     const query = decodeURIComponent(window.location.search.replace(/^\?/, ''));
     syncInputFromUrl(query);
     window.addEventListener('pagereveal', () => syncInputFromUrl(query)); // ios bfcache
-
-    const allIds = await getIds(query);
-
-    function renderPage(page: number): void {
-        const totalPages = Math.max(1, Math.ceil(allIds.length / HITOMI_ITEMS_PER_PAGE));
-        const currentPage = Math.min(page, totalPages);
-        const start = (currentPage - 1) * HITOMI_ITEMS_PER_PAGE;
-        const pageIds = allIds.slice(start, start + HITOMI_ITEMS_PER_PAGE);
-
-        const hash = '#' + currentPage;
-        if (window.location.hash !== hash) history.replaceState(null, '', hash);
-
-        const pageInfo: PageInfo = {
-            totalCount: allIds.length.toLocaleString() + ' Results',
-            currentPage,
-            totalPages,
-        };
-
-        const prev = grid.parentNode?.querySelectorAll('.hs-page-bar');
-        if (prev) for (let i = 0; i < prev.length; i++) prev[i].remove();
-
-        renderInfoBar(pageInfo, grid);
-        renderGridRows(grid, pageIds);
-        renderPaginationBar(pageInfo, (newPage) => renderPage(newPage), grid);
-    }
-
-    renderPage(currentPageNum());
-    window.addEventListener('hashchange', () => renderPage(currentPageNum()));
+    const ids = await getIds(query);
+    renderPage(ids, getPage());
+    window.addEventListener('hashchange', () => renderPage(ids, getPage())); // pagination
 }
