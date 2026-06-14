@@ -10,13 +10,8 @@ export function renderPaginatedGrid(
     countLabel: string,
     onPageChange: (page: number) => void,
 ): PageInfo {
-    const totalPages = Math.max(
-        1,
-        Math.ceil(ids.length / HITOMI_ITEMS_PER_PAGE),
-    );
-
+    const totalPages = Math.max(1, Math.ceil(ids.length / HITOMI_ITEMS_PER_PAGE));
     const currentPage = Math.min(page, totalPages);
-
     const start = (currentPage - 1) * HITOMI_ITEMS_PER_PAGE;
     const pageIds = ids.slice(start, start + HITOMI_ITEMS_PER_PAGE);
 
@@ -28,6 +23,7 @@ export function renderPaginatedGrid(
 
     const grid = getGrid();
 
+    //unclear what this is doing
     const prev = grid.parentNode?.querySelectorAll('.hs-page-bar');
     if (prev) {
         for (let i = 0; i < prev.length; i++) {

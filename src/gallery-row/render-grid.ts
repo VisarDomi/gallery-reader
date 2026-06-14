@@ -1,7 +1,7 @@
 import {render as renderRow} from './gallery-row';
 import {fetchMeta} from '../hitomi/hitomi';
 
-
+// this is hiding async ops behind a sync function...
 export function renderGridRows(grid: HTMLElement, ids: number[]): void {
     grid.innerHTML = '';
     for (let i = 0; i < ids.length; i++) {
