@@ -5,6 +5,7 @@ import {HITOMI_ITEMS_PER_PAGE, initShell} from '../shared/shell';
 import {renderInfoBar, renderPaginationBar, type PageInfo} from '../search-page/pagination';
 
 const STORAGE_KEY = 'hitomi_favs_page';
+const COUNT_KEY = ' Favorites';
 
 function getPage(): number {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -20,27 +21,23 @@ function savePage(page: number): void {
 }
 
 function renderPage(ids: number[], page: number): void {
-    const grid = getGrid();
     const totalPages = Math.max(1, Math.ceil(ids.length / HITOMI_ITEMS_PER_PAGE));
     const currentPage = Math.min(page, totalPages);
     const start = (currentPage - 1) * HITOMI_ITEMS_PER_PAGE;
     const pageIds = ids.slice(start, start + HITOMI_ITEMS_PER_PAGE);
-
     const pageInfo: PageInfo = {
-        totalCount: String(ids.length) + ' Favorites',
+        totalCount: String(ids.length) + COUNT_KEY,
         currentPage,
         totalPages,
     };
-
+    const grid = getGrid();
     const prev = grid.parentNode?.querySelectorAll('.hs-page-bar');
     if (prev) for (let i = 0; i < prev.length; i++) prev[i].remove();
-
     renderInfoBar(pageInfo, grid);
     renderGridRows(grid, pageIds);
-    renderPaginationBar(pageInfo, (newPage) => {
-        savePage(newPage);
-        renderPage(ids, newPage);
-    }, grid);
+    renderPaginationBar(pageInfo, (newPage) => renderPage(ids, newPage), grid);
+
+    savePage(currentPage);
 }
 
 export async function init(): Promise<void> {

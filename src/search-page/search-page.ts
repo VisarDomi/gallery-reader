@@ -79,28 +79,27 @@ async function getIds(query: string) {
     return [...idSet];
 }
 
+const COUNT_KEY = ' Results';
+
 function renderPage(ids: number[], page: number): void {
-    const grid = getGrid();
     const totalPages = Math.max(1, Math.ceil(ids.length / HITOMI_ITEMS_PER_PAGE));
     const currentPage = Math.min(page, totalPages);
     const start = (currentPage - 1) * HITOMI_ITEMS_PER_PAGE;
     const pageIds = ids.slice(start, start + HITOMI_ITEMS_PER_PAGE);
-
-    const hash = '#' + currentPage;
-    if (window.location.hash !== hash) history.replaceState(null, '', hash);
-
     const pageInfo: PageInfo = {
-        totalCount: ids.length.toLocaleString() + ' Results',
+        totalCount: String(ids.length) + COUNT_KEY,
         currentPage,
         totalPages,
     };
-
+    const grid = getGrid();
     const prev = grid.parentNode?.querySelectorAll('.hs-page-bar');
     if (prev) for (let i = 0; i < prev.length; i++) prev[i].remove();
-
     renderInfoBar(pageInfo, grid);
     renderGridRows(grid, pageIds);
     renderPaginationBar(pageInfo, (newPage) => renderPage(ids, newPage), grid);
+
+    const hash = '#' + currentPage;
+    if (window.location.hash !== hash) history.replaceState(null, '', hash);
 }
 
 export async function init(): Promise<void> {
