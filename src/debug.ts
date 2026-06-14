@@ -68,26 +68,56 @@ export function setupDebug() {
     // ── event monitors ────────────────────────────────────────
     const sugg = document.getElementById('search-suggestions')!;
     const searchWrap = sugg.parentElement!;
+    const input = document.getElementById('query-input') as HTMLInputElement;
 
     for (const ev of ['pointerdown', 'mousedown', 'click'] as const) {
         sugg.addEventListener(ev, (e) => {
             const t = e.target as Element;
             const tag = t.tagName;
             const cls = t.className?.toString?.() ?? '';
-            const txt = (t as HTMLElement).textContent?.slice(0, 30) ?? '';
-            log(`${ev} CAPTURE on &lt;${tag.toLowerCase()}&gt; ."${cls}" "${txt}"`, '#8f8');
+            const txt = (t as HTMLElement).textContent ?? '';
+            const insideA = !!(t as HTMLElement).closest?.('a.search-suggestion_string');
+            const phase = {1:'CAPTURE',2:'TARGET',3:'BUBBLE'}[e.eventPhase] ?? e.eventPhase;
+            const inputVal = input.value;
+            log(
+                `${ev} ${phase} on <${tag.toLowerCase()}> ."${cls}" "${txt}" ` +
+                `insideLink=${insideA} defaultPrevented=${e.defaultPrevented} ` +
+                `cancelBubble=${e.cancelBubble} input="${inputVal}"`,
+                '#8f8',
+            );
         }, true);
+
+        sugg.addEventListener(ev, (e) => {
+            const phase = {1:'CAPTURE',2:'TARGET',3:'BUBBLE'}[e.eventPhase] ?? e.eventPhase;
+            log(
+                `${ev} ${phase} (bubble) defaultPrevented=${e.defaultPrevented} ` +
+                `cancelBubble=${e.cancelBubble} input="${input.value}"`,
+                '#6c6',
+            );
+        });
     }
 
     document.addEventListener('click', (e) => {
         const t = e.target as Element;
         const insideInput = !!(t as HTMLElement).closest?.('#query-input');
-        log(`click CAPTURE document → insideInput=${insideInput} target=&lt;${t.tagName.toLowerCase()}&gt;`, '#f88');
+        const insideSugg = !!(t as HTMLElement).closest?.('#search-suggestions');
+        log(
+            `click CAPTURE document → insideInput=${insideInput} insideSugg=${insideSugg} ` +
+            `target=<${t.tagName.toLowerCase()}> defaultPrevented=${e.defaultPrevented}`,
+            '#f88',
+        );
     }, true);
 
-    sugg.addEventListener('click', (e) => {
-        const a = (e.target as Element).closest('a');
-        if (a) log('click BUBBLE on <a> — href handler should fire now', '#ff0');
+    document.addEventListener('click', (e) => {
+        const insideSugg = !!(e.target as Element).closest?.('#search-suggestions');
+        if (insideSugg) {
+            const val = input.value;
+            log(
+                `click BUBBLE document (post-handlers) → defaultPrevented=${e.defaultPrevented} ` +
+                `cancelBubble=${e.cancelBubble} input="${val}"`,
+                '#f44',
+            );
+        }
     });
 
     // ── .active monitor ───────────────────────────────────────
@@ -97,6 +127,96 @@ export function setupDebug() {
     });
     activeObserver.observe(searchWrap, { attributes: true, attributeFilter: ['class'] });
     log('monitoring .active class toggles', '#8af');
+
+    // ── jQuery handler inspection ─────────────────────────────
+    const jq = (window as any).jQuery;
+    if (jq) {
+        for (const el of [sugg, sugg.parentElement!, document.body, document.documentElement, document]) {
+            const data = jq._data?.(el, 'events') as Record<string, any[]> | undefined;
+            if (!data) continue;
+            for (const [type, handlers] of Object.entries(data)) {
+                for (const h of handlers) {
+                    const sel = h.selector ? ` selector="${h.selector}"` : '';
+                    const ns = h.namespace ? ` ns="${h.namespace}"` : '';
+                    const origin = h.origType ? ` origType="${h.origType}"` : '';
+                    const elName = (el as Element).tagName?.toLowerCase() ?? (el === document ? 'document' : 'unknown');
+                    const handlerSrc = String(h.handler).replace(/\n/g, '↵');
+                    log(
+                        `jQuery handler on [${elName}] ` +
+                        `type="${type}"${sel}${ns}${origin} src="${handlerSrc}"`,
+                        '#aaf',
+                    );
+                }
+            }
+        }
+        log('jQuery handler inspection complete', '#aaf');
+    } else {
+        log('jQuery not found — cannot inspect handlers', '#f84');
+    }
+
+    // ── inline onclick check on existing suggestion links ─────
+    for (const a of sugg.querySelectorAll('a')) {
+        const onclick = (a as any).onclick;
+        const hasAttr = a.hasAttribute('onclick');
+        const href = a.getAttribute('href') ?? '';
+        log(
+            `suggestion <a> href="${href}" has-onclick-attr=${hasAttr} onclick-prop=${!!onclick} ` +
+            `text="${a.textContent ?? ''}"`,
+            '#ff0',
+        );
+    }
+
+    // ── input value change monitoring around clicks ───────────
+    if (input) {
+        let preClickVal = '';
+        sugg.addEventListener('pointerdown', () => {
+            preClickVal = input.value;
+        }, true);
+        sugg.addEventListener('click', () => {
+            const postVal = input.value;
+            if (preClickVal !== postVal) {
+                log(
+                    `INPUT-VAL-CHANGE from click: "${preClickVal}" → "${postVal}"`,
+                    '#ff0',
+                );
+            }
+        });
+
+        // Delayed check — site handler may run after ours and change it back
+        sugg.addEventListener('click', () => {
+            const immediateVal = input.value;
+            setTimeout(() => {
+                const delayedVal = input.value;
+                if (immediateVal !== delayedVal) {
+                    log(
+                        `INPUT-VAL-REVERTED after 0ms: "${immediateVal}" → "${delayedVal}"`,
+                        '#f00',
+                    );
+                }
+            }, 0);
+        });
+    }
+
+    // ── stopPropagation / stopImmediatePropagation monitor ────
+    const origStop = Event.prototype.stopPropagation;
+    const origStopImm = Event.prototype.stopImmediatePropagation;
+    Event.prototype.stopPropagation = function () {
+        const insideSugg = this.target instanceof Element &&
+            !!(this.target as Element).closest?.('#search-suggestions');
+        if (this.type === 'click' && insideSugg) {
+            log('stopPropagation() called on click inside suggestions', '#f80');
+        }
+        return origStop.call(this);
+    };
+    Event.prototype.stopImmediatePropagation = function () {
+        const insideSugg = this.target instanceof Element &&
+            !!(this.target as Element).closest?.('#search-suggestions');
+        if (this.type === 'click' && insideSugg) {
+            log('stopImmediatePropagation() called on click inside suggestions', '#f00');
+        }
+        return origStopImm.call(this);
+    };
+    log('Event.prototype.stopPropagation wrappers active', '#f80');
 
     // ── function wrappers ─────────────────────────────────────
     const origClearPage = (window as any).clear_page as Function | undefined;
@@ -111,7 +231,7 @@ export function setupDebug() {
     const origToPage = (window as any).to_page as Function | undefined;
     if (origToPage) {
         (window as any).to_page = function (result: any) {
-            log(`to_page("${result.s?.slice(0, 20) ?? ''}") ns="${result.n ?? ''}" t="${result.t ?? ''}"`, '#0f0');
+            log(`to_page("${result.s ?? ''}") ns="${result.n ?? ''}" t="${result.t ?? ''}"`, '#0f0');
             return origToPage.call(this, result);
         };
         log('wrapped to_page()', '#0f0');
@@ -141,7 +261,6 @@ export function setupDebug() {
     log('--- bfcache monitors active ---', '#f0f');
 
     // sentinel: capture init-time state
-    const input = document.getElementById('query-input') as HTMLInputElement;
     log(`INIT-STATE search="${window.location.search}" input.value="${input?.value ?? 'NO-ELEMENT'}" readyState=${document.readyState}`, '#ff0');
 
     // 1) pageshow — canonical bfcache restore detection

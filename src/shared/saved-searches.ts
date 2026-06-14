@@ -21,7 +21,6 @@ export function addSearch(query: string): void {
     const searches = loadSearches();
     const filtered = searches.filter(entry => entry !== q);
     filtered.unshift(q);
-    if (filtered.length > 20) filtered.length = 20;
     saveSearches(filtered);
 }
 

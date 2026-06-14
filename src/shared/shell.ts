@@ -89,6 +89,7 @@ function setupDropdownHandler(): void {
         const a = (e.target as Element).closest<HTMLAnchorElement>('a.search-suggestion_string');
         if (!a) return;
         e.preventDefault(); // block href="#" navigation
+        e.stopPropagation(); // prevent site's delegated jQuery handler on document
 
         const resultSpan = a.querySelector('.search-result');
         const nsSpan = a.querySelector('.search-ns');
@@ -113,7 +114,7 @@ function setupDropdownHandler(): void {
 
         const origClear = (window as any).clear_page as Function | undefined;
         if (origClear) origClear();
-    });
+    }, { capture: true });
 }
 
 // ── ad blocker ────────────────────────────────────────────────────
