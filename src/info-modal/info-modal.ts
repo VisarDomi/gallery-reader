@@ -14,7 +14,10 @@ function handleSearchClick(e: MouseEvent): void {
     const ns = btn.dataset.hsNs;
     const val = btn.dataset.hsVal;
     if (!ns || !val) return;
-    window.location.href = 'https://hitomi.la/search.html?' + ns + '%3A' + encodeURIComponent(val);
+    let query = ns + ':' + val.replace(/ /g, '_');
+    const lang = (btn.closest('.hs-modal-body') as HTMLElement)?.dataset.hsLang;
+    if (lang) query += ' language:' + lang;
+    window.location.href = 'https://hitomi.la/search.html?' + encodeURIComponent(query);
 }
 
 export async function show(gid: number): Promise<void> {
@@ -120,5 +123,6 @@ export async function show(gid: number): Promise<void> {
 
     // Wire up search clicks on the body
     const bodyEl = content.querySelector('.hs-modal-body') as HTMLElement;
+    if (meta.language) bodyEl.dataset.hsLang = meta.language;
     bodyEl.onclick = handleSearchClick;
 }
