@@ -13,7 +13,7 @@ const searchPrefixes = [
 ];
 
 const path = window.location.pathname;
-if (path === '/' || path === '/index.html') {
+if (path === '/' || path.startsWith('/index')) {
     void initHome();
 } else if (searchPrefixes.some(prefix => path.startsWith(prefix))) {
     void initSearch();

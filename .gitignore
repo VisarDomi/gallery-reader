@@ -2,3 +2,6 @@ dist/
 node_modules/
 .idea/
 filters-hitomi.txt
+/.repomixignore
+/repomix.config.json
+/repomix-output.txt
