@@ -8,10 +8,6 @@ function getPage(): number {
     return m ? parseInt(m[1]) : 1;
 }
 
-function getQuery(): string {
-    return decodeURIComponent(window.location.search.replace(/^\?/, ''));
-}
-
 function parseTerms(query: string): { positive: string[]; negative: string[]; orGroups: string[][] } {
     const terms = query.split(/\s+/).filter(t => t);
     const positive: string[] = [];
@@ -84,17 +80,17 @@ async function getIds(query: string) {
 
 const COUNT_KEY = ' Results';
 
-function renderPage(ids: number[], page: number): void {
+function renderPage(ids: number[], page: number, query: string): void {
     const pageInfo = renderPaginatedGrid(
         ids,
         page,
         COUNT_KEY,
-        (newPage) => renderPage(ids, newPage),
+        (newPage) => renderPage(ids, newPage, query),
     );
 
     const hash = '#' + pageInfo.currentPage;
     if (window.location.hash !== hash) history.replaceState(null, '', hash);
-    saveSearch(getQuery(), pageInfo.currentPage);
+    saveSearch(query, pageInfo.currentPage);
 }
 
 export async function init(): Promise<void> {
@@ -104,6 +100,6 @@ export async function init(): Promise<void> {
     syncInputFromUrl(query);
     window.addEventListener('pagereveal', () => syncInputFromUrl(query)); // ios bfcache
     const ids = await getIds(query);
-    renderPage(ids, getPage());
-    window.addEventListener('hashchange', () => renderPage(ids, getPage())); // pagination
+    renderPage(ids, getPage(), query);
+    window.addEventListener('hashchange', () => renderPage(ids, getPage(), query)); // pagination
 }
