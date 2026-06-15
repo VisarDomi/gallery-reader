@@ -1,4 +1,4 @@
-import {setupSavedSearches} from '../shared/saved-searches';
+import {setupSavedSearches, saveSearch} from '../shared/saved-searches';
 import {searchGalleries} from '../hitomi/hitomi';
 import {initShell} from '../shared/shell';
 import {renderPaginatedGrid} from "../shared/paginated-grid";
@@ -6,6 +6,10 @@ import {renderPaginatedGrid} from "../shared/paginated-grid";
 function getPage(): number {
     const m = window.location.hash.match(/#(\d+)/);
     return m ? parseInt(m[1]) : 1;
+}
+
+function getQuery(): string {
+    return decodeURIComponent(window.location.search.replace(/^\?/, ''));
 }
 
 function parseTerms(query: string): { positive: string[]; negative: string[]; orGroups: string[][] } {
@@ -90,6 +94,7 @@ function renderPage(ids: number[], page: number): void {
 
     const hash = '#' + pageInfo.currentPage;
     if (window.location.hash !== hash) history.replaceState(null, '', hash);
+    saveSearch(getQuery(), pageInfo.currentPage);
 }
 
 export async function init(): Promise<void> {

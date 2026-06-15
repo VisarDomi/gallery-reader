@@ -1,33 +1,35 @@
 const STORAGE_KEY = 'hitomi_saved_searches';
 const VISIBLE_DEFAULT = 3;
 
-export function loadSearches(): string[] {
+interface SavedSearch { query: string; page?: number }
+
+export function loadSearches(): SavedSearch[] {
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
             const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) return parsed.filter(entry => typeof entry === 'string' && entry.trim());
+            if (Array.isArray(parsed)) return parsed.filter(s => s && typeof s.query === 'string');
         }
     } catch {}
     return [];
 }
 
-function saveSearches(searches: string[]): void {
+function saveSearches(searches: SavedSearch[]): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(searches));
 }
 
-function saveSearch(query: string): void {
+export function saveSearch(query: string, page?: number): void {
     const q = query.trim();
     if (!q) return;
     const searches = loadSearches();
-    const filtered = searches.filter(entry => entry !== q);
-    filtered.unshift(q);
+    const filtered = searches.filter(s => s.query !== q);
+    filtered.unshift({ query: q, page });
     saveSearches(filtered);
     render();
 }
 
 function removeSearch(query: string): void {
-    const searches = loadSearches().filter(entry => entry !== query);
+    const searches = loadSearches().filter(s => s.query !== query);
     saveSearches(searches);
     render();
 }
@@ -47,23 +49,25 @@ function render(): void {
     const visible = expanded ? searches : searches.slice(0, VISIBLE_DEFAULT);
 
     for (let i = 0; i < visible.length; i++) {
-        const q = visible[i];
+        const s = visible[i];
         const chip = document.createElement('span');
         chip.className = 'hs-saved-chip';
         const text = document.createElement('span');
-        text.textContent = q;
+        text.textContent = s.query;
         chip.appendChild(text);
         const x = document.createElement('span');
         x.className = 'hs-saved-x';
         x.textContent = '\u00D7';
         x.onclick = (e) => {
             e.stopPropagation();
-            removeSearch(q);
+            removeSearch(s.query);
         };
         chip.appendChild(x);
         chip.onclick = () => {
-            input.value = q;
-            window.location.href = 'https://hitomi.la/search.html?' + encodeURIComponent(q);
+            input.value = s.query;
+            let url = 'https://hitomi.la/search.html?' + encodeURIComponent(s.query);
+            if (s.page && s.page > 1) url += '#' + s.page;
+            window.location.href = url;
         };
         container.appendChild(chip);
     }
