@@ -51,7 +51,17 @@ export interface HitomiMeta {
     gallery_id: number;
 }
 
-export async function fetchMeta(gid: number): Promise<HitomiMeta> {
+const metaCache = new Map<number, Promise<HitomiMeta>>();
+
+export function fetchMeta(gid: number): Promise<HitomiMeta> {
+    const cached = metaCache.get(gid);
+    if (cached) return cached;
+    const promise = _fetchMeta(gid);
+    metaCache.set(gid, promise);
+    return promise;
+}
+
+async function _fetchMeta(gid: number): Promise<HitomiMeta> {
     const text = await fetchText(METADATA_URL(gid), `https://hitomi.la/reader/${gid}.html`);
     const raw = JSON.parse(text.split('=')[1].trim().replace(/;$/, ''));
     return {
