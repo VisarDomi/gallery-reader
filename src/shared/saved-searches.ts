@@ -16,7 +16,7 @@ function saveSearches(searches: string[]): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(searches));
 }
 
-function addSearch(query: string): void {
+function saveSearch(query: string): void {
     const q = query.trim();
     if (!q) return;
     const searches = loadSearches();
@@ -97,7 +97,7 @@ export function setupSavedSearches(): void {
     input.onkeydown = function (e) {
         if (e.key === 'Enter') {
             const val = input.value.trim();
-            if (val) addSearch(val);
+            if (val) saveSearch(val);
         }
     };
 
