@@ -28,7 +28,7 @@ export function renderPaginatedGrid(
     renderInfoBar(pageInfo, grid);
     renderGridRows(grid, pageIds);
     renderPaginationBar(pageInfo, onPageChange, grid);
-    document.getElementById('hs-wrap')?.scrollIntoView();
+    document.getElementById('hs-grid')?.scrollIntoView();
 
     return pageInfo;
 }
