@@ -38,7 +38,7 @@ function removeSearch(query: string): void {
 
 function render(): void {
     const container = document.querySelector('.hs-saved-searches') as HTMLElement | null;
-    const input = document.getElementById('query-input') as HTMLInputElement | null;
+    const input = document.getElementById('query-input') as HTMLTextAreaElement | null;
     if (!container || !input) return;
 
     container.innerHTML = '';
@@ -95,7 +95,7 @@ function createSavedSearchesBar(): HTMLDivElement {
 
 export function setupSavedSearches(): void {
     createSavedSearchesBar();
-    const input = document.getElementById('query-input') as HTMLInputElement;
+    const input = document.getElementById('query-input') as HTMLTextAreaElement;
     if (!input) return;
 
     input.onkeydown = function (e) {

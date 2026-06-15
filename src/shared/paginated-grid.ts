@@ -23,17 +23,12 @@ export function renderPaginatedGrid(
 
     const grid = getGrid();
 
-    //unclear what this is doing
-    const prev = grid.parentNode?.querySelectorAll('.hs-page-bar');
-    if (prev) {
-        for (let i = 0; i < prev.length; i++) {
-            prev[i].remove();
-        }
-    }
+    grid.parentNode?.querySelectorAll('.hs-page-bar').forEach(el => el.remove());
 
     renderInfoBar(pageInfo, grid);
     renderGridRows(grid, pageIds);
     renderPaginationBar(pageInfo, onPageChange, grid);
+    document.getElementById('hs-wrap')?.scrollIntoView();
 
     return pageInfo;
 }

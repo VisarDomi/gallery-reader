@@ -29,8 +29,8 @@ function buildSearchHeader(): void {
     const searchWrap = document.createElement('div');
     searchWrap.className = 'hs-search-input';
 
-    const input = document.createElement('input');
-    input.type = 'text';
+    const input = document.createElement('textarea');
+    input.rows = 1;
     input.id = 'query-input';
     input.placeholder = 'Search...';
     input.autocomplete = 'off';
