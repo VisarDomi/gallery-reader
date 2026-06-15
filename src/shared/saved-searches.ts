@@ -63,6 +63,7 @@ function render(): void {
         chip.appendChild(x);
         chip.onclick = () => {
             input.value = q;
+            window.location.href = 'https://hitomi.la/search.html?' + encodeURIComponent(q);
         };
         container.appendChild(chip);
     }
