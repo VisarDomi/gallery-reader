@@ -16,7 +16,7 @@ function handleSearchClick(e: MouseEvent): void {
     if (!ns || !val) return;
     let query = ns + ':' + val.replace(/ /g, '_');
     const lang = (btn.closest('.hs-modal-body') as HTMLElement)?.dataset.hsLang;
-    if (lang) query += ' language:' + lang;
+    if (lang && ns !== 'language') query += ' language:' + lang;
     window.location.href = 'https://hitomi.la/search.html?' + encodeURIComponent(query);
 }
 
