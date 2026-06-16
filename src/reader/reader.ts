@@ -1,30 +1,21 @@
 import {fetchMeta, imageUrl} from '../hitomi/hitomi';
 import {cleanDocument} from "../shared/shell";
 
-async function applySrc(files: { hash: string; name: string; width: number; height: number }[], gid: number, restoreHash: string) {
+const setSrc = (i: number, src: string) => {
+    const img = document.getElementById(`#${i}`) as HTMLImageElement;
+    if (img) img.src = src;
+};
+
+async function applyImageSources(files: { hash: string; name: string; width: number; height: number }[], gid: number, restoreHash: string) {
     const promises = files.map((_, i) => imageUrl(gid, i));
 
-    const prevIndex = Number(restoreHash.split("#")[1]) - 1;
-    const currIndex = Number(restoreHash.split("#")[1]);
-    promises[currIndex].then(src => {
-        const img = document.getElementById(`#${currIndex}`) as HTMLImageElement;
-        img.src = src;
-    });
-    if (prevIndex>=0) {
-        promises[prevIndex].then(src => {
-            const img = document.getElementById(`#${prevIndex}`) as HTMLImageElement;
-            img.src = src;
-        });
-    }
+    const currIndex = Number(restoreHash.slice(1));
+    promises[currIndex]?.then(src => setSrc(currIndex, src));
+    const prevIndex = currIndex - 1;
+    if (prevIndex >= 0) promises[prevIndex]?.then(src => setSrc(prevIndex, src));
 
-    const sources = await Promise.all(
-        files.map((_, index) => imageUrl(gid, index))
-    );
-
-    sources.forEach((source, index) => {
-        const img = document.getElementById(`#${index}`) as HTMLImageElement;
-        img.src = source;
-    });
+    const sources = await Promise.all(promises);
+    sources.forEach((source, i) => setSrc(i, source));
 }
 
 export async function open(gid: number, restoreHash: string): Promise<void> {
@@ -44,7 +35,7 @@ export async function open(gid: number, restoreHash: string): Promise<void> {
     const maxST = document.documentElement.scrollHeight - window.innerHeight;
     window.scrollTo(0, Math.max(0, Math.min(maxST, restoreImg.offsetTop - window.innerHeight / 2)));
 
-    await applySrc(files, gid, restoreHash);
+    await applyImageSources(files, gid, restoreHash);
 
     window.addEventListener('scrollend', () => {
         setTimeout(() => {
