@@ -4,7 +4,7 @@ body {
     margin: 0;
     font-family: 'SF Pro Display', 'SF Pro Text', -apple-system, sans-serif;
     font-size: 16px;
-    overflow: visible !important;
+    overflow: visible !important; /* fighting the site */
 }
 html {
     scroll-behavior: auto;
@@ -12,7 +12,7 @@ html {
 
 /* === Header / Search === */
 #hs-wrap {
-    width: 100% !important;
+    width: 100% !important; /* fighting the site */
     display: flex;
     align-items: center;
     gap: 8px;
@@ -43,7 +43,7 @@ html {
     margin: 5px 0 0 0;
     padding: 0;
     width: 100%;
-    z-index: 99999;
+    z-index: 1;
     list-style: none;
     outline: 1px solid #4488bb;
 }
@@ -83,7 +83,7 @@ html {
     font-size: 12px;
 }
 .selected {
-    background-color: #2a2a4a !important;
+    background-color: #2a2a4a !important;  /* fighting the site */
 }
 #search-button {
     display: none;

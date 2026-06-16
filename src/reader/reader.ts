@@ -1,7 +1,22 @@
 import {fetchMeta, imageUrl} from '../hitomi/hitomi';
 import {cleanDocument} from "../shared/shell";
 
-async function applySrc(files: { hash: string; name: string; width: number; height: number }[], gid: number) {
+async function applySrc(files: { hash: string; name: string; width: number; height: number }[], gid: number, restoreHash: string) {
+    const promises = files.map((_, i) => imageUrl(gid, i));
+
+    const prevIndex = Number(restoreHash.split("#")[1]) - 1;
+    const currIndex = Number(restoreHash.split("#")[1]);
+    promises[currIndex].then(src => {
+        const img = document.getElementById(`#${currIndex}`) as HTMLImageElement;
+        img.src = src;
+    });
+    if (prevIndex>=0) {
+        promises[prevIndex].then(src => {
+            const img = document.getElementById(`#${prevIndex}`) as HTMLImageElement;
+            img.src = src;
+        });
+    }
+
     const sources = await Promise.all(
         files.map((_, index) => imageUrl(gid, index))
     );
@@ -29,7 +44,7 @@ export async function open(gid: number, restoreHash: string): Promise<void> {
     const maxST = document.documentElement.scrollHeight - window.innerHeight;
     window.scrollTo(0, Math.max(0, Math.min(maxST, restoreImg.offsetTop - window.innerHeight / 2)));
 
-    await applySrc(files, gid);
+    await applySrc(files, gid, restoreHash);
 
     window.addEventListener('scrollend', () => {
         setTimeout(() => {

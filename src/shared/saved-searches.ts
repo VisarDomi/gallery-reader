@@ -107,7 +107,3 @@ export function setupSavedSearches(): void {
 
     render();
 }
-
-export function getGrid(): HTMLDivElement {
-    return document.getElementById('hs-grid') as HTMLDivElement;
-}

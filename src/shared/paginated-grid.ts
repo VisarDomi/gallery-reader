@@ -1,4 +1,3 @@
-import {getGrid} from './saved-searches';
 import {renderGridRows} from '../gallery-row/render-grid';
 import {renderInfoBar, renderPaginationBar, type PageInfo} from '../search-page/pagination';
 
@@ -21,14 +20,13 @@ export function renderPaginatedGrid(
         totalPages,
     };
 
-    const grid = getGrid();
-
+    const grid = document.getElementById('hs-grid') as HTMLDivElement;
     grid.parentNode?.querySelectorAll('.hs-page-bar').forEach(el => el.remove());
 
     renderInfoBar(pageInfo, grid);
     renderGridRows(grid, pageIds);
     renderPaginationBar(pageInfo, onPageChange, grid);
-    document.getElementById('hs-grid')?.scrollIntoView();
+    grid.scrollIntoView();
 
     return pageInfo;
 }

@@ -8,66 +8,39 @@ function getPage(): number {
     return m ? parseInt(m[1]) : 1;
 }
 
-function parseTerms(query: string): { positive: string[]; negative: string[]; orGroups: string[][] } {
-    const terms = query.split(/\s+/).filter(t => t);
+function syncInputFromUrl(query: string): void {
+    const input = document.getElementById('query-input') as HTMLInputElement;
+    if (input && query) input.value = query;
+}
+
+async function getIds(query: string): Promise<number[]> {
+    const terms = query.split(/\s+/).filter(Boolean);
+
     const positive: string[] = [];
     const negative: string[] = [];
-    const orGroups: string[][] = [];
-    let currentOrGroup: string[] | null = null;
 
-    for (let i = 0; i < terms.length; i++) {
-        const t = terms[i];
-        if (t === 'or') continue;
-        if (t.startsWith('-')) {
-            negative.push(t.slice(1));
-            currentOrGroup = null;
-            continue;
-        }
-        const prevOr = i > 0 && terms[i - 1] === 'or';
-        const nextOr = i + 1 < terms.length && terms[i + 1] === 'or';
-        if (prevOr || nextOr) {
-            if (!currentOrGroup) { currentOrGroup = []; orGroups.push(currentOrGroup); }
-            currentOrGroup.push(t);
+    for (const term of terms) {
+        if (term.startsWith('-')) {
+            negative.push(term.slice(1));
         } else {
-            positive.push(t);
-            currentOrGroup = null;
+            positive.push(term);
         }
     }
 
-    return { positive, negative, orGroups };
-}
-
-function syncInputFromUrl(query: string): void {
-   const input = document.getElementById('query-input') as HTMLInputElement;
-   if (input && query) input.value = query;
-}
-
-async function getIds(query: string) {
-    const { positive, negative, orGroups } = parseTerms(query);
     let idSet: Set<number> | null = null;
-    if (positive.length > 0) {
-        for (const tag of positive) {
-            const ids = await searchGalleries(tag);
-            if (idSet === null) {
-                idSet = new Set(ids);
-            } else {
-                idSet = new Set(ids.filter(id => idSet!.has(id)));
-            }
+
+    for (const tag of positive) {
+        const ids = await searchGalleries(tag);
+
+        if (idSet === null) {
+            idSet = new Set(ids);
+        } else {
+            idSet = new Set(ids.filter(id => idSet!.has(id)));
         }
     }
-    if (!idSet) idSet = new Set(await searchGalleries('language:japanese'));
 
-    for (const group of orGroups) {
-        let groupSet: Set<number> | null = null;
-        for (const tag of group) {
-            const ids = await searchGalleries(tag);
-            if (groupSet === null) {
-                groupSet = new Set(ids);
-            } else {
-                for (const id of ids) groupSet.add(id);
-            }
-        }
-        if (groupSet) idSet = new Set([...idSet].filter(id => groupSet!.has(id)));
+    if (!idSet) {
+        idSet = new Set(await searchGalleries('language:japanese'));
     }
 
     for (const tag of negative) {
@@ -89,7 +62,7 @@ function renderPage(ids: number[], page: number, query: string): void {
     );
 
     const hash = '#' + pageInfo.currentPage;
-    if (window.location.hash !== hash) history.replaceState(null, '', hash);
+    history.replaceState(null, '', hash);
     saveSearch(query, pageInfo.currentPage);
 }
 

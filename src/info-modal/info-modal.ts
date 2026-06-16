@@ -1,5 +1,4 @@
-import {fetchMeta, type HitomiMeta} from '../hitomi/hitomi';
-
+import {fetchMeta} from '../hitomi/hitomi';
 
 function escapeHTML(text: string): string {
     const div = document.createElement('div');
@@ -33,8 +32,7 @@ export async function show(gid: number): Promise<void> {
     overlay.appendChild(content);
     document.body.appendChild(overlay);
 
-
-    let meta: HitomiMeta;
+    let meta;
     try {
         meta = await fetchMeta(gid);
     } catch {

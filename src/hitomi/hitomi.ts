@@ -34,7 +34,7 @@ export async function parseGG(): Promise<{ multiplierMap: Record<number, number>
     return ggCache;
 }
 
-export interface HitomiMeta {
+interface HitomiMeta {
     title: string;
     title_jpn: string;
     type: string;
@@ -51,17 +51,7 @@ export interface HitomiMeta {
     gallery_id: number;
 }
 
-const metaCache = new Map<number, Promise<HitomiMeta>>();
-
-export function fetchMeta(gid: number): Promise<HitomiMeta> {
-    const cached = metaCache.get(gid);
-    if (cached) return cached;
-    const promise = _fetchMeta(gid);
-    metaCache.set(gid, promise);
-    return promise;
-}
-
-async function _fetchMeta(gid: number): Promise<HitomiMeta> {
+export async function fetchMeta(gid: number): Promise<HitomiMeta> {
     const text = await fetchText(METADATA_URL(gid), `https://hitomi.la/reader/${gid}.html`);
     const raw = JSON.parse(text.split('=')[1].trim().replace(/;$/, ''));
     return {
