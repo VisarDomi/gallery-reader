@@ -1,22 +1,43 @@
 import {fetchMeta} from '../hitomi/hitomi';
 
-function escapeHTML(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+function link(ns: string, val: string, display: string, lang: string, className = 'hs-modal-value-link'): HTMLSpanElement {
+    const el = document.createElement('span');
+    el.className = className;
+    el.textContent = display;
+    el.onclick = () => {
+        let q = ns + ':' + val.replace(/ /g, '_');
+        if (lang && ns !== 'language') q += ' language:' + lang;
+        window.location.href = 'https://hitomi.la/search.html?' + encodeURIComponent(q);
+    };
+    return el;
 }
 
-function handleSearchClick(e: MouseEvent): void {
-    const target = e.target as HTMLElement | null;
-    const btn = target?.closest<HTMLElement>('[data-hs-ns][data-hs-val]');
-    if (!btn) return;
-    const ns = btn.dataset.hsNs;
-    const val = btn.dataset.hsVal;
-    if (!ns || !val) return;
-    let query = ns + ':' + val.replace(/ /g, '_');
-    const lang = (btn.closest('.hs-modal-body') as HTMLElement)?.dataset.hsLang;
-    if (lang && ns !== 'language') query += ' language:' + lang;
-    window.location.href = 'https://hitomi.la/search.html?' + encodeURIComponent(query);
+function row(label: string): { div: HTMLDivElement; val: HTMLSpanElement } {
+    const div = document.createElement('div');
+    div.className = 'hs-modal-row';
+    const lbl = document.createElement('span');
+    lbl.className = 'hs-modal-label';
+    lbl.textContent = label;
+    div.appendChild(lbl);
+    const val = document.createElement('span');
+    val.className = 'hs-modal-value';
+    div.appendChild(val);
+    return { div, val };
+}
+
+function linkRow(label: string, ns: string, items: string[], lang: string): HTMLDivElement {
+    const { div, val } = row(label);
+    for (let i = 0; i < items.length; i++) {
+        if (i > 0) val.append(', ');
+        val.appendChild(link(ns, items[i], items[i], lang));
+    }
+    return div;
+}
+
+function textRow(label: string, text: string): HTMLDivElement {
+    const { div, val } = row(label);
+    val.textContent = text;
+    return div;
 }
 
 export async function show(gid: number): Promise<void> {
@@ -26,8 +47,6 @@ export async function show(gid: number): Promise<void> {
 
     const content = document.createElement('div');
     content.className = 'hs-modal-content';
-
-    // Loading state
     content.innerHTML = '<div class="hs-modal-body hs-modal-body-loading">Loading...</div>';
     overlay.appendChild(content);
     document.body.appendChild(overlay);
@@ -40,87 +59,58 @@ export async function show(gid: number): Promise<void> {
         return;
     }
 
-    let html = '<div class="hs-modal-header">';
-    if (meta.title_jpn) html += '<h2>' + escapeHTML(meta.title_jpn) + '</h2>';
-    html += '<h2>' + escapeHTML(meta.title) + '</h2></div>';
+    const lang = meta.language;
 
-    html += '<div class="hs-modal-body">';
+    const header = document.createElement('div');
+    header.className = 'hs-modal-header';
+    if (meta.title_jpn) {
+        const h = document.createElement('h2');
+        h.textContent = meta.title_jpn;
+        header.appendChild(h);
+    }
+    const h2 = document.createElement('h2');
+    h2.textContent = meta.title;
+    header.appendChild(h2);
 
-    if (meta.artists.length > 0) {
-        html += '<div class="hs-modal-row"><span class="hs-modal-label">Artist</span><span class="hs-modal-value">';
-        for (let i = 0; i < meta.artists.length; i++) {
-            if (i > 0) html += ', ';
-            html += '<span class="hs-modal-value-link" data-hs-ns="artist" data-hs-val="' + escapeHTML(meta.artists[i]) + '">' + escapeHTML(meta.artists[i]) + '</span>';
+    const body = document.createElement('div');
+    body.className = 'hs-modal-body';
+
+    if (meta.artists.length) body.appendChild(linkRow('Artist', 'artist', meta.artists, lang));
+    if (meta.groups.length) body.appendChild(linkRow('Group', 'group', meta.groups, lang));
+    if (meta.parody.length) body.appendChild(linkRow('Series', 'series', meta.parody, lang));
+    if (meta.type) body.appendChild(linkRow('Type', 'type', [meta.type], lang));
+    if (meta.characters.length) body.appendChild(linkRow('Characters', 'character', meta.characters, lang));
+    if (meta.language) body.appendChild(linkRow('Language', 'language', [meta.language], lang));
+    body.appendChild(textRow('Pages', String(meta.files.length)));
+    if (meta.date) body.appendChild(textRow('Date', meta.date));
+
+    if (meta.tags.length) {
+        const tagsRow = document.createElement('div');
+        tagsRow.className = 'hs-modal-row hs-modal-row-tags';
+        const tagsLabel = document.createElement('div');
+        tagsLabel.className = 'hs-modal-label hs-modal-label-tags';
+        tagsLabel.textContent = 'Tags';
+        tagsRow.appendChild(tagsLabel);
+        const cloud = document.createElement('div');
+        cloud.className = 'hs-tag-cloud';
+        for (const t of meta.tags) {
+            const display = (t.female ? 'female:' : t.male ? 'male:' : '') + t.tag;
+            cloud.appendChild(link(t.female ? 'female' : t.male ? 'male' : 'tag', t.tag, display, lang, 'hs-tag-chip'));
         }
-        html += '</span></div>';
+        tagsRow.appendChild(cloud);
+        body.appendChild(tagsRow);
     }
 
-    if (meta.groups.length > 0) {
-        html += '<div class="hs-modal-row"><span class="hs-modal-label">Group</span><span class="hs-modal-value">';
-        for (let i = 0; i < meta.groups.length; i++) {
-            if (i > 0) html += ', ';
-            html += '<span class="hs-modal-value-link" data-hs-ns="group" data-hs-val="' + escapeHTML(meta.groups[i]) + '">' + escapeHTML(meta.groups[i]) + '</span>';
-        }
-        html += '</span></div>';
-    }
+    const footer = document.createElement('div');
+    footer.className = 'hs-modal-footer';
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'hs-modal-ok-btn';
+    closeBtn.textContent = 'Close';
+    closeBtn.onclick = () => overlay.remove();
+    footer.appendChild(closeBtn);
 
-    if (meta.parody.length > 0) {
-        html += '<div class="hs-modal-row"><span class="hs-modal-label">Series</span><span class="hs-modal-value">';
-        for (let i = 0; i < meta.parody.length; i++) {
-            if (i > 0) html += ', ';
-            html += '<span class="hs-modal-value-link" data-hs-ns="series" data-hs-val="' + escapeHTML(meta.parody[i]) + '">' + escapeHTML(meta.parody[i]) + '</span>';
-        }
-        html += '</span></div>';
-    }
-
-    if (meta.type) {
-        html += '<div class="hs-modal-row"><span class="hs-modal-label">Type</span><span class="hs-modal-value">';
-        html += '<span class="hs-modal-value-link" data-hs-ns="type" data-hs-val="' + escapeHTML(meta.type) + '">' + escapeHTML(meta.type) + '</span>';
-        html += '</span></div>';
-    }
-
-    if (meta.characters.length > 0) {
-        html += '<div class="hs-modal-row"><span class="hs-modal-label">Characters</span><span class="hs-modal-value">';
-        for (let i = 0; i < meta.characters.length; i++) {
-            if (i > 0) html += ', ';
-            html += '<span class="hs-modal-value-link" data-hs-ns="character" data-hs-val="' + escapeHTML(meta.characters[i]) + '">' + escapeHTML(meta.characters[i]) + '</span>';
-        }
-        html += '</span></div>';
-    }
-
-    if (meta.language) {
-        html += '<div class="hs-modal-row"><span class="hs-modal-label">Language</span><span class="hs-modal-value">';
-        html += '<span class="hs-modal-value-link" data-hs-ns="language" data-hs-val="' + escapeHTML(meta.language) + '">' + escapeHTML(meta.language) + '</span>';
-        html += '</span></div>';
-    }
-    html += '<div class="hs-modal-row"><span class="hs-modal-label">Pages</span><span class="hs-modal-value">' + meta.files.length + '</span></div>';
-
-    if (meta.date) {
-        html += '<div class="hs-modal-row"><span class="hs-modal-label">Date</span><span class="hs-modal-value">' + escapeHTML(meta.date) + '</span></div>';
-    }
-
-    if (meta.tags.length > 0) {
-        html += '<div class="hs-modal-row hs-modal-row-tags"><div class="hs-modal-label hs-modal-label-tags">Tags</div><div class="hs-tag-cloud">';
-        for (let i = 0; i < meta.tags.length; i++) {
-            const t = meta.tags[i];
-            const fullTag = (t.female ? 'female:' : t.male ? 'male:' : '') + t.tag;
-            html += '<span class="hs-tag-chip" data-hs-ns="' + (t.female ? 'female' : t.male ? 'male' : 'tag') + '" data-hs-val="' + escapeHTML(t.tag) + '">' + escapeHTML(fullTag) + '</span>';
-        }
-        html += '</div></div>';
-    }
-
-    html += '</div>'; // body
-
-    html += '<div class="hs-modal-footer"><button class="hs-modal-ok-btn">Close</button></div>';
-
-    content.innerHTML = html;
-
-    // Wire up close button
-    const okBtn = content.querySelector('.hs-modal-ok-btn') as HTMLButtonElement;
-    okBtn.onclick = () => overlay.remove();
-
-    // Wire up search clicks on the body
-    const bodyEl = content.querySelector('.hs-modal-body') as HTMLElement;
-    if (meta.language) bodyEl.dataset.hsLang = meta.language;
-    bodyEl.onclick = handleSearchClick;
+    content.innerHTML = '';
+    content.appendChild(header);
+    content.appendChild(body);
+    content.appendChild(footer);
 }

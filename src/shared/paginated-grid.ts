@@ -20,8 +20,8 @@ export function renderPaginatedGrid(
         totalPages,
     };
 
+    document.querySelectorAll('.hs-page-bar').forEach(el => el.remove());
     const grid = document.getElementById('hs-grid') as HTMLDivElement;
-    grid.parentNode?.querySelectorAll('.hs-page-bar').forEach(el => el.remove());
 
     renderInfoBar(pageInfo, grid);
     renderGridRows(grid, pageIds);

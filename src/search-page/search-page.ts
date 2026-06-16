@@ -1,4 +1,4 @@
-import {setupSavedSearches, saveSearch} from '../shared/saved-searches';
+import {saveSearch} from '../shared/saved-searches';
 import {searchGalleries} from '../hitomi/hitomi';
 import {initShell} from '../shared/shell';
 import {renderPaginatedGrid} from "../shared/paginated-grid";
@@ -68,7 +68,6 @@ function renderPage(ids: number[], page: number, query: string): void {
 
 export async function init(): Promise<void> {
     await initShell();
-    setupSavedSearches();
     const query = decodeURIComponent(window.location.search.replace(/^\?/, ''));
     syncInputFromUrl(query);
     window.addEventListener('pagereveal', () => syncInputFromUrl(query)); // ios bfcache

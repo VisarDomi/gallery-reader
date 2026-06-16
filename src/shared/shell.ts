@@ -1,5 +1,6 @@
 import cssContent from '../css/style.css?inline';
 import {setupDebug} from "../debug";
+import {render, saveSearch} from "./saved-searches";
 
 const SEARCH_DOMAIN = 'ltn.gold-usergeneratedcontent.net';
 
@@ -50,6 +51,22 @@ function buildSearchHeader(): void {
     document.body.appendChild(header);
 }
 
+function buildSavedSearches(): void {
+    const container = document.createElement('div');
+    container.className = 'hs-saved-searches';
+    const header = document.getElementById('hs-wrap') as HTMLDivElement;
+    header.insertAdjacentElement('afterend', container);
+    const input = document.getElementById('query-input') as HTMLTextAreaElement;
+    input.onkeydown = function (e) {
+        if (e.key === 'Enter') {
+            const val = input.value.trim();
+            if (val) saveSearch(val);
+        }
+    };
+
+    render();
+}
+
 // ── grid placeholder ──────────────────────────────────────────────
 function buildGridPlaceholder(): void {
     const grid = document.createElement('div');
@@ -84,7 +101,7 @@ async function loadSiteScripts(): Promise<void> {
 
 // ── dropdown selection (replaces broken jQuery .bind() handler) ────
 function setupDropdownHandler(): void {
-    const sugg = document.getElementById('search-suggestions')!;
+    const sugg = document.getElementById('search-suggestions') as HTMLElement;
     sugg.addEventListener('click', (e) => {
         const a = (e.target as Element).closest<HTMLAnchorElement>('a.search-suggestion_string');
         if (!a) return;
@@ -139,6 +156,7 @@ function startAdBlocker(): void {
 export async function initShell(): Promise<void> {
     cleanDocument();
     buildSearchHeader();
+    buildSavedSearches()
     buildGridPlaceholder();
     await loadSiteScripts();
     setupDropdownHandler();

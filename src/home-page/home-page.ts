@@ -1,4 +1,3 @@
-import {setupSavedSearches} from '../shared/saved-searches';
 import {getAllFavs} from '../hitomi/db';
 import {initShell} from '../shared/shell';
 import {renderPaginatedGrid} from "../shared/paginated-grid";
@@ -32,7 +31,6 @@ function renderPage(ids: number[], page: number): void {
 
 export async function init(): Promise<void> {
     await initShell();
-    setupSavedSearches();
     const ids = await getAllFavs()
     if (ids.length === 0) return;
     renderPage(ids, getPage());

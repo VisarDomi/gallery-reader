@@ -3,7 +3,7 @@ import {cleanDocument} from "../shared/shell";
 
 const setSrc = (i: number, src: string) => {
     const img = document.getElementById(`#${i}`) as HTMLImageElement;
-    if (img) img.src = src;
+    img.src = src;
 };
 
 async function applyImageSources(files: { hash: string; name: string; width: number; height: number }[], gid: number, restoreHash: string) {
