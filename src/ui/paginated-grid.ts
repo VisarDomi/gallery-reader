@@ -1,5 +1,5 @@
-import {createSkeletonRow, populateRow} from "../gallery-row/gallery-row";
-import {fetchMeta} from "../hitomi/hitomi";
+import {createSkeletonRow, populateRow} from "./gallery-row";
+import {fetchMeta} from "../api/hitomi";
 
 interface PageInfo {
     totalCount: string;
@@ -44,7 +44,7 @@ function renderInfoBar(info: PageInfo, grid: HTMLElement): void {
     if (grid.parentNode) grid.parentNode.insertBefore(el, grid);
 }
 
-export function renderPaginationBar(
+function renderPaginationBar(
     info: PageInfo,
     onPage: (page: number) => void,
     grid: HTMLElement,
@@ -78,7 +78,6 @@ export function renderPaginationBar(
 
     if (grid.parentNode) grid.parentNode.insertBefore(pag, grid.nextSibling);
 }
-
 
 export function renderGridRows(grid: HTMLElement, ids: number[]): void {
     grid.innerHTML = '';

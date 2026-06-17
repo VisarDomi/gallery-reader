@@ -1,5 +1,5 @@
-import {fetchMeta, imageUrl} from '../hitomi/hitomi';
-import {cleanDocument} from "../shared/shell";
+import {fetchMeta, imageUrl} from '../api/hitomi';
+import {cleanDocument} from "../ui/shell";
 
 const setSrc = (i: number, src: string) => {
     const img = document.getElementById(`#${i}`) as HTMLImageElement;
@@ -10,9 +10,11 @@ async function applyImageSources(files: { hash: string; name: string; width: num
     const promises = files.map((_, i) => imageUrl(gid, i));
 
     const currIndex = Number(restoreHash.slice(1));
-    promises[currIndex]?.then(src => setSrc(currIndex, src));
+    promises[currIndex].then(src => setSrc(currIndex, src));
     const prevIndex = currIndex - 1;
-    if (prevIndex >= 0) promises[prevIndex]?.then(src => setSrc(prevIndex, src));
+    if (prevIndex >= 0) promises[prevIndex].then(src => setSrc(prevIndex, src));
+    const nextIndex = currIndex + 1;
+    if (nextIndex < files.length) promises[nextIndex].then(src => setSrc(nextIndex, src));
 
     const sources = await Promise.all(promises);
     sources.forEach((source, i) => setSrc(i, source));

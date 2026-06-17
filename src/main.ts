@@ -1,6 +1,6 @@
-import { init as initHome } from './home-page/home-page';
-import { init as initSearch } from './search-page/search-page';
-import { open } from './reader/reader';
+import { init as initHome } from './routes/home';
+import { init as initSearch } from './routes/search';
+import { open } from './routes/reader';
 
 const searchPrefixes = [
     '/search.html',

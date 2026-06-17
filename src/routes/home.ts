@@ -1,6 +1,6 @@
-import {getAllFavs} from '../hitomi/db';
-import {initShell} from '../shared/shell';
-import {renderPaginatedGrid} from "../shared/paginated-grid";
+import {getAllFavs} from '../api/db';
+import {initShell} from '../ui/shell';
+import {renderPaginatedGrid} from "../ui/paginated-grid";
 
 const STORAGE_KEY = 'hitomi_favs_page';
 const COUNT_KEY = ' Favorites';

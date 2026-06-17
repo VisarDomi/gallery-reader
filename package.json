@@ -1,6 +1,6 @@
 {
   "name": "hitomi",
-  "version": "339",
+  "version": "340",
   "description": "Hitomi/Exhentai gallery browser with OCR support",
   "type": "module",
   "scripts": {

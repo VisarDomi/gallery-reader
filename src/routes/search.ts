@@ -1,7 +1,9 @@
-import {saveSearch} from '../shared/saved-searches';
-import {searchGalleries} from '../hitomi/hitomi';
-import {initShell} from '../shared/shell';
-import {renderPaginatedGrid} from "../shared/paginated-grid";
+import {saveSearch} from '../ui/saved-searches';
+import {searchGalleries} from '../api/hitomi';
+import {initShell} from '../ui/shell';
+import {renderPaginatedGrid} from "../ui/paginated-grid";
+
+const COUNT_KEY = ' Results';
 
 function getPage(): number {
     const m = window.location.hash.match(/#(\d+)/);
@@ -10,7 +12,7 @@ function getPage(): number {
 
 function syncInputFromUrl(query: string): void {
     const input = document.getElementById('query-input') as HTMLInputElement;
-    if (input && query) input.value = query;
+    input.value = query;
 }
 
 async function getIds(query: string): Promise<number[]> {
@@ -50,8 +52,6 @@ async function getIds(query: string): Promise<number[]> {
 
     return [...idSet];
 }
-
-const COUNT_KEY = ' Results';
 
 function renderPage(ids: number[], page: number, query: string): void {
     const pageInfo = renderPaginatedGrid(
