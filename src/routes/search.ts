@@ -7,11 +7,6 @@ import {render} from "../ui/saved-searches";
 
 const COUNT_KEY = ' Results';
 
-function getPage(): number {
-    const m = window.location.hash.match(/#(\d+)/);
-    return m ? parseInt(m[1]) : 1;
-}
-
 function syncInputFromUrl(query: string): void {
     const input = document.getElementById('query-input') as HTMLInputElement;
     input.value = query;
@@ -52,12 +47,10 @@ function renderPage(ids: number[], page: number, query: string): void {
     saveSearch(query, pageInfo.currentPage, render);
 }
 
-export async function init(): Promise<void> {
+export async function init(query: string, page: number): Promise<void> {
     await initShell();
-    const query = decodeURIComponent(window.location.search.replace(/^\?/, ''));
     syncInputFromUrl(query);
     window.addEventListener('pagereveal', () => syncInputFromUrl(query)); // ios bfcache
     const ids = await getIds(query);
-    renderPage(ids, getPage(), query);
-    window.addEventListener('hashchange', () => renderPage(ids, getPage(), query)); // pagination
+    renderPage(ids, page, query);
 }

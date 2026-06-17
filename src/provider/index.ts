@@ -1,39 +1,27 @@
-// ── shared types ──────────────────────────────────────────────────────
+export { Handler } from './types';
+export type { GalleryMeta, Provider, RouteMatch } from './types';
 
-export interface GalleryMeta {
-    title: string;
-    title_jpn: string;
-    type: string;
-    language: string;
-    date: string;
-    artists: string[];
-    groups: string[];
-    parody: string[];
-    characters: string[];
-    tags: { tag: string; female?: string; male?: string }[];
-    files: { hash: string; name: string; width: number; height: number }[];
+import type { Provider } from './types';
+import { provider as hitomi } from './hitomi';
+
+export const providers = { hitomi } as const;
+export type ProviderName = keyof typeof providers;
+
+let p: Provider = hitomi;
+
+export function init(which: ProviderName): void {
+    p = providers[which];
 }
 
-export interface Provider {
-    readonly itemsPerPage: number;
-    readonly searchDomain: string | null;
-    readerUrl(gid: number, index?: number): string;
-    searchUrl(query: string): string;
-    thumbUrl(file: { hash: string }): string;
-    imageUrl(gid: number, pageIndex: number): Promise<string>;
-    fetchMeta(gid: number): Promise<GalleryMeta>;
-    searchGalleries(term: string): Promise<number[]>;
-}
+// ── lazy forwarders ──────────────────────────────────────────────────
 
-// ── active provider ───────────────────────────────────────────────────
+export const fetchMeta = (gid: number) => p.fetchMeta(gid);
+export const thumbUrl = (file: { hash: string }) => p.thumbUrl(file);
+export const imageUrl = (gid: number, pageIndex: number) => p.imageUrl(gid, pageIndex);
+export const searchGalleries = (term: string) => p.searchGalleries(term);
+export const readerUrl = (gid: number, index?: number) => p.readerUrl(gid, index);
+export const searchUrl = (query: string) => p.searchUrl(query);
 
-export {
-    itemsPerPage,
-    searchDomain,
-    readerUrl,
-    searchUrl,
-    thumbUrl,
-    imageUrl,
-    fetchMeta,
-    searchGalleries,
-} from './hitomi';
+// Constants become getter functions so the value tracks the active provider
+export const initProvider = () => p.init();
+export const itemsPerPage = () => p.itemsPerPage;

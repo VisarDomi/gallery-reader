@@ -13,10 +13,10 @@ export function renderPaginatedGrid(
     countLabel: string,
     onPageChange: (page: number) => void,
 ): PageInfo {
-    const totalPages = Math.max(1, Math.ceil(ids.length / itemsPerPage));
+    const totalPages = Math.max(1, Math.ceil(ids.length / itemsPerPage()));
     const currentPage = Math.min(page, totalPages);
-    const start = (currentPage - 1) * itemsPerPage;
-    const pageIds = ids.slice(start, start + itemsPerPage);
+    const start = (currentPage - 1) * itemsPerPage();
+    const pageIds = ids.slice(start, start + itemsPerPage());
 
     const pageInfo: PageInfo = {
         totalCount: String(ids.length) + countLabel,

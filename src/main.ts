@@ -1,23 +1,26 @@
+import { providers, init, Handler } from './provider';
+import type { ProviderName } from './provider';
 import { init as initHome } from './routes/home';
 import { init as initSearch } from './routes/search';
 import { open } from './routes/reader';
 
-const searchPrefixes = [
-    '/search.html',
-    '/tag/',
-    '/artist/',
-    '/group/',
-    '/series/',
-    '/character/',
-    '/type/',
-];
+const { pathname, search, hash } = window.location;
 
-const path = window.location.pathname;
-if (path === '/' || path.startsWith('/index')) {
-    void initHome();
-} else if (searchPrefixes.some(prefix => path.startsWith(prefix))) {
-    void initSearch();
-} else if (path.startsWith('/reader/')) {
-    const id = Number(path.slice('/reader/'.length, -'.html'.length));
-    void open(id, window.location.hash);
+for (const name of Object.keys(providers) as ProviderName[]) {
+    const match = providers[name].matchRoute(pathname, search, hash);
+    if (match) {
+        init(name);
+        switch (match.handler) {
+            case Handler.Home:
+                void initHome();
+                break;
+            case Handler.Search:
+                void initSearch(match.query, match.page);
+                break;
+            case Handler.Reader:
+                void open(match.gid, match.hash);
+                break;
+        }
+        break;
+    }
 }
