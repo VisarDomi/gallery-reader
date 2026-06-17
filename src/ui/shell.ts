@@ -1,6 +1,7 @@
 import cssContent from '../css/style.css?inline';
 import {setupDebug} from "../debug";
-import {render, saveSearch} from "./saved-searches";
+import {render} from "./saved-searches";
+import {saveSearch} from "../storage/localstorage";
 
 const SEARCH_DOMAIN = 'ltn.gold-usergeneratedcontent.net';
 
@@ -60,7 +61,7 @@ function buildSavedSearches(): void {
     input.onkeydown = function (e) {
         if (e.key === 'Enter') {
             const val = input.value.trim();
-            if (val) saveSearch(val);
+            if (val) saveSearch(val, 1, render);
         }
     };
 

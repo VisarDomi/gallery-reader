@@ -29,10 +29,6 @@ How reader looks like:
 
 Provider details for hitomi:
 1. search results are executed with an api, not scrapped from dom. after getting the full list of gallerids, we show the results of the correct page based on pagination and results per page which is 25.
-2. search capabilities:
-   - positive terms => intersection
-   - OR groups => union then intersection
-   - negative => subtraction
-3. thumbnails and reader images are resolved by an api call to the galleryid endpoint.
-4. we load the sites javascript to handle suggestions dropdown population.
-5. infomodal specific info we show for hitomi: artist,group,series,type,character,language,tag
+2. thumbnails and reader images are resolved by an api call to the galleryid endpoint.
+3. we load the sites javascript to handle suggestions dropdown population.
+4. infomodal specific info we show for hitomi: artist,group,series,type,character,language,tag

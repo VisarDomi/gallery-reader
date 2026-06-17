@@ -1,7 +1,9 @@
-import {saveSearch} from '../ui/saved-searches';
-import {searchGalleries} from '../api/hitomi';
+import {searchGalleries} from '../provider/hitomi';
 import {initShell} from '../ui/shell';
 import {renderPaginatedGrid} from "../ui/paginated-grid";
+import {parseQuery} from "../core/query-parser";
+import {saveSearch} from "../storage/localstorage";
+import {render} from "../ui/saved-searches";
 
 const COUNT_KEY = ' Results';
 
@@ -16,24 +18,12 @@ function syncInputFromUrl(query: string): void {
 }
 
 async function getIds(query: string): Promise<number[]> {
-    const terms = query.split(/\s+/).filter(Boolean);
-
-    const positive: string[] = [];
-    const negative: string[] = [];
-
-    for (const term of terms) {
-        if (term.startsWith('-')) {
-            negative.push(term.slice(1));
-        } else {
-            positive.push(term);
-        }
-    }
+    const { positive, negative } = parseQuery(query);
 
     let idSet: Set<number> | null = null;
 
     for (const tag of positive) {
         const ids = await searchGalleries(tag);
-
         if (idSet === null) {
             idSet = new Set(ids);
         } else {
@@ -41,16 +31,12 @@ async function getIds(query: string): Promise<number[]> {
         }
     }
 
-    if (!idSet) {
-        idSet = new Set(await searchGalleries('language:japanese'));
-    }
-
     for (const tag of negative) {
         const ids = new Set(await searchGalleries(tag));
-        idSet = new Set([...idSet].filter(id => !ids.has(id)));
+        idSet = new Set([...idSet!].filter(id => !ids.has(id)));
     }
 
-    return [...idSet];
+    return [...idSet!];
 }
 
 function renderPage(ids: number[], page: number, query: string): void {
@@ -63,7 +49,7 @@ function renderPage(ids: number[], page: number, query: string): void {
 
     const hash = '#' + pageInfo.currentPage;
     history.replaceState(null, '', hash);
-    saveSearch(query, pageInfo.currentPage);
+    saveSearch(query, pageInfo.currentPage, render);
 }
 
 export async function init(): Promise<void> {

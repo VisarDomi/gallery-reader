@@ -1,40 +1,6 @@
-const STORAGE_KEY = 'hitomi_saved_searches';
+import {loadSearches, removeSearch} from "../storage/localstorage";
+
 const VISIBLE_DEFAULT = 3;
-
-interface SavedSearch { query: string; page?: number }
-
-export function loadSearches(): SavedSearch[] {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) return parsed.filter(s => s && typeof s.query === 'string');
-        }
-    } catch {}
-    return [];
-}
-
-function saveSearches(searches: SavedSearch[]): void {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(searches));
-}
-
-export function saveSearch(query: string, page?: number): void {
-    const q = query.trim();
-    if (!q) return;
-    const searches = loadSearches();
-    const filtered = searches.filter(s => s.query !== q);
-    filtered.unshift({ query: q, page });
-    saveSearches(filtered);
-    render();
-}
-
-function removeSearch(query: string): void {
-    const searches = loadSearches().filter(s => s.query !== query);
-    saveSearches(searches);
-    render();
-}
-
-// ── UI ──────────────────────────────────────────────────────────────
 
 export function render(): void {
     const container = document.querySelector('.hs-saved-searches') as HTMLElement;
@@ -59,14 +25,12 @@ export function render(): void {
         x.textContent = '\u00D7';
         x.onclick = (e) => {
             e.stopPropagation();
-            removeSearch(s.query);
+            removeSearch(s.query, render);
         };
         chip.appendChild(x);
         chip.onclick = () => {
             input.value = s.query;
-            let url = 'https://hitomi.la/search.html?' + encodeURIComponent(s.query);
-            if (s.page && s.page > 1) url += '#' + s.page;
-            window.location.href = url;
+            window.location.href = 'https://hitomi.la/search.html?' + encodeURIComponent(s.query) + '#' + s.page;
         };
         container.appendChild(chip);
     }

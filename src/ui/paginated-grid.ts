@@ -1,13 +1,11 @@
 import {createSkeletonRow, populateRow} from "./gallery-row";
-import {fetchMeta} from "../api/hitomi";
+import {fetchMeta, HITOMI_ITEMS_PER_PAGE} from "../provider/hitomi";
 
 interface PageInfo {
     totalCount: string;
     currentPage: number;
     totalPages: number;
 }
-
-const HITOMI_ITEMS_PER_PAGE = 25;
 
 export function renderPaginatedGrid(
     ids: number[],
@@ -49,8 +47,6 @@ function renderPaginationBar(
     onPage: (page: number) => void,
     grid: HTMLElement,
 ): void {
-    if (info.totalPages <= 1) return;
-
     const pag = document.createElement('div');
     pag.className = 'hs-page-bar hs-page-bar-pag';
 

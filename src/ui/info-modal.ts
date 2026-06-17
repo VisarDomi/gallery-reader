@@ -1,4 +1,4 @@
-import {fetchMeta} from '../api/hitomi';
+import {fetchMeta} from '../provider/hitomi';
 
 function link(ns: string, val: string, display: string, lang: string, className = 'hs-modal-value-link'): HTMLSpanElement {
     const el = document.createElement('span');

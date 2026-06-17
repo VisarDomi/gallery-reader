@@ -1,3 +1,4 @@
+export const HITOMI_ITEMS_PER_PAGE = 25;
 const DOMAIN = 'gold-usergeneratedcontent.net';
 const GG_URL = `https://ltn.${DOMAIN}/gg.js`;
 const METADATA_URL = (gid: number) => `https://ltn.${DOMAIN}/galleries/${gid}.js`;

@@ -1,9 +1,12 @@
+const STORAGE_KEY = 'storage_favs';
+const OBJECT_STORE_NAME = 'favs';
+
 function openDB(): Promise<IDBDatabase> {
     const { promise, resolve, reject } = Promise.withResolvers<IDBDatabase>();
-    const req = indexedDB.open('hitomi_favs', 1);
+    const req = indexedDB.open(STORAGE_KEY, 1);
     req.onupgradeneeded = (e) => {
         const db = (e.target as IDBOpenDBRequest).result;
-        if (!db.objectStoreNames.contains('favs')) db.createObjectStore('favs', {keyPath: 'galleryId'});
+        if (!db.objectStoreNames.contains(OBJECT_STORE_NAME)) db.createObjectStore(OBJECT_STORE_NAME, {keyPath: 'id'});
     };
     req.onsuccess = (e) => resolve((e.target as IDBOpenDBRequest).result);
     req.onerror = () => reject(req.error);
@@ -13,8 +16,8 @@ function openDB(): Promise<IDBDatabase> {
 export async function toggleFav(gid: number): Promise<boolean> {
     const db = await openDB();
     const { promise, resolve } = Promise.withResolvers<boolean>();
-    const tx = db.transaction('favs', 'readwrite');
-    const store = tx.objectStore('favs');
+    const tx = db.transaction(OBJECT_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(OBJECT_STORE_NAME);
     store.get(gid).onsuccess = (e) => {
         if ((e.target as IDBRequest).result) {
             store.delete(gid);
@@ -30,14 +33,14 @@ export async function toggleFav(gid: number): Promise<boolean> {
 export async function isFav(gid: number): Promise<boolean> {
     const db = await openDB();
     const { promise, resolve } = Promise.withResolvers<boolean>();
-    db.transaction('favs', 'readonly').objectStore('favs').get(gid).onsuccess = (e) => resolve(!!(e.target as IDBRequest).result);
+    db.transaction(OBJECT_STORE_NAME, 'readonly').objectStore(OBJECT_STORE_NAME).get(gid).onsuccess = (e) => resolve(!!(e.target as IDBRequest).result);
     return promise;
 }
 
 export async function getAllFavs(): Promise<number[]> {
     const db = await openDB();
     const { promise, resolve } = Promise.withResolvers<number[]>();
-    db.transaction('favs', 'readonly').objectStore('favs').getAll().onsuccess = (e) => {
+    db.transaction(OBJECT_STORE_NAME, 'readonly').objectStore(OBJECT_STORE_NAME).getAll().onsuccess = (e) => {
         const items = (e.target as IDBRequest).result as { galleryId: number; savedAt: number }[];
         items.sort((a, b) => b.savedAt - a.savedAt);
         resolve(items.map(x => x.galleryId));

@@ -1,4 +1,4 @@
-import {getAllFavs} from '../api/db';
+import {getAllFavs} from '../storage/db';
 import {initShell} from '../ui/shell';
 import {renderPaginatedGrid} from "../ui/paginated-grid";
 

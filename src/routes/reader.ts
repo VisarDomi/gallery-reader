@@ -1,4 +1,4 @@
-import {fetchMeta, imageUrl} from '../api/hitomi';
+import {fetchMeta, imageUrl} from '../provider/hitomi';
 import {cleanDocument} from "../ui/shell";
 
 const setSrc = (i: number, src: string) => {
@@ -9,7 +9,7 @@ const setSrc = (i: number, src: string) => {
 async function applyImageSources(files: { hash: string; name: string; width: number; height: number }[], gid: number, restoreHash: string) {
     const promises = files.map((_, i) => imageUrl(gid, i));
 
-    const currIndex = Number(restoreHash.slice(1));
+    const currIndex = Number(restoreHash.split("#")[1]);
     promises[currIndex].then(src => setSrc(currIndex, src));
     const prevIndex = currIndex - 1;
     if (prevIndex >= 0) promises[prevIndex].then(src => setSrc(prevIndex, src));

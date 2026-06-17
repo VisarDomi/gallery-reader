@@ -1,5 +1,5 @@
-import {thumbUrl} from '../api/hitomi';
-import {isFav, toggleFav} from '../api/db';
+import {thumbUrl} from '../provider/hitomi';
+import {isFav, toggleFav} from '../storage/db';
 import {show as showInfo} from './info-modal';
 
 const SKELETON_HEIGHT = 300;
