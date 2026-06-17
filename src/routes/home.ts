@@ -1,4 +1,4 @@
-import {getAllFavs} from '../storage/db';
+import {preloadFavs} from '../storage/db';
 import {initShell} from '../ui/shell';
 import {renderPaginatedGrid} from "../ui/paginated-grid";
 import {getPage, savePage} from "../storage/localstorage";
@@ -18,7 +18,7 @@ function renderPage(ids: number[], page: number): void {
 
 export async function init(): Promise<void> {
     await initShell();
-    const ids = await getAllFavs()
+    const ids = await preloadFavs();
     if (ids.length === 0) return;
     renderPage(ids, getPage());
 }

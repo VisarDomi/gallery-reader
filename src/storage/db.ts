@@ -30,14 +30,15 @@ export async function toggleFav(gid: number): Promise<boolean> {
     return promise;
 }
 
+let favsPromise: Promise<number[]> | null = null;
+let favSet: Set<number> | null = null;
+
 export async function isFav(gid: number): Promise<boolean> {
-    const db = await openDB();
-    const { promise, resolve } = Promise.withResolvers<boolean>();
-    db.transaction(OBJECT_STORE_NAME, 'readonly').objectStore(OBJECT_STORE_NAME).get(gid).onsuccess = (e) => resolve(!!(e.target as IDBRequest).result);
-    return promise;
+    await preloadFavs();
+    return favSet!.has(gid);
 }
 
-export async function getAllFavs(): Promise<number[]> {
+async function getAllFavs(): Promise<number[]> {
     const db = await openDB();
     const { promise, resolve } = Promise.withResolvers<number[]>();
     db.transaction(OBJECT_STORE_NAME, 'readonly').objectStore(OBJECT_STORE_NAME).getAll().onsuccess = (e) => {
@@ -46,4 +47,9 @@ export async function getAllFavs(): Promise<number[]> {
         resolve(items.map(x => x.id));
     };
     return promise;
+}
+
+export function preloadFavs(): Promise<number[]> {
+    if (!favsPromise) favsPromise = getAllFavs().then(ids => { favSet = new Set(ids); return ids; });
+    return favsPromise;
 }

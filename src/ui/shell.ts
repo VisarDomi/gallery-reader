@@ -2,6 +2,7 @@ import cssContent from '../css/style.css?inline';
 import {setupDebug} from "../debug";
 import {render} from "./saved-searches";
 import {saveSearch} from "../storage/localstorage";
+import {preloadFavs} from "../storage/db";
 
 const SEARCH_DOMAIN = 'ltn.gold-usergeneratedcontent.net';
 
@@ -159,6 +160,7 @@ export async function initShell(): Promise<void> {
     buildSearchHeader();
     buildSavedSearches()
     buildGridPlaceholder();
+    void preloadFavs();
     await loadSiteScripts();
     setupDropdownHandler();
     startAdBlocker();
