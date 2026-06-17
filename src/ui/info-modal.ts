@@ -1,4 +1,4 @@
-import {fetchMeta} from '../provider/hitomi';
+import {fetchMeta, searchUrl} from '../provider';
 
 function link(ns: string, val: string, display: string, lang: string, className = 'hs-modal-value-link'): HTMLSpanElement {
     const el = document.createElement('span');
@@ -7,7 +7,7 @@ function link(ns: string, val: string, display: string, lang: string, className 
     el.onclick = () => {
         let q = ns + ':' + val.replace(/ /g, '_');
         if (lang && ns !== 'language') q += ' language:' + lang;
-        window.location.href = 'https://hitomi.la/search.html?' + encodeURIComponent(q);
+        window.location.href = searchUrl(q);
     };
     return el;
 }

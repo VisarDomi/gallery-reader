@@ -1,4 +1,5 @@
 import {loadSearches, removeSearch} from "../storage/localstorage";
+import {searchUrl} from "../provider";
 
 const VISIBLE_DEFAULT = 3;
 
@@ -30,7 +31,7 @@ export function render(): void {
         chip.appendChild(x);
         chip.onclick = () => {
             input.value = s.query;
-            window.location.href = 'https://hitomi.la/search.html?' + encodeURIComponent(s.query) + '#' + s.page;
+            window.location.href = searchUrl(s.query) + '#' + s.page;
         };
         container.appendChild(chip);
     }

@@ -1,5 +1,5 @@
 import {createSkeletonRow, populateRow} from "./gallery-row";
-import {fetchMeta, HITOMI_ITEMS_PER_PAGE} from "../provider/hitomi";
+import {fetchMeta, itemsPerPage} from "../provider";
 
 interface PageInfo {
     totalCount: string;
@@ -13,10 +13,10 @@ export function renderPaginatedGrid(
     countLabel: string,
     onPageChange: (page: number) => void,
 ): PageInfo {
-    const totalPages = Math.max(1, Math.ceil(ids.length / HITOMI_ITEMS_PER_PAGE));
+    const totalPages = Math.max(1, Math.ceil(ids.length / itemsPerPage));
     const currentPage = Math.min(page, totalPages);
-    const start = (currentPage - 1) * HITOMI_ITEMS_PER_PAGE;
-    const pageIds = ids.slice(start, start + HITOMI_ITEMS_PER_PAGE);
+    const start = (currentPage - 1) * itemsPerPage;
+    const pageIds = ids.slice(start, start + itemsPerPage);
 
     const pageInfo: PageInfo = {
         totalCount: String(ids.length) + countLabel,

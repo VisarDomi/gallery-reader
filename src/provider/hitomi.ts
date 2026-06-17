@@ -1,4 +1,4 @@
-export const HITOMI_ITEMS_PER_PAGE = 25;
+export const itemsPerPage = 25;
 const DOMAIN = 'gold-usergeneratedcontent.net';
 const GG_URL = `https://ltn.${DOMAIN}/gg.js`;
 const METADATA_URL = (gid: number) => `https://ltn.${DOMAIN}/galleries/${gid}.js`;
@@ -127,4 +127,16 @@ export async function searchGalleries(term: string): Promise<number[]> {
         headers: { 'Origin': 'https://hitomi.la', 'Referer': 'https://hitomi.la/' },
     });
     return decodeNozomi(await resp.arrayBuffer());
+}
+
+export const searchDomain = 'ltn.gold-usergeneratedcontent.net';
+
+export function readerUrl(gid: number, index?: number): string {
+    let url = `https://hitomi.la/reader/${gid}.html`;
+    if (index !== undefined) url += '#' + index;
+    return url;
+}
+
+export function searchUrl(query: string): string {
+    return 'https://hitomi.la/search.html?' + encodeURIComponent(query);
 }

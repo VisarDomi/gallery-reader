@@ -1,4 +1,4 @@
-import {searchGalleries} from '../provider/hitomi';
+import {searchGalleries} from '../provider';
 import {initShell} from '../ui/shell';
 import {renderPaginatedGrid} from "../ui/paginated-grid";
 import {parseQuery} from "../core/query-parser";

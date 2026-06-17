@@ -1,4 +1,4 @@
-import {thumbUrl} from '../provider/hitomi';
+import {thumbUrl, readerUrl} from '../provider';
 import {isFav, toggleFav} from '../storage/db';
 import {show as showInfo} from './info-modal';
 
@@ -28,7 +28,7 @@ export function populateRow(
         img.loading = 'lazy';
         img.src = thumbUrl(files[i]);
         img.onclick = () => {
-            window.location.href = `https://hitomi.la/reader/${gid}.html#${i}`;
+            window.location.href = readerUrl(gid, i);
         };
         strip.appendChild(img);
     }

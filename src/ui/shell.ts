@@ -3,13 +3,13 @@ import {setupDebug} from "../debug";
 import {render} from "./saved-searches";
 import {saveSearch} from "../storage/localstorage";
 import {preloadFavs} from "../storage/db";
+import {searchDomain} from "../provider";
 
-const SEARCH_DOMAIN = 'ltn.gold-usergeneratedcontent.net';
 
 export function loadScript(filename: string): Promise<void> {
     return new Promise(resolve => {
         const script = document.createElement('script');
-        script.src = `https://${SEARCH_DOMAIN}/${filename}`;
+        script.src = `https://${searchDomain}/${filename}`;
         script.onload = () => resolve();
         document.head.appendChild(script);
     });

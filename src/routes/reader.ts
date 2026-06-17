@@ -1,4 +1,4 @@
-import {fetchMeta, imageUrl} from '../provider/hitomi';
+import {fetchMeta, imageUrl} from '../provider';
 import {cleanDocument} from "../ui/shell";
 
 const setSrc = (i: number, src: string) => {
