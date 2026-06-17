@@ -14,7 +14,7 @@ export default defineConfig({
         monkey({
             entry: "src/main.ts",
             userscript: {
-                name: `hitomi v${pkg.version}`,
+                name: `${pkg.name} v${pkg.version}`,
                 namespace: "https://github.com/visar",
                 description: "Hitomi gallery browser",
                 match: ["https://hitomi.la/*"],
