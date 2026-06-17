@@ -23,7 +23,7 @@ export async function toggleFav(gid: number): Promise<boolean> {
             store.delete(gid);
             resolve(false);
         } else {
-            store.put({galleryId: gid, savedAt: Date.now()});
+            store.put({id: gid, savedAt: Date.now()});
             resolve(true);
         }
     };
@@ -41,9 +41,9 @@ export async function getAllFavs(): Promise<number[]> {
     const db = await openDB();
     const { promise, resolve } = Promise.withResolvers<number[]>();
     db.transaction(OBJECT_STORE_NAME, 'readonly').objectStore(OBJECT_STORE_NAME).getAll().onsuccess = (e) => {
-        const items = (e.target as IDBRequest).result as { galleryId: number; savedAt: number }[];
+        const items = (e.target as IDBRequest).result as { id: number; savedAt: number }[];
         items.sort((a, b) => b.savedAt - a.savedAt);
-        resolve(items.map(x => x.galleryId));
+        resolve(items.map(x => x.id));
     };
     return promise;
 }

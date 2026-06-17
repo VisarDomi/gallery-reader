@@ -1,22 +1,9 @@
 import {getAllFavs} from '../storage/db';
 import {initShell} from '../ui/shell';
 import {renderPaginatedGrid} from "../ui/paginated-grid";
+import {getPage, savePage} from "../storage/localstorage";
 
-const STORAGE_KEY = 'hitomi_favs_page';
 const COUNT_KEY = ' Favorites';
-
-function getPage(): number {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-        const savedPage = parseInt(saved);
-        if (!isNaN(savedPage) && savedPage > 0) return savedPage;
-    }
-    return 1;
-}
-
-function savePage(page: number): void {
-    localStorage.setItem(STORAGE_KEY, String(page));
-}
 
 function renderPage(ids: number[], page: number): void {
     const pageInfo = renderPaginatedGrid(

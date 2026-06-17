@@ -7,7 +7,7 @@
  * Pure data logic — no DOM needed. Callback is stubbed.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { loadSearches, saveSearch, removeSearch } from '../src/storage/localstorage';
+import { loadSearches, saveSearch, removeSearch, SAVED_SEARCH_KEY } from '../src/storage/localstorage';
 
 const noop = () => {};
 
@@ -25,7 +25,7 @@ describe('loadSearches', () => {
   });
 
   it('returns parsed searches from localStorage', () => {
-    localStorage.setItem('hitomi_saved_searches', JSON.stringify([
+    localStorage.setItem(SAVED_SEARCH_KEY, JSON.stringify([
       { query: 'artist:mizuki' },
       { query: 'language:english', page: 2 },
     ]));
@@ -36,17 +36,17 @@ describe('loadSearches', () => {
   });
 
   it('returns empty array for corrupted JSON', () => {
-    localStorage.setItem('hitomi_saved_searches', '{broken');
+    localStorage.setItem(SAVED_SEARCH_KEY, '{broken');
     expect(loadSearches()).toEqual([]);
   });
 
   it('returns empty array for non-array JSON', () => {
-    localStorage.setItem('hitomi_saved_searches', '"a-string"');
+    localStorage.setItem(SAVED_SEARCH_KEY, '"a-string"');
     expect(loadSearches()).toEqual([]);
   });
 
   it('filters out entries without valid query', () => {
-    localStorage.setItem('hitomi_saved_searches', JSON.stringify([
+    localStorage.setItem(SAVED_SEARCH_KEY, JSON.stringify([
       { query: 'valid' },
       { page: 1 },
       null,
