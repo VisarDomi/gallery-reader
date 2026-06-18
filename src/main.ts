@@ -4,9 +4,7 @@ import { init as initSearch } from './routes/search';
 import { open } from './routes/reader';
 
 const { pathname, search, hash } = window.location;
-console.log('[main]', pathname, search, hash);
 const match = matchRoute(pathname, search, hash);
-console.log('[main] match →', match ? JSON.stringify(match) : 'null');
 if (match) {
     switch (match.handler) {
         case Handler.Home:

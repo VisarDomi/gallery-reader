@@ -68,17 +68,16 @@ function parseImhentaiQuery(raw: string): ParsedQuery {
 }
 
 function buildImhentaiSearchUrl(query: string, page?: number): string {
-    console.log('[imhentai searchUrl]', JSON.stringify({ query, page }));
     const { language, namespaces, keywords } = parseImhentaiQuery(query.trim());
 
     // path-based: single namespace or single keyword, no modifiers
     if (!language && keywords.length === 0 && namespaces.length === 1) {
-        let url = `https://${DOMAIN}/${namespaces[0].ns}/${encodeURIComponent(namespaces[0].value)}/`;
+        let url = `https://${DOMAIN}/${namespaces[0].ns}/${encodeURIComponent(namespaces[0].value.replace(/\s+/g, '-'))}/`;
         if (page !== undefined) url += '?page=' + page;
         return url;
     }
     if (!language && namespaces.length === 0 && keywords.length === 1) {
-        let url = `https://${DOMAIN}/tag/${encodeURIComponent(keywords[0])}/`;
+        let url = `https://${DOMAIN}/tag/${encodeURIComponent(keywords[0].replace(/\s+/g, '-'))}/`;
         if (page !== undefined) url += '?page=' + page;
         return url;
     }
@@ -140,7 +139,7 @@ export const provider: Provider = {
                 const name = decodeURIComponent(pathname.slice(prefix.length)).replace(/\/$/, '');
                 const params = new URLSearchParams(search);
                 const page = parseInt(params.get('page') ?? '1');
-                return { handler: Handler.Search, query: `${ns}:${name}`, page };
+                return { handler: Handler.Search, query: ns === 'tag' ? name : `${ns}:${name}`, page };
             }
         }
 
