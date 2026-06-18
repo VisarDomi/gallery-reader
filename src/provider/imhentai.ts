@@ -230,11 +230,12 @@ export const provider: Provider = {
             const results: string[] = [];
             let pos = 0;
             while (true) {
-                const m = extractBetween(chunk, 'href="/' + ns + '/', '"', pos);
+                const m = extractBetween(chunk, "href='/" + ns + "/", "'", pos);
                 if (!m) break;
-                const tagEnd = chunk.indexOf('</a>', m.nextIndex);
+                const tagStart = chunk.indexOf('>', m.nextIndex) + 1;
+                const tagEnd = chunk.indexOf('</a>', tagStart);
                 if (tagEnd === -1) break;
-                let tag = chunk.slice(m.nextIndex, tagEnd).replace(/<[^>]*>/g, '').trim();
+                let tag = chunk.slice(tagStart, tagEnd).replace(/<[^>]*>/g, '').trim();
                 tag = tag.replace(/\s+\d+$/, '');
                 if (tag) results.push(tag);
                 pos = tagEnd;
@@ -250,16 +251,13 @@ export const provider: Provider = {
         const languages = extractNS('language');
 
         // Category
-        const cat = extractBetween(chunk, 'href="/category/', '"');
+        const cat = extractBetween(chunk, "href='/category/", "/'");
         const type = cat ? cat.value : '';
 
         // Posted date
         let date = '';
-        const postedIdx = html.indexOf('>Posted');
-        if (postedIdx !== -1) {
-            const dm = extractBetween(html, '<', '<', postedIdx + 20);
-            if (dm) date = dm.value.replace(/^[>\s]+/, '').trim();
-        }
+        const dm = extractBetween(html, '>Posted: ', '</li>');
+        if (dm) date = dm.value.trim();
 
         // ── Images ──────────────────────────────────────────────────
         const srcM = extractBetween(html, 'data-src="', '"');
