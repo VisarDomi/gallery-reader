@@ -1,9 +1,9 @@
-import {render} from "./saved-searches";
-import {saveSearch} from "../storage/localstorage";
+import {render as renderSavedSearch} from "./saved-searches";
 import {preloadFavs} from "../storage/db";
-import {initProvider, providerName} from "../provider";
+import {initProvider} from "../provider";
 import cssContent from '../css/style.css?inline';
 import { setupDebug } from '../debug';
+
 export function cleanDocument() {
     document.open();
     document.close();
@@ -12,8 +12,7 @@ export function cleanDocument() {
     document.head.appendChild(style);
 }
 
-// ── search header (input + suggestions + button) ──────────────────
-function buildSearchHeader(): void {
+function buildSearch(): void {
     const header = document.createElement('div');
     header.id = 'hs-wrap';
 
@@ -36,38 +35,22 @@ function buildSearchHeader(): void {
     header.appendChild(searchWrap);
     header.appendChild(button);
     document.body.appendChild(header);
+
+    const savedSearches = document.createElement('div');
+    savedSearches.className = 'hs-saved-searches';
+    header.insertAdjacentElement('afterend', savedSearches);
 }
 
-function buildSavedSearches(): void {
-    const container = document.createElement('div');
-    container.className = 'hs-saved-searches';
-    const header = document.getElementById('hs-wrap') as HTMLDivElement;
-    header.insertAdjacentElement('afterend', container);
-    const input = document.getElementById('query-input') as HTMLTextAreaElement;
-    input.onkeydown = function (e) {
-        if (e.key === 'Enter') {
-            const val = input.value.trim();
-            const query = val ? val : "language:japanese";
-            saveSearch(query, 1, render, providerName());
-            // execute query here.
-        }
-    };
-
-    render();
-}
-
-// ── grid placeholder ──────────────────────────────────────────────
 function buildGridPlaceholder(): void {
     const grid = document.createElement('div');
     grid.id = 'hs-grid';
     document.body.appendChild(grid);
 }
 
-// ── public ────────────────────────────────────────────────────────
 export async function initShell(): Promise<void> {
     cleanDocument();
-    buildSearchHeader();
-    buildSavedSearches()
+    buildSearch();
+    renderSavedSearch();
     buildGridPlaceholder();
     void preloadFavs();
     await initProvider();

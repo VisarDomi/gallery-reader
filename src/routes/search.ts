@@ -2,7 +2,7 @@ import { search, searchUrl, goToPage, providerName } from '../provider';
 import { initShell } from '../ui/shell';
 import { renderPaginatedGrid } from "../ui/paginated-grid";
 import { saveSearch } from "../storage/localstorage";
-import { render } from "../ui/saved-searches";
+import { render as renderSavedSearch} from "../ui/saved-searches";
 
 const COUNT_KEY = ' Results';
 
@@ -11,18 +11,18 @@ function syncInputFromUrl(query: string): void {
     input.value = query;
 }
 
-function renderPage(result: { ids: number[]; totalResults: number; pageSize: number }, page: number, query: string): void {
+function render(result: { ids: number[]; totalResults: number; pageSize: number }, page: number, query: string): void {
     const pageInfo = renderPaginatedGrid(
         result.ids,
         page,
         result.totalResults,
         result.pageSize,
         COUNT_KEY,
-        (newPage) => { goToPage(query, newPage); init(query, newPage); },
+        (newPage) => { goToPage(query, newPage); void init(query, newPage); },
     );
 
     history.replaceState(null, '', searchUrl(query, pageInfo.currentPage));
-    saveSearch(query, pageInfo.currentPage, render, providerName());
+    saveSearch(query, pageInfo.currentPage, renderSavedSearch, providerName());
 }
 
 export async function init(query: string, page: number): Promise<void> {
@@ -30,5 +30,5 @@ export async function init(query: string, page: number): Promise<void> {
     syncInputFromUrl(query);
     window.addEventListener('pagereveal', () => syncInputFromUrl(query));
     const result = await search(query, page);
-    renderPage(result, page, query);
+    render(result, page, query);
 }

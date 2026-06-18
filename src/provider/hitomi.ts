@@ -15,9 +15,6 @@ function parseQuery(raw: string): { positive: string[]; negative: string[] } {
             positive.push(term);
         }
     }
-    if (positive.length === 0) {
-        positive.push('language:japanese');
-    }
     return { positive, negative };
 }
 

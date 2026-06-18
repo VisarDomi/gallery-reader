@@ -68,11 +68,7 @@ function parseImhentaiQuery(raw: string): ParsedQuery {
 }
 
 function buildImhentaiSearchUrl(query: string, page?: number): string {
-    const q = query.trim();
-
-    // empty → default to language:japanese
-    const effective = q || 'language:japanese';
-    const { language, namespaces, keywords } = parseImhentaiQuery(effective);
+    const { language, namespaces, keywords } = parseImhentaiQuery(query.trim());
 
     // path-based: single namespace or single keyword, no modifiers
     if (!language && keywords.length === 0 && namespaces.length === 1) {

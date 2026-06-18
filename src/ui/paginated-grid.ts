@@ -8,7 +8,7 @@ interface PageInfo {
 }
 
 export function renderPaginatedGrid(
-    pageIds: number[],
+    galleryIds: number[],
     currentPage: number,
     totalResults: number,
     pageSize: number,
@@ -24,20 +24,20 @@ export function renderPaginatedGrid(
 
     document.querySelectorAll('.hs-page-bar').forEach(el => el.remove());
     const grid = document.getElementById('hs-grid') as HTMLDivElement;
-
-    renderInfoBar(pageInfo, grid);
-    renderGridRows(grid, pageIds);
+    const el = document.createElement('div');
+    el.className = 'hs-page-bar';
+    el.textContent = pageInfo.totalCount;
+    if (grid.parentNode) grid.parentNode.insertBefore(el, grid);
+    grid.innerHTML = '';
+    for (const gid of galleryIds) {
+        const skeleton = createSkeletonRow();
+        grid.appendChild(skeleton);
+        void fetchMeta(gid).then(meta => populateRow(skeleton, gid, meta.files));
+    }
     renderPaginationBar(pageInfo, onPageChange, grid);
     grid.scrollIntoView();
 
     return pageInfo;
-}
-
-function renderInfoBar(info: PageInfo, grid: HTMLElement): void {
-    const el = document.createElement('div');
-    el.className = 'hs-page-bar';
-    el.textContent = info.totalCount;
-    if (grid.parentNode) grid.parentNode.insertBefore(el, grid);
 }
 
 function renderPaginationBar(
@@ -71,13 +71,4 @@ function renderPaginationBar(
     }
 
     if (grid.parentNode) grid.parentNode.insertBefore(pag, grid.nextSibling);
-}
-
-export function renderGridRows(grid: HTMLElement, ids: number[]): void {
-    grid.innerHTML = '';
-    for (const gid of ids) {
-        const skeleton = createSkeletonRow();
-        grid.appendChild(skeleton);
-        void fetchMeta(gid).then(meta => populateRow(skeleton, gid, meta.files));
-    }
 }

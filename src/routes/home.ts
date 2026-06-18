@@ -8,9 +8,9 @@ const HOME_PAGE_SIZE = 25;
 
 function renderPage(ids: number[], page: number): void {
     const start = (page - 1) * HOME_PAGE_SIZE;
-    const pageIds = ids.slice(start, start + HOME_PAGE_SIZE);
+    const galleryIds = ids.slice(start, start + HOME_PAGE_SIZE);
     renderPaginatedGrid(
-        pageIds,
+        galleryIds,
         page,
         ids.length,
         HOME_PAGE_SIZE,
