@@ -70,14 +70,14 @@ function parseImhentaiQuery(raw: string): ParsedQuery {
 function buildImhentaiSearchUrl(query: string, page?: number): string {
     const { language, namespaces, keywords } = parseImhentaiQuery(query.trim());
 
-    // path-based: single namespace or single keyword, no modifiers
+    // path-based: single namespace or language-only
     if (!language && keywords.length === 0 && namespaces.length === 1) {
         let url = `https://${DOMAIN}/${namespaces[0].ns}/${encodeURIComponent(namespaces[0].value.replace(/\s+/g, '-'))}/`;
         if (page !== undefined) url += '?page=' + page;
         return url;
     }
-    if (!language && namespaces.length === 0 && keywords.length === 1) {
-        let url = `https://${DOMAIN}/tag/${encodeURIComponent(keywords[0].replace(/\s+/g, '-'))}/`;
+    if (language && namespaces.length === 0 && keywords.length === 0) {
+        let url = `https://${DOMAIN}/language/${encodeURIComponent(language.replace(/\s+/g, '-'))}/`;
         if (page !== undefined) url += '?page=' + page;
         return url;
     }
@@ -90,10 +90,16 @@ function buildImhentaiSearchUrl(query: string, page?: number): string {
     params.set('apply', 'Search');
     params.set('dl', '0'); params.set('tr', '0');
 
-    // language params
-    const langCode = language ? LANG_PARAM[language] ?? null : 'jp';
-    for (const code of Object.values(LANG_PARAM)) {
-        params.set(code, code === langCode ? '1' : '0');
+    // language params — all enabled for keyword search, or specific if set
+    if (language) {
+        const langCode = LANG_PARAM[language] ?? 'jp';
+        for (const code of Object.values(LANG_PARAM)) {
+            params.set(code, code === langCode ? '1' : '0');
+        }
+    } else {
+        for (const code of Object.values(LANG_PARAM)) {
+            params.set(code, '1');
+        }
     }
 
     params.set('key', keywords.join(','));
@@ -121,6 +127,12 @@ export const provider: Provider = {
             const params = new URLSearchParams(search);
             const key = params.get('key') ?? '';
             const page = parseInt(params.get('page') ?? '1');
+            const enabled = Object.entries(LANG_PARAM).filter(([, code]) => params.get(code) === '1');
+            if (enabled.length === 1) {
+                const [name] = enabled[0];
+                const query = key ? `${key},language:${name}` : `language:${name}`;
+                return { handler: Handler.Search, query, page };
+            }
             return { handler: Handler.Search, query: key, page };
         }
 
