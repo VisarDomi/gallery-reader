@@ -248,7 +248,6 @@ export const provider: Provider = {
     },
 
     goToPage(_query: string, page: number): void {
-        // Hash-based — triggers hashchange, re-enters via pagereveal / init
         window.location.hash = '#' + page;
     },
 

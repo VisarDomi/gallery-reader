@@ -1,8 +1,9 @@
 import {render as renderSavedSearch} from "./saved-searches";
 import {preloadFavs} from "../storage/db";
-import {initProvider} from "../provider";
+import {initProvider, providerName, searchUrl} from "../provider";
 import cssContent from '../css/style.css?inline';
 import { setupDebug } from '../debug';
+import {loadSearches} from "../storage/localstorage";
 
 export function cleanDocument() {
     document.open();
@@ -34,6 +35,18 @@ function buildSearch(): void {
 
     header.appendChild(searchWrap);
     header.appendChild(button);
+
+    const submit = () => {
+        const val = input.value.trim();
+        const query = val || 'language:japanese';
+        const saved = loadSearches(providerName()).find(s => s.query === query);
+        window.location.href = searchUrl(query, saved?.page);
+    };
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
+    });
+    button.addEventListener('click', submit);
+
     document.body.appendChild(header);
 
     const savedSearches = document.createElement('div');

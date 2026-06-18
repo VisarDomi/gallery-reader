@@ -22,7 +22,7 @@ function render(result: { ids: number[]; totalResults: number; pageSize: number 
     );
 
     history.replaceState(null, '', searchUrl(query, pageInfo.currentPage));
-    saveSearch(query, pageInfo.currentPage, renderSavedSearch, providerName());
+    saveSearch(query, pageInfo.currentPage, providerName(), renderSavedSearch);
 }
 
 export async function init(query: string, page: number): Promise<void> {

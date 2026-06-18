@@ -26,12 +26,12 @@ export function render(): void {
         x.textContent = '\u00D7';
         x.onclick = (e) => {
             e.stopPropagation();
-            removeSearch(s.query, render);
+            removeSearch(s.query, providerName(), render);
         };
         chip.appendChild(x);
         chip.onclick = () => {
             input.value = s.query;
-            window.location.href = searchUrl(s.query) + '#' + s.page;
+            window.location.href = searchUrl(s.query, s.page);
         };
         container.appendChild(chip);
     }
