@@ -6,21 +6,27 @@ const setSrc = (i: number, src: string) => {
     img.src = src;
 };
 
-async function applyImageSources(files: { hash: string; name: string; width: number; height: number }[], gid: number, index: number) {
+async function applyImageSources(files: { hash: string; name: string; width: number; height: number }[], gid: number, currentIndex: number) {
     const promises: Promise<string>[] = files.map((_, i) => imageUrl(gid, i));
 
-    const currIndex = index;
-    promises[currIndex].then((src: string) => setSrc(currIndex, src));
-    const prevIndex = currIndex - 1;
-    if (prevIndex >= 0) promises[prevIndex].then((src: string) => setSrc(prevIndex, src));
-    const nextIndex = currIndex + 1;
-    if (nextIndex < files.length) promises[nextIndex].then((src: string) => setSrc(nextIndex, src));
+    // Generate pingpong index sequence: current, prev, next, prevPrev, nextNext, ...
+    const order: number[] = [];
+    order.push(currentIndex);
+    for (let i = 1; i < files.length; i++) {
+        const prev = currentIndex - i;
+        const next = currentIndex + i;
+        if (prev >= 0) order.push(prev);
+        if (next < files.length) order.push(next);
+    }
 
-    const sources = await Promise.all(promises);
-    sources.forEach((source: string, i: number) => setSrc(i, source));
+    // Resolve sequentially in pingpong order
+    for (const i of order) {
+        const src = await promises[i];
+        setSrc(i, src);
+    }
 }
 
-export async function open(gid: number, index: number): Promise<void> {
+export async function open(gid: number, currentIndex: number): Promise<void> {
     cleanDocument();
     const meta = await fetchMeta(gid);
     const files = meta.files;
@@ -33,11 +39,11 @@ export async function open(gid: number, index: number): Promise<void> {
         document.body.appendChild(img);
     }
 
-    const restoreImg = document.getElementById(`#${index}`) as HTMLImageElement;
+    const restoreImg = document.getElementById(`#${currentIndex}`) as HTMLImageElement;
     const maxST = document.documentElement.scrollHeight - window.innerHeight;
     window.scrollTo(0, Math.max(0, Math.min(maxST, restoreImg.offsetTop - window.innerHeight / 2)));
 
-    void applyImageSources(files, gid, index);
+    void applyImageSources(files, gid, currentIndex);
 
     window.addEventListener('scrollend', () => {
         setTimeout(() => {
