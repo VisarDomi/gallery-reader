@@ -1,6 +1,6 @@
 How to use this repo:
 
-1. check package.json on how to build this userscript
+1. check package.json on how to build this userscript. also use npx tsc --noEmit 2>&1 to check.
 2. do a sanity check with the browser you control along with javascript injection there to test what you just changed on the userscript
 
 Meta usage:

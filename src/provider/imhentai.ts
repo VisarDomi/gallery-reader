@@ -2,6 +2,7 @@ import { Handler } from './types';
 import type { Provider, SearchPage, GalleryMeta, GalleryFile } from './types';
 
 const DOMAIN = 'imhentai.xxx';
+const PAGE_SIZE = 20;
 // ── fetch ─────────────────────────────────────────────────────────────
 
 async function fetchText(url: string): Promise<string> {
@@ -32,12 +33,78 @@ function extractAll(html: string, start: string, end: string): string[] {
     return results;
 }
 
-// ── namespace parsing ─────────────────────────────────────────────────
+// ── query parsing ──────────────────────────────────────────────────────
 
-function parseNamespace(rawQuery: string): { ns: string; value: string } | null {
-    const colon = rawQuery.indexOf(':');
-    if (colon === -1) return null;
-    return { ns: rawQuery.slice(0, colon), value: rawQuery.slice(colon + 1) };
+const LANG_PARAM: Record<string, string> = { japanese:'jp', english:'en', spanish:'es', french:'fr', korean:'kr', german:'de', russian:'ru' };
+
+interface ParsedQuery {
+    language: string | null;
+    namespaces: { ns: string; value: string }[];
+    keywords: string[];
+}
+
+function parseImhentaiQuery(raw: string): ParsedQuery {
+    const terms = raw.trim().split(/\s+/).filter(Boolean);
+    const namespaces: { ns: string; value: string }[] = [];
+    const keywords: string[] = [];
+    let language: string | null = null;
+
+    for (const term of terms) {
+        const colon = term.indexOf(':');
+        if (colon === -1) {
+            keywords.push(term);
+            continue;
+        }
+        const ns = term.slice(0, colon);
+        const value = term.slice(colon + 1);
+        if (ns === 'language') {
+            language = value;
+        } else {
+            namespaces.push({ ns, value });
+        }
+    }
+
+    return { language, namespaces, keywords };
+}
+
+function buildImhentaiSearchUrl(query: string, page?: number): string {
+    const q = query.trim();
+
+    // empty → default to language:japanese
+    const effective = q || 'language:japanese';
+    const { language, namespaces, keywords } = parseImhentaiQuery(effective);
+
+    // path-based: single namespace or single keyword, no modifiers
+    if (!language && keywords.length === 0 && namespaces.length === 1) {
+        let url = `https://${DOMAIN}/${namespaces[0].ns}/${encodeURIComponent(namespaces[0].value)}/`;
+        if (page !== undefined) url += '?page=' + page;
+        return url;
+    }
+    if (!language && namespaces.length === 0 && keywords.length === 1) {
+        let url = `https://${DOMAIN}/tag/${encodeURIComponent(keywords[0])}/`;
+        if (page !== undefined) url += '?page=' + page;
+        return url;
+    }
+
+    // search endpoint
+    const params = new URLSearchParams();
+    params.set('lt', '1'); params.set('pp', '0');
+    params.set('m', '1'); params.set('d', '1'); params.set('w', '1');
+    params.set('i', '1'); params.set('a', '1'); params.set('g', '1');
+    params.set('apply', 'Search');
+    params.set('dl', '0'); params.set('tr', '0');
+
+    // language params
+    const langCode = language ? LANG_PARAM[language] ?? null : 'jp';
+    for (const code of Object.values(LANG_PARAM)) {
+        params.set(code, code === langCode ? '1' : '0');
+    }
+
+    params.set('key', keywords.join(','));
+
+    let url = `https://${DOMAIN}/search/?${params.toString()}`;
+    if (page !== undefined) url += '&page=' + page;
+    return url;
 }
 
 // ── provider ──────────────────────────────────────────────────────────
@@ -89,10 +156,10 @@ export const provider: Provider = {
 
         return null;
     },
-
     async search(rawQuery: string, page: number): Promise<SearchPage> {
         // exclusion warning
-        if (rawQuery.includes(' -') || rawQuery.startsWith('-')) {
+        const q = rawQuery.trim();
+        if (q.includes(' -') || q.startsWith('-')) {
             const key = '__imh_exclusion_warned';
             if (!(window as unknown as Record<string, boolean>)[key]) {
                 (window as unknown as Record<string, boolean>)[key] = true;
@@ -105,27 +172,20 @@ export const provider: Provider = {
             }
         }
 
-        const ns = parseNamespace(rawQuery);
-        let url: string;
-        let pageSize = 20;
+        const url = buildImhentaiSearchUrl(q, page);
 
-        if (ns) {
-            pageSize = 40;
-            url = `https://${DOMAIN}/${ns.ns}/${encodeURIComponent(ns.value)}/?page=${page}`;
-        } else {
-            url = `https://${DOMAIN}/search/?key=${encodeURIComponent(rawQuery)}&page=${page}`;
-        }
 
         const html = await fetchText(url);
 
         // Extract gallery IDs: href="/gallery/NNN"
         const ids: number[] = [];
         const hrefs = extractAll(html, 'href="/gallery/', '"');
+        let prev = -1;
         for (const h of hrefs) {
             const id = parseInt(h);
-            if (!isNaN(id)) ids.push(id);
+            if (!isNaN(id) && id !== prev) ids.push(id);
+            prev = id;
         }
-
 
         // Count pages from pagination links
         const pageLinks = extractAll(html, "class='page-link' href='", "'");
@@ -136,11 +196,10 @@ export const provider: Provider = {
         }
         if (totalPages === page && ids.length === 0) totalPages = 0;
 
-        return { ids, totalResults: totalPages * pageSize, pageSize };
+        return { ids, totalResults: totalPages * PAGE_SIZE, pageSize: PAGE_SIZE };
     },
-
     goToPage(rawQuery: string, page: number): void {
-        window.location.href = this.searchUrl(rawQuery, page);
+        history.replaceState(null, '', buildImhentaiSearchUrl(rawQuery, page));
     },
 
     async fetchMeta(gid: number): Promise<GalleryMeta> {
@@ -263,15 +322,7 @@ export const provider: Provider = {
     },
 
     searchUrl(rawQuery: string, page?: number): string {
-        const ns = parseNamespace(rawQuery);
-        let base: string;
-        if (ns) {
-            base = `https://${DOMAIN}/${ns.ns}/${encodeURIComponent(ns.value)}/`;
-        } else {
-            base = `https://${DOMAIN}/search/?key=${encodeURIComponent(rawQuery)}`;
-        }
-        if (page !== undefined) base += (ns ? '?' : '&') + 'page=' + page;
-        return base;
+        return buildImhentaiSearchUrl(rawQuery, page);
     },
 
     thumbUrl(file: GalleryFile): string {

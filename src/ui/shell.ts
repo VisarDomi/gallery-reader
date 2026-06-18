@@ -47,7 +47,9 @@ function buildSavedSearches(): void {
     input.onkeydown = function (e) {
         if (e.key === 'Enter') {
             const val = input.value.trim();
-            if (val) saveSearch(val, 1, render, providerName());
+            const query = val ? val : "language:japanese";
+            saveSearch(query, 1, render, providerName());
+            // execute query here.
         }
     };
 
