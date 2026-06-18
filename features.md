@@ -1,11 +1,9 @@
-App is designed to work with safari ios and its caching behavior when you swipe back and forth. The philosophy is to use as many native features as we can. favs and savedsearches are candidates to be cut off from this codebase.
+App is designed to work with safari ios and its caching behavior when you swipe back and forth.
 
 3 modes:
 1. reader - biggest reason for this app
 2. search - second biggest reason - a good way to navigate and explore the site.
 3. favorites - a nice feature that looks good
-
-Favorites and search are basically the same thing, except for the way they load data. Favorites uses localstorage to load the gallery ids while search uses hitomi to get the gallery ids of that search.
 
 Ios back swipe caching behavior is the single biggest feature of this app. Example flows:
 
@@ -20,15 +18,11 @@ How search looks like:
 3. the most important part: the content. it's the search results displayed in rows, one gallery per row. the row is full width with 300px height. the row can be scrolled horizontally and has the thumbnails inside it, 100px wide. the thumbnails are cover (cropped to center) and on click they open the reader at the appropriate place. the skeleton is first created with the correct galleryid order then content is filled in asyncly.
 4. there's a favorite toggle and info modal icon to show the infomodal for each galleryrow - bottom right position.
 5. infomodal - loads metadata asyncly. has clickable search terms with use the language of the gallery as the language term. things it shows are provider specific. close on close button or backdrop.
-5. pagination is right at the end. all the pages are shown simultaneously. on page change which is caught by a hashchange event, we change hash of url and also the saved search. this makes it possible that safari swipe backs send you back to the previous search instead of previous page. also the saved search is now keeping up with the latest state of the app
+6. pagination is right at the end. all the pages are shown simultaneously. on page change which is caught by a hashchange event, we change hash of url and also the saved search. this makes it possible that safari swipe backs send you back to the previous search instead of previous page. also the saved search is now keeping up with the latest state of the app
+
+Favorites and search are basically the same thing, except for the way they load data. Favorites uses localstorage to load the gallery ids while search uses the provider implementation to get the search results.
 
 How reader looks like:
 1. show all images in a vertical strip. 
 2. restore reader position on startup based on the url which has a hash that points to the image.
 3. just like search, we first create a skeleton because we know the width and height of each image. the images are then loaded asyncly as always.
-
-Provider details for hitomi:
-1. search results are executed with an api, not scrapped from dom. after getting the full list of gallerids, we show the results of the correct page based on pagination and results per page which is 25.
-2. thumbnails and reader images are resolved by an api call to the galleryid endpoint.
-3. we load the sites javascript to handle suggestions dropdown population.
-4. infomodal specific info we show for hitomi: artist,group,series,type,character,language,tag
