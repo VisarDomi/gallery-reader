@@ -47,6 +47,8 @@ export interface Provider {
     // ── URL constructors ──────────────────────────────────────────────
     readerUrl(gid: number, index?: number): string;
     searchUrl(rawQuery: string, page?: number): string;
+    /** Build a search URL from a tag/artist/etc click in the info modal. */
+    tagSearchUrl(ns: string, value: string, language: string): string;
     thumbUrl(file: GalleryFile): string;
     imageUrl(gid: number, pageIndex: number): Promise<string>;
 }

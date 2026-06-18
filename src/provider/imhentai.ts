@@ -68,7 +68,7 @@ function parseImhentaiQuery(raw: string): ParsedQuery {
 }
 
 function buildImhentaiSearchUrl(query: string, page?: number): string {
-    const { language, namespaces, keywords } = parseImhentaiQuery(query.trim());
+    let { language, namespaces, keywords } = parseImhentaiQuery(query.trim());
 
     // path-based: single namespace or language-only
     if (!language && keywords.length === 0 && namespaces.length === 1) {
@@ -80,6 +80,12 @@ function buildImhentaiSearchUrl(query: string, page?: number): string {
         let url = `https://${DOMAIN}/language/${encodeURIComponent(language.replace(/\s+/g, '-'))}/`;
         if (page !== undefined) url += '?page=' + page;
         return url;
+    }
+
+    // namespace + language → convert namespace to keyword for search endpoint
+    if (language && namespaces.length === 1 && keywords.length === 0) {
+        keywords = [namespaces[0].value];
+        namespaces = [];
     }
 
     // search endpoint
@@ -102,7 +108,7 @@ function buildImhentaiSearchUrl(query: string, page?: number): string {
         }
     }
 
-    params.set('key', keywords.join(','));
+    params.set('key', keywords.map(k => k.replace(/[_-]/g, ' ')).join(','));
 
     let url = `https://${DOMAIN}/search/?${params.toString()}`;
     if (page !== undefined) url += '&page=' + page;
@@ -329,6 +335,11 @@ export const provider: Provider = {
 
     searchUrl(rawQuery: string, page?: number): string {
         return buildImhentaiSearchUrl(rawQuery, page);
+    },
+
+    tagSearchUrl(ns: string, value: string, language: string): string {
+        const query = ns === 'language' ? `language:${value}` : `${value},language:${language}`;
+        return buildImhentaiSearchUrl(query);
     },
 
     thumbUrl(file: GalleryFile): string {

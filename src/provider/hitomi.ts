@@ -263,6 +263,12 @@ export const provider: Provider = {
         return url;
     },
 
+    tagSearchUrl(ns: string, value: string, language: string): string {
+        let q = ns + ':' + value.replace(/ /g, '_');
+        if (language && ns !== 'language') q += ' language:' + language;
+        return this.searchUrl(q);
+    },
+
     thumbUrl(file: { hash: string }): string {
         const fileHash = file.hash;
         return `https://tn.${DOMAIN}/webpsmalltn/${fileHash.slice(-1)}/${fileHash.slice(-3, -1)}/${fileHash}.webp`;

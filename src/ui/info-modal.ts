@@ -1,13 +1,15 @@
-import {fetchMeta, searchUrl} from '../provider';
+import {fetchMeta, tagSearchUrl} from '../provider';
 
 function link(ns: string, val: string, display: string, lang: string, className = 'hs-modal-value-link'): HTMLSpanElement {
     const el = document.createElement('span');
     el.className = className;
     el.textContent = display;
     el.onclick = () => {
-        let q = ns + ':' + val.replace(/ /g, '_');
-        if (lang && ns !== 'language') q += ' language:' + lang;
-        window.location.href = searchUrl(q);
+        if (ns === 'language') {
+            window.location.href = tagSearchUrl(ns, val, '');
+        } else {
+            window.location.href = tagSearchUrl(ns, val, lang);
+        }
     };
     return el;
 }
