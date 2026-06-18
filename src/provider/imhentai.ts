@@ -136,7 +136,7 @@ export const provider: Provider = {
 
         for (const [prefix, ns] of Object.entries(tagPages)) {
             if (pathname.startsWith(prefix)) {
-                const name = decodeURIComponent(pathname.slice(prefix.length)).replace(/\/$/, '');
+                const name = decodeURIComponent(pathname.slice(prefix.length)).replace(/\/$/, '').replace(/-/g, ' ');
                 const params = new URLSearchParams(search);
                 const page = parseInt(params.get('page') ?? '1');
                 return { handler: Handler.Search, query: ns === 'tag' ? name : `${ns}:${name}`, page };
