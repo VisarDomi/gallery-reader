@@ -1,9 +1,8 @@
-import {searchGalleries} from '../provider';
-import {initShell} from '../ui/shell';
-import {renderPaginatedGrid} from "../ui/paginated-grid";
-import {parseQuery} from "../core/query-parser";
-import {saveSearch} from "../storage/localstorage";
-import {render} from "../ui/saved-searches";
+import { search, searchUrl, goToPage, providerName } from '../provider';
+import { initShell } from '../ui/shell';
+import { renderPaginatedGrid } from "../ui/paginated-grid";
+import { saveSearch } from "../storage/localstorage";
+import { render } from "../ui/saved-searches";
 
 const COUNT_KEY = ' Results';
 
@@ -12,45 +11,24 @@ function syncInputFromUrl(query: string): void {
     input.value = query;
 }
 
-async function getIds(query: string): Promise<number[]> {
-    const { positive, negative } = parseQuery(query);
-
-    let idSet: Set<number> | null = null;
-
-    for (const tag of positive) {
-        const ids = await searchGalleries(tag);
-        if (idSet === null) {
-            idSet = new Set(ids);
-        } else {
-            idSet = new Set(ids.filter(id => idSet!.has(id)));
-        }
-    }
-
-    for (const tag of negative) {
-        const ids = new Set(await searchGalleries(tag));
-        idSet = new Set([...idSet!].filter(id => !ids.has(id)));
-    }
-
-    return [...idSet!];
-}
-
-function renderPage(ids: number[], page: number, query: string): void {
+function renderPage(result: { ids: number[]; totalResults: number; pageSize: number }, page: number, query: string): void {
     const pageInfo = renderPaginatedGrid(
-        ids,
+        result.ids,
         page,
+        result.totalResults,
+        result.pageSize,
         COUNT_KEY,
-        (newPage) => renderPage(ids, newPage, query),
+        (newPage) => { goToPage(query, newPage); init(query, newPage); },
     );
 
-    const hash = '#' + pageInfo.currentPage;
-    history.replaceState(null, '', hash);
-    saveSearch(query, pageInfo.currentPage, render);
+    history.replaceState(null, '', searchUrl(query, pageInfo.currentPage));
+    saveSearch(query, pageInfo.currentPage, render, providerName());
 }
 
 export async function init(query: string, page: number): Promise<void> {
     await initShell();
     syncInputFromUrl(query);
-    window.addEventListener('pagereveal', () => syncInputFromUrl(query)); // ios bfcache
-    const ids = await getIds(query);
-    renderPage(ids, page, query);
+    window.addEventListener('pagereveal', () => syncInputFromUrl(query));
+    const result = await search(query, page);
+    renderPage(result, page, query);
 }

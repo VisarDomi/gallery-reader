@@ -1,3 +1,10 @@
+export interface GalleryFile {
+    hash: string;
+    name: string;
+    width: number;
+    height: number;
+}
+
 export interface GalleryMeta {
     title: string;
     title_jpn: string;
@@ -9,7 +16,7 @@ export interface GalleryMeta {
     parody: string[];
     characters: string[];
     tags: { tag: string; female?: string; male?: string }[];
-    files: { hash: string; name: string; width: number; height: number }[];
+    files: GalleryFile[];
 }
 
 export enum Handler { Home, Search, Reader }
@@ -17,21 +24,29 @@ export enum Handler { Home, Search, Reader }
 export type RouteMatch =
     | { handler: Handler.Home }
     | { handler: Handler.Search; query: string; page: number }
-    | { handler: Handler.Reader; gid: number; hash: string };
+    | { handler: Handler.Reader; gid: number; index: number };
+
+export interface SearchPage {
+    ids: number[];
+    totalResults: number;
+    pageSize: number;
+}
 
 export interface Provider {
     readonly name: string;
-    readonly itemsPerPage: number;
 
     matchRoute(pathname: string, search: string, hash: string): RouteMatch | null;
-
     init(): Promise<void>;
 
-
-    readerUrl(gid: number, index?: number): string;
-    searchUrl(query: string): string;
-    thumbUrl(file: { hash: string }): string;
-    imageUrl(gid: number, pageIndex: number): Promise<string>;
+    // ── core ──────────────────────────────────────────────────────────
+    search(rawQuery: string, page: number): Promise<SearchPage>;
+    /** Navigate to a search page. Provider decides hash vs URL navigation. */
+    goToPage(rawQuery: string, page: number): void;
     fetchMeta(gid: number): Promise<GalleryMeta>;
-    searchGalleries(term: string): Promise<number[]>;
+
+    // ── URL constructors ──────────────────────────────────────────────
+    readerUrl(gid: number, index?: number): string;
+    searchUrl(rawQuery: string, page?: number): string;
+    thumbUrl(file: GalleryFile): string;
+    imageUrl(gid: number, pageIndex: number): Promise<string>;
 }

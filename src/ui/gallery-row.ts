@@ -14,7 +14,7 @@ export function createSkeletonRow(): HTMLDivElement {
 export function populateRow(
     container: HTMLDivElement,
     gid: number,
-    files: { hash: string }[],
+    files: { hash: string; name: string; width: number; height: number }[],
 ): void {
     container.innerHTML = '';
     container.style.height = '';

@@ -1,19 +1,24 @@
-import {preloadFavs} from '../storage/db';
-import {initShell} from '../ui/shell';
-import {renderPaginatedGrid} from "../ui/paginated-grid";
-import {getPage, savePage} from "../storage/localstorage";
+import { preloadFavs } from '../storage/db';
+import { initShell } from '../ui/shell';
+import { renderPaginatedGrid } from "../ui/paginated-grid";
+import { getPage, savePage } from "../storage/localstorage";
 
 const COUNT_KEY = ' Favorites';
+const HOME_PAGE_SIZE = 25;
 
 function renderPage(ids: number[], page: number): void {
-    const pageInfo = renderPaginatedGrid(
-        ids,
+    const start = (page - 1) * HOME_PAGE_SIZE;
+    const pageIds = ids.slice(start, start + HOME_PAGE_SIZE);
+    renderPaginatedGrid(
+        pageIds,
         page,
+        ids.length,
+        HOME_PAGE_SIZE,
         COUNT_KEY,
         (newPage) => renderPage(ids, newPage),
     );
 
-    savePage(pageInfo.currentPage);
+    savePage(page);
 }
 
 export async function init(): Promise<void> {

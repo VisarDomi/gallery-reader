@@ -1,5 +1,5 @@
-import {loadSearches, removeSearch} from "../storage/localstorage";
-import {searchUrl} from "../provider";
+import { loadSearches, removeSearch } from "../storage/localstorage";
+import { searchUrl, providerName } from "../provider";
 
 const VISIBLE_DEFAULT = 3;
 
@@ -8,7 +8,7 @@ export function render(): void {
     const input = document.getElementById('query-input') as HTMLTextAreaElement;
 
     container.innerHTML = '';
-    const searches = loadSearches();
+    const searches = loadSearches(providerName());
     if (searches.length === 0) return;
 
     const expanded = container.dataset.expanded === 'true';

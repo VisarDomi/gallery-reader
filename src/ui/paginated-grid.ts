@@ -1,5 +1,5 @@
-import {createSkeletonRow, populateRow} from "./gallery-row";
-import {fetchMeta, itemsPerPage} from "../provider";
+import { createSkeletonRow, populateRow } from "./gallery-row";
+import { fetchMeta } from "../provider";
 
 interface PageInfo {
     totalCount: string;
@@ -8,18 +8,16 @@ interface PageInfo {
 }
 
 export function renderPaginatedGrid(
-    ids: number[],
-    page: number,
+    pageIds: number[],
+    currentPage: number,
+    totalResults: number,
+    pageSize: number,
     countLabel: string,
     onPageChange: (page: number) => void,
 ): PageInfo {
-    const totalPages = Math.max(1, Math.ceil(ids.length / itemsPerPage()));
-    const currentPage = Math.min(page, totalPages);
-    const start = (currentPage - 1) * itemsPerPage();
-    const pageIds = ids.slice(start, start + itemsPerPage());
-
+    const totalPages = Math.max(1, Math.ceil(totalResults / pageSize));
     const pageInfo: PageInfo = {
-        totalCount: String(ids.length) + countLabel,
+        totalCount: String(totalResults) + countLabel,
         currentPage,
         totalPages,
     };
@@ -77,25 +75,9 @@ function renderPaginationBar(
 
 export function renderGridRows(grid: HTMLElement, ids: number[]): void {
     grid.innerHTML = '';
-
-    const rows: HTMLDivElement[] = [];
-    for (let i = 0; i < ids.length; i++) {
-        const row = createSkeletonRow();
-        rows.push(row);
-        grid.appendChild(row);
-    }
-
-    for (let i = 0; i < ids.length; i++) {
-        const gid = ids[i];
-        const row = rows[i];
-
-        void fetchMeta(gid)
-            .then(meta => populateRow(row, gid, meta.files))
-            .catch(() => {
-                const err = document.createElement('div');
-                err.className = 'hs-grid-error';
-                err.textContent = 'Failed to load gallery ' + gid;
-                row.appendChild(err);
-            });
+    for (const gid of ids) {
+        const skeleton = createSkeletonRow();
+        grid.appendChild(skeleton);
+        void fetchMeta(gid).then(meta => populateRow(skeleton, gid, meta.files));
     }
 }

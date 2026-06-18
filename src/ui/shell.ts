@@ -1,10 +1,9 @@
-import cssContent from '../css/style.css?inline';
-import {setupDebug} from "../debug";
 import {render} from "./saved-searches";
 import {saveSearch} from "../storage/localstorage";
 import {preloadFavs} from "../storage/db";
-import {initProvider} from "../provider";
-
+import {initProvider, providerName} from "../provider";
+import cssContent from '../css/style.css?inline';
+import { setupDebug } from '../debug';
 export function cleanDocument() {
     document.open();
     document.close();
@@ -29,10 +28,6 @@ function buildSearchHeader(): void {
     input.autocomplete = 'off';
     searchWrap.appendChild(input);
 
-    const suggestions = document.createElement('ul');
-    suggestions.id = 'search-suggestions';
-    searchWrap.appendChild(suggestions);
-
     const button = document.createElement('button');
     button.id = 'search-button';
     button.type = 'button';
@@ -52,7 +47,7 @@ function buildSavedSearches(): void {
     input.onkeydown = function (e) {
         if (e.key === 'Enter') {
             const val = input.value.trim();
-            if (val) saveSearch(val, 1, render);
+            if (val) saveSearch(val, 1, render, providerName());
         }
     };
 

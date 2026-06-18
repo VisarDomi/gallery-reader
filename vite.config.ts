@@ -17,7 +17,7 @@ export default defineConfig({
                 name: `${pkg.name} v${pkg.version}`,
                 namespace: "https://github.com/visar",
                 description: "Hitomi gallery browser",
-                match: ["https://hitomi.la/*"],
+                match: ["https://hitomi.la/*", "https://imhentai.xxx/*"],
                 "run-at": "document-start",
             },
         }),

@@ -1,9 +1,34 @@
 import { Handler } from './types';
-import type { Provider } from './types';
+import type { Provider, SearchPage, GalleryMeta } from './types';
+
+// ── query parser (hitomi-specific) ────────────────────────────────────
+
+function parseQuery(raw: string): { positive: string[]; negative: string[] } {
+    const terms = raw.split(/\s+/).filter(Boolean);
+    const positive: string[] = [];
+    const negative: string[] = [];
+    for (const term of terms) {
+        if (term.startsWith('-')) {
+            const value = term.slice(1);
+            if (value) negative.push(value);
+        } else {
+            positive.push(term);
+        }
+    }
+    if (positive.length === 0) {
+        positive.push('language:japanese');
+    }
+    return { positive, negative };
+}
+
+// ── infrastructure ────────────────────────────────────────────────────
 
 const DOMAIN = 'gold-usergeneratedcontent.net';
 const GG_URL = `https://ltn.${DOMAIN}/gg.js`;
 const METADATA_URL = (gid: number) => `https://ltn.${DOMAIN}/galleries/${gid}.js`;
+const PAGE_SIZE = 25;
+const searchCache = new Map<string, number[]>();
+
 let ggCache: { multiplierMap: Record<number, number>; basePath: string; defaultOffset: number } | null = null;
 
 async function fetchText(url: string, referer?: string): Promise<string> {
@@ -33,25 +58,12 @@ async function parseGG(): Promise<{ multiplierMap: Record<number, number>; baseP
     while ((match = ifRegex.exec(text)) !== null) multiplierMap[parseInt(match[1])] = parseInt(match[2]);
     const defaultOffsetMatch = /(?:var\s|default:)\s*o\s*=\s*(\d+)/.exec(text);
     const basePathMatch = /b:\s*[']([^']+)[']/.exec(text);
-    ggCache = {multiplierMap, basePath: basePathMatch ? basePathMatch[1].replace(/\/$/, '') : '', defaultOffset: defaultOffsetMatch ? parseInt(defaultOffsetMatch[1]) : 0};
+    ggCache = {
+        multiplierMap,
+        basePath: basePathMatch ? basePathMatch[1].replace(/\/$/, '') : '',
+        defaultOffset: defaultOffsetMatch ? parseInt(defaultOffsetMatch[1]) : 0,
+    };
     return ggCache;
-}
-
-interface HitomiMeta {
-    title: string;
-    title_jpn: string;
-    type: string;
-    language: string;
-    language_localname: string;
-    date: string;
-    datepublished: string;
-    artists: string[];
-    groups: string[];
-    parody: string[];
-    characters: string[];
-    tags: { tag: string; female?: string; male?: string }[];
-    files: { hash: string; name: string; width: number; height: number }[];
-    gallery_id: number;
 }
 
 function decodeNozomi(data: ArrayBuffer): number[] {
@@ -64,27 +76,27 @@ function decodeNozomi(data: ArrayBuffer): number[] {
 }
 
 function loadScript(filename: string): Promise<void> {
-    return new Promise(resolve => {
-        const script = document.createElement('script');
-        script.src = `https://ltn.${DOMAIN}/${filename}`;
-        script.onload = () => resolve();
-        document.head.appendChild(script);
-    });
+    const { promise, resolve } = Promise.withResolvers<void>();
+    const script = document.createElement('script');
+    script.src = `https://ltn.${DOMAIN}/${filename}`;
+    script.onload = () => resolve();
+    document.head.appendChild(script);
+    return promise;
 }
 
 // Intercept jQuery .on() after jQuery loads so search.js never binds its
 // broken click handler to .search-suggestion_string elements.
 function detachJQueryFromSuggestionLinks(): void {
-    const jq = (window as any).jQuery;
+    const jq = (window as unknown as { jQuery?: { fn: { on: (...args: unknown[]) => unknown } } }).jQuery;
     if (!jq) return;
     const origOn = jq.fn.on;
-    jq.fn.on = function (this: any, types: string, selector: any, handler: any) {
+    jq.fn.on = function (this: unknown, types: string, selector: unknown, handler: unknown) {
         if (typeof selector === 'function') { handler = selector; }
-        if (types === 'click' && typeof handler === 'function' && this.is('.search-suggestion_string')) {
+        if (types === 'click' && typeof handler === 'function' && (this as { is: (s: string) => boolean }).is('.search-suggestion_string')) {
             return this;
         }
-        return origOn.apply(this, arguments as any);
-    } as any;
+        return origOn.apply(this, arguments as unknown as Parameters<typeof origOn>);
+    } as typeof origOn;
 }
 
 function setupDropdownHandler(): void {
@@ -115,7 +127,7 @@ function setupDropdownHandler(): void {
         input.value = prefix + dash + term + ' ';
         input.focus();
 
-        const origClear = (window as any).clear_page as Function | undefined;
+        const origClear = (window as unknown as { clear_page?: () => void }).clear_page;
         if (origClear) origClear();
     }, { capture: true });
 }
@@ -137,11 +149,60 @@ function startAdBlocker(): void {
     }).observe(document.body, { childList: true });
 }
 
+// ── search (nozomi) ───────────────────────────────────────────────────
+
+async function searchGalleries(term: string): Promise<number[]> {
+    const [ns, ...tagParts] = term.split(':');
+    const tag = tagParts.join(':');
+    let urlNs: string, urlTag: string, language = 'all';
+    if (ns === 'female' || ns === 'male') {
+        urlNs = 'tag/';
+        urlTag = term.replace(/_/g, ' ');
+    } else if (ns === 'language') {
+        urlNs = '';
+        language = tag;
+        urlTag = 'index';
+    } else if (tag) {
+        urlNs = ns + '/';
+        urlTag = tag.replace(/_/g, ' ');
+    } else {
+        urlNs = 'tag/';
+        urlTag = ns.replace(/_/g, ' ');
+    }
+    const url = `https://ltn.${DOMAIN}/n/${urlNs}${urlTag}-${language}.nozomi`;
+    const resp = await fetch(url, {
+        headers: { 'Origin': 'https://hitomi.la', 'Referer': 'https://hitomi.la/' },
+    });
+    return decodeNozomi(await resp.arrayBuffer());
+}
+
+async function intersectNozomi(positive: string[], negative: string[]): Promise<number[]> {
+    let idSet: Set<number> | null = null;
+    for (const tag of positive) {
+        const ids = await searchGalleries(tag);
+        if (idSet === null) idSet = new Set(ids);
+        else idSet = new Set(ids.filter(id => idSet!.has(id)));
+    }
+    for (const tag of negative) {
+        const ids = new Set(await searchGalleries(tag));
+        if (idSet) idSet = new Set([...idSet].filter(id => !ids.has(id)));
+    }
+    return idSet ? [...idSet] : [];
+}
+
+// ── provider ──────────────────────────────────────────────────────────
+
 export const provider: Provider = {
     name: 'hitomi',
-    itemsPerPage: 25,
 
     async init(): Promise<void> {
+        // Build the suggestions dropdown (hitomi-specific)
+        const searchWrap = document.querySelector('.hs-search-input');
+        if (searchWrap) {
+            const suggestions = document.createElement('ul');
+            suggestions.id = 'search-suggestions';
+            searchWrap.appendChild(suggestions);
+        }
         await loadScript('jquery.min.js');
         detachJQueryFromSuggestionLinks();
         await loadScript('common.js');
@@ -150,7 +211,6 @@ export const provider: Provider = {
         setupDropdownHandler();
         startAdBlocker();
     },
-
     matchRoute(pathname: string, search: string, hash: string) {
         if (pathname === '/' || pathname.startsWith('/index')) {
             return { handler: Handler.Home };
@@ -165,10 +225,34 @@ export const provider: Provider = {
 
         if (pathname.startsWith('/reader/')) {
             const gid = Number(pathname.slice('/reader/'.length, -'.html'.length));
-            return { handler: Handler.Reader, gid, hash };
+            const index = hash ? Number(hash.slice(1)) : 0;
+            return { handler: Handler.Reader, gid, index };
         }
 
         return null;
+    },
+
+    async search(rawQuery: string, page: number): Promise<SearchPage> {
+        const cached = searchCache.get(rawQuery);
+        let ids: number[];
+        if (cached) {
+            ids = cached;
+        } else {
+            const { positive, negative } = parseQuery(rawQuery);
+            ids = await intersectNozomi(positive, negative);
+            searchCache.set(rawQuery, ids);
+        }
+        const start = (page - 1) * PAGE_SIZE;
+        return {
+            ids: ids.slice(start, start + PAGE_SIZE),
+            totalResults: ids.length,
+            pageSize: PAGE_SIZE,
+        };
+    },
+
+    goToPage(_query: string, page: number): void {
+        // Hash-based — triggers hashchange, re-enters via pagereveal / init
+        window.location.hash = '#' + page;
     },
 
     readerUrl(gid: number, index?: number): string {
@@ -177,8 +261,10 @@ export const provider: Provider = {
         return url;
     },
 
-    searchUrl(query: string): string {
-        return 'https://hitomi.la/search.html?' + encodeURIComponent(query);
+    searchUrl(query: string, page?: number): string {
+        let url = 'https://hitomi.la/search.html?' + encodeURIComponent(query);
+        if (page !== undefined) url += '#' + page;
+        return url;
     },
 
     thumbUrl(file: { hash: string }): string {
@@ -197,7 +283,7 @@ export const provider: Provider = {
         return `https://w${offset}.${DOMAIN}/${gg.basePath}/${hashIndex}/${fileHash}.webp`;
     },
 
-    async fetchMeta(gid: number): Promise<HitomiMeta> {
+    async fetchMeta(gid: number): Promise<GalleryMeta> {
         const text = await fetchText(METADATA_URL(gid), `https://hitomi.la/reader/${gid}.html`);
         const raw = JSON.parse(text.split('=')[1].trim().replace(/;$/, ''));
         return {
@@ -205,9 +291,7 @@ export const provider: Provider = {
             title_jpn: raw.japanese_title || '',
             type: raw.type || '',
             language: raw.language || '',
-            language_localname: raw.language_localname || '',
             date: raw.date || '',
-            datepublished: raw.datepublished || '',
             artists: (raw.artists || []).map((a: { artist: string }) => a.artist),
             groups: (raw.groups || []).map((g: { group: string }) => g.group),
             parody: (raw.parodys || []).map((p: { parody: string }) => p.parody),
@@ -218,33 +302,6 @@ export const provider: Provider = {
                 male: t.male,
             })),
             files: raw.files.map((f: { hash: string; name: string; width: number; height: number }) => f),
-            gallery_id: raw.id || gid,
         };
-    },
-
-    /** Fetch gallery IDs for a single term from hitomi's nozomi API */
-    async searchGalleries(term: string): Promise<number[]> {
-        const [ns, ...tagParts] = term.split(':');
-        const tag = tagParts.join(':');
-        let urlNs: string, urlTag: string, language = 'all';
-        if (ns === 'female' || ns === 'male') {
-            urlNs = 'tag/';
-            urlTag = term.replace(/_/g, ' ');
-        } else if (ns === 'language') {
-            urlNs = '';
-            language = tag;
-            urlTag = 'index';
-        } else if (tag) {
-            urlNs = ns + '/';
-            urlTag = tag.replace(/_/g, ' ');
-        } else {
-            urlNs = 'tag/';
-            urlTag = ns.replace(/_/g, ' ');
-        }
-        const url = `https://ltn.${DOMAIN}/n/${urlNs}${urlTag}-${language}.nozomi`;
-        const resp = await fetch(url, {
-            headers: { 'Origin': 'https://hitomi.la', 'Referer': 'https://hitomi.la/' },
-        });
-        return decodeNozomi(await resp.arrayBuffer());
     },
 };
