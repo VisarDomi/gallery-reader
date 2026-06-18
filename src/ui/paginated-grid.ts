@@ -17,7 +17,7 @@ export function renderPaginatedGrid(
 ): PageInfo {
     const totalPages = Math.max(1, Math.ceil(totalResults / pageSize));
     const pageInfo: PageInfo = {
-        totalCount: String(totalResults) + countLabel,
+        totalCount: `~${totalResults}${countLabel}`,
         currentPage,
         totalPages,
     };
