@@ -44,7 +44,7 @@ interface ParsedQuery {
 }
 
 function parseImhentaiQuery(raw: string): ParsedQuery {
-    const terms = raw.trim().split(/\s+/).filter(Boolean);
+    const terms = raw.split(',').map(t => t.trim()).filter(Boolean);
     const namespaces: { ns: string; value: string }[] = [];
     const keywords: string[] = [];
     let language: string | null = null;
@@ -68,6 +68,7 @@ function parseImhentaiQuery(raw: string): ParsedQuery {
 }
 
 function buildImhentaiSearchUrl(query: string, page?: number): string {
+    console.log('[imhentai searchUrl]', JSON.stringify({ query, page }));
     const { language, namespaces, keywords } = parseImhentaiQuery(query.trim());
 
     // path-based: single namespace or single keyword, no modifiers

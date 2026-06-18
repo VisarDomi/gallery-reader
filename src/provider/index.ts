@@ -25,3 +25,4 @@ export const readerUrl = (gid: number, index?: number) => p.readerUrl(gid, index
 export const goToPage = (query: string, page: number) => p.goToPage(query, page);
 export const searchUrl = (query: string, page?: number) => p.searchUrl(query, page);
 export const initProvider = () => p.init();
+export const matchRoute = (pathname: string, search: string, hash: string) => p.matchRoute(pathname, search, hash);
