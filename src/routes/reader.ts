@@ -41,7 +41,7 @@ export async function open(gid: number, index: number): Promise<void> {
 
     window.addEventListener('scrollend', () => {
         setTimeout(() => {
-            const saveImg = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2) as HTMLImageElement;
+            const saveImg = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2 + 1) as HTMLImageElement;
             const index = parseInt(saveImg.id.split("#")[1]);
             history.replaceState(null, '', readerUrl(gid, index));
         }, 100);
