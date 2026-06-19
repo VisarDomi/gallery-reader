@@ -60,6 +60,23 @@ function buildGridPlaceholder(): void {
     document.body.appendChild(grid);
 }
 
+export function startAdBlocker(): void {
+    new MutationObserver(mutations => {
+        for (const m of mutations) {
+            for (const node of m.addedNodes) {
+                if (!(node instanceof Element)) continue;
+                const tag = node.tagName;
+                const cls = (node as Element).className;
+                if (tag === 'SCRIPT' || tag === 'IFRAME' || tag === 'INS') {
+                    node.remove();
+                } else if (tag === 'DIV' && cls.length > 0 && !cls.startsWith('hs-')) {
+                    node.remove();
+                }
+            }
+        }
+    }).observe(document.body, { childList: true });
+}
+
 export async function initShell(): Promise<void> {
     cleanDocument();
     buildSearch();
@@ -67,6 +84,7 @@ export async function initShell(): Promise<void> {
     buildGridPlaceholder();
     void preloadFavs();
     await initProvider();
+    startAdBlocker();
     const debug = false;
     if (debug) setupDebug();
 }

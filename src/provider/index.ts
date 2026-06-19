@@ -2,17 +2,18 @@ export { Handler } from './types';
 export type { GalleryMeta, Provider, RouteMatch, SearchPage, GalleryFile } from './types';
 
 import type { Provider } from './types';
-import { provider as hitomi } from './hitomi';
-import { provider as imhentai } from './imhentai';
+import { provider as hitomi } from './hitomi/provider';
+import { provider as imhentai } from './imhentai/provider';
 
 export const providers = { hitomi, imhentai } as const;
-export type ProviderName = keyof typeof providers;
 
+// what is this shit? can't it be done else where? like at main.ts where we have host already...
 const HOST = window.location.hostname;
 const isHitomi = HOST.includes('hitomi.la');
-const isImhentai = HOST.includes('imhentai.xxx') || HOST.includes('hentaizap.com');
-
+const isImhentai = HOST.includes('imhentai.xxx');
 const p: Provider = isHitomi ? providers.hitomi : isImhentai ? providers.imhentai : providers.hitomi;
+// end of shit
+
 export const providerName = () => p.name;
 
 // ── lazy forwarders ──────────────────────────────────────────────────

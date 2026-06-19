@@ -7,6 +7,7 @@ const setSrc = (i: number, src: string) => {
 };
 
 async function applyImageSources(files: { hash: string; name: string; width: number; height: number }[], gid: number, currentIndex: number) {
+    // imageUrl is not only one call!!!!! this mapping should be handled by the provider!!!!
     const promises: Promise<string>[] = files.map((_, i) => imageUrl(gid, i));
 
     // Generate pingpong index sequence: current, prev, next, prevPrev, nextNext, ...
