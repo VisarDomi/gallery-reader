@@ -1,29 +1,5 @@
-import {fetchMeta, type GalleryFile, imageUrls, readerUrl} from '../provider';
+import {fetchMeta, imageUrls, readerUrl} from '../provider';
 import {cleanDocument} from "../ui/shell";
-
-const setSrc = (i: number, src: string) => {
-    const img = document.getElementById(`#${i}`) as HTMLImageElement;
-    img.src = src;
-};
-
-async function applyImageSources(files: GalleryFile[], currentIndex: number) {
-    const urls = await imageUrls(files);
-
-    // Generate pingpong index sequence: current, prev, next, prevPrev, nextNext, ...
-    const order: number[] = [];
-    order.push(currentIndex);
-    for (let i = 1; i < files.length; i++) {
-        const prev = currentIndex - i;
-        const next = currentIndex + i;
-        if (prev >= 0) order.push(prev);
-        if (next < files.length) order.push(next);
-    }
-
-    // Resolve sequentially in pingpong order
-    for (const i of order) {
-        setSrc(i, urls[i]);
-    }
-}
 
 export async function open(gid: number, currentIndex: number): Promise<void> {
     cleanDocument();
@@ -42,7 +18,11 @@ export async function open(gid: number, currentIndex: number): Promise<void> {
     const maxST = document.documentElement.scrollHeight - window.innerHeight;
     window.scrollTo(0, Math.max(0, Math.min(maxST, restoreImg.offsetTop - window.innerHeight / 2)));
 
-    void applyImageSources(files, currentIndex);
+    const urls = await imageUrls(files);
+    urls.forEach((src, i) => {
+        const img = document.getElementById(`#${i}`) as HTMLImageElement;
+        img.src = src;
+    });
 
     window.addEventListener('scrollend', () => {
         setTimeout(() => {
