@@ -1,8 +1,9 @@
 import {Provider, SearchPage, GalleryMeta, GalleryFile, Handler} from '../types';
 import {DOMAIN, LANG_PARAM} from "./constants";
-import {buildImhentaiSearchUrl, extractAll, extractBetween, fetchText} from "./decoder";
+import {buildImhentaiSearchUrl, extractAll, extractBetween, fetchText, getFiles} from "./decoder";
 
 const PAGE_SIZE = 20;
+
 export const provider: Provider = {
     name: 'imhentai',
 
@@ -150,54 +151,7 @@ export const provider: Provider = {
         let date = '';
         const dm = extractBetween(html, '>Posted: ', '</li>');
         if (dm) date = dm.value.trim();
-
-        // ── Images ──────────────────────────────────────────────────
-        const srcM = extractBetween(html, 'data-src="', '"');
-        const base = srcM ? srcM.value.substring(0, srcM.value.lastIndexOf('/')) + '/' : '';
-        const exts: Record<string, string> = { j: 'jpg', p: 'png', g: 'gif', w: 'webp', a: 'avif' };
-
-        const files: GalleryFile[] = [];
-        // Try inline JSON
-        const jsonM = extractBetween(html, "$.parseJSON('", "'");
-        if (jsonM) {
-            try {
-                const data = JSON.parse(jsonM.value) as Record<string, string>;
-                const keys = Object.keys(data).sort((a, b) => parseInt(a) - parseInt(b));
-                let idx = 1;
-                for (const key of keys) {
-                    const parts = data[key].split(',');
-                    const ext = exts[parts[0]] ?? 'jpg';
-                    const url = `${base}${idx}.${ext}`;
-                    files.push({
-                        name: `${idx}.${ext}`,
-                        hash: url,           // full-size URL — unique per file
-                        width: parseInt(parts[1]) || 0,
-                        height: parseInt(parts[2]) || 0,
-                    });
-                    idx++;
-                }
-            } catch {
-                // JSON parse failed — fall through
-            }
-        }
-
-        // Fallback: load_pages hidden input
-        if (files.length === 0) {
-            const lp = extractBetween(html, 'id="load_pages" value="', '"');
-            const count = lp ? parseInt(lp.value) : 0;
-            const viewCount = extractAll(html, 'href="/view/' + gid + '/', '"').length;
-            const imageCount = count || viewCount;
-
-            for (let i = 1; i <= imageCount; i++) {
-                const url = `${base}${i}.jpg`;
-                files.push({
-                    name: `${i}.jpg`,
-                    hash: url,               // full-size URL
-                    width: 0,
-                    height: 0,
-                });
-            }
-        }
+        const files = getFiles(html, gid);
 
         return {
             title,

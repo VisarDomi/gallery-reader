@@ -1,7 +1,6 @@
 import {type GalleryMeta, Handler, Provider, type SearchPage} from "../types";
-import {fetchText, parseGG, parseQuery} from "./decoder";
+import {fetchText, intersectNozomi, parseGG, parseQuery} from "./decoder";
 import {detachJQueryFromSuggestionLinks, loadScript, setupDropdownHandler} from "./script";
-import {intersectNozomi} from "./search";
 import {DOMAIN} from "./constants";
 
 const PAGE_SIZE = 25;
