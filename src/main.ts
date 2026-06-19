@@ -1,9 +1,10 @@
-import { matchRoute, Handler } from './provider';
+import { matchRoute, Handler, selectProvider } from './provider';
 import { init as initHome } from './routes/home';
 import { init as initSearch } from './routes/search';
 import { open } from './routes/reader';
 
-const { pathname, search, hash } = window.location;
+const { pathname, search, hash, hostname } = window.location;
+selectProvider(hostname);
 const match = matchRoute(pathname, search, hash);
 if (match) {
     switch (match.handler) {

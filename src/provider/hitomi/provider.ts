@@ -1,4 +1,4 @@
-import {type GalleryMeta, Handler, Provider, type SearchPage} from "../types";
+import {type GalleryFile, type GalleryMeta, Handler, Provider, type SearchPage} from "../types";
 import {fetchText, intersectNozomi, parseGG, parseQuery} from "./decoder";
 import {detachJQueryFromSuggestionLinks, loadScript, setupDropdownHandler} from "./script";
 import {DOMAIN} from "./constants";
@@ -83,22 +83,21 @@ export const provider: Provider = {
         return this.searchUrl(q);
     },
 
-    thumbUrl(file: { hash: string }): string {
-        const fileHash = file.hash;
-        return `https://tn.${DOMAIN}/webpsmalltn/${fileHash.slice(-1)}/${fileHash.slice(-3, -1)}/${fileHash}.webp`;
+    thumbUrl(file: { key: string }): string {
+        const k = file.key;
+        return `https://tn.${DOMAIN}/webpsmalltn/${k.slice(-1)}/${k.slice(-3, -1)}/${k}.webp`;
     },
 
-    async imageUrl(gid: number, pageIndex: number): Promise<string> {
-        // why is this written this way? anyway, like it's said in reader, this function should return a mapping of promises.
-        const meta = await this.fetchMeta(gid);
-        const file = meta.files[pageIndex];
-        if (!file) throw new Error(`Page ${pageIndex} OOB`);
+    async imageUrls(files: GalleryFile[]): Promise<string[]> {
         const gg = await parseGG();
-        const fileHash = file.hash;
-        const hashIndex = parseInt(fileHash.slice(-1) + fileHash.slice(-3, -1), 16);
-        const offset = (gg.multiplierMap[hashIndex] ?? gg.defaultOffset) + 1;
-        return `https://w${offset}.${DOMAIN}/${gg.basePath}/${hashIndex}/${fileHash}.webp`;
+        return files.map(file => {
+            const k = file.key;
+            const hashIndex = parseInt(k.slice(-1) + k.slice(-3, -1), 16);
+            const offset = (gg.multiplierMap[hashIndex] ?? gg.defaultOffset) + 1;
+            return `https://w${offset}.${DOMAIN}/${gg.basePath}/${hashIndex}/${k}.webp`;
+        });
     },
+
     async fetchMeta(gid: number): Promise<GalleryMeta> {
         const text = await fetchText(`https://ltn.${DOMAIN}/galleries/${gid}.js`, `https://hitomi.la/reader/${gid}.html`);
         const raw = JSON.parse(text.split('=')[1].trim().replace(/;$/, ''));
@@ -117,7 +116,7 @@ export const provider: Provider = {
                 female: t.female,
                 male: t.male,
             })),
-            files: raw.files.map((f: { hash: string; name: string; width: number; height: number }) => f),
+            files: raw.files.map((f: { hash: string; name: string; width: number; height: number }) => ({ key: f.hash, name: f.name, width: f.width, height: f.height })),
         };
     },
 };

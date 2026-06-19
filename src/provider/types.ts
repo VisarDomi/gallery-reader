@@ -1,5 +1,5 @@
 export interface GalleryFile {
-    hash: string;
+    key: string;
     name: string;
     width: number;
     height: number;
@@ -50,5 +50,5 @@ export interface Provider {
     /** Build a search URL from a tag/artist/etc click in the info modal. */
     tagSearchUrl(ns: string, value: string, language: string): string;
     thumbUrl(file: GalleryFile): string;
-    imageUrl(gid: number, pageIndex: number): Promise<string>;
+    imageUrls(files: GalleryFile[]): Promise<string[]>;
 }

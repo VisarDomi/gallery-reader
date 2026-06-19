@@ -77,7 +77,6 @@ export function buildImhentaiSearchUrl(query: string, page?: number): string {
     // namespace + language → convert namespace to keyword for search endpoint
     if (language && namespaces.length === 1 && keywords.length === 0) {
         keywords = [namespaces[0].value];
-        namespaces = [];
     }
 
     // search endpoint
@@ -127,7 +126,7 @@ export function getFiles(html: string, gid: number) {
                 const url = `${base}${idx}.${ext}`;
                 files.push({
                     name: `${idx}.${ext}`,
-                    hash: url,           // full-size URL — unique per file
+                    key: url,           // full-size URL — unique per file
                     width: parseInt(parts[1]) || 0,
                     height: parseInt(parts[2]) || 0,
                 });
@@ -149,7 +148,7 @@ export function getFiles(html: string, gid: number) {
             const url = `${base}${i}.jpg`;
             files.push({
                 name: `${i}.jpg`,
-                hash: url,               // full-size URL
+                key: url,               // full-size URL
                 width: 0,
                 height: 0,
             });

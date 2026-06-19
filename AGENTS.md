@@ -1,3 +1,5 @@
+Start by reading the .md files in tools, they are hard-fought lesson.
+
 How to use this repo:
 
 1. check package.json on how to build this userscript. also use npx tsc --noEmit 2>&1 to check.

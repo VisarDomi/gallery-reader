@@ -1,26 +1,27 @@
 export { Handler } from './types';
 export type { GalleryMeta, Provider, RouteMatch, SearchPage, GalleryFile } from './types';
 
-import type { Provider } from './types';
+import type { GalleryFile, Provider } from './types';
 import { provider as hitomi } from './hitomi/provider';
 import { provider as imhentai } from './imhentai/provider';
 
 export const providers = { hitomi, imhentai } as const;
 
-// what is this shit? can't it be done else where? like at main.ts where we have host already...
-const HOST = window.location.hostname;
-const isHitomi = HOST.includes('hitomi.la');
-const isImhentai = HOST.includes('imhentai.xxx');
-const p: Provider = isHitomi ? providers.hitomi : isImhentai ? providers.imhentai : providers.hitomi;
-// end of shit
+let p: Provider;
+
+export function selectProvider(hostname: string): void {
+    if (hostname.includes('hitomi.la')) p = providers.hitomi;
+    else if (hostname.includes('imhentai.xxx')) p = providers.imhentai;
+    else throw Error('Unable to select provider');
+}
 
 export const providerName = () => p.name;
 
 // ── lazy forwarders ──────────────────────────────────────────────────
 
 export const fetchMeta = (gid: number) => p.fetchMeta(gid);
-export const thumbUrl = (file: { hash: string; name: string; width: number; height: number }) => p.thumbUrl(file);
-export const imageUrl = (gid: number, pageIndex: number) => p.imageUrl(gid, pageIndex);
+export const thumbUrl = (file: GalleryFile) => p.thumbUrl(file);
+export const imageUrls = (files: GalleryFile[]) => p.imageUrls(files);
 export const search = (rawQuery: string, page: number) => p.search(rawQuery, page);
 export const readerUrl = (gid: number, index?: number) => p.readerUrl(gid, index);
 export const goToPage = (query: string, page: number) => p.goToPage(query, page);

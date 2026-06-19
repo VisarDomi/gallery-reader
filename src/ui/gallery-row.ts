@@ -1,4 +1,4 @@
-import {thumbUrl, readerUrl} from '../provider';
+import { thumbUrl, readerUrl, type GalleryFile } from '../provider';
 import {isFav, toggleFav} from '../storage/db';
 import {show as showInfo} from './info-modal';
 
@@ -14,7 +14,7 @@ export function createSkeletonRow(): HTMLDivElement {
 export function populateRow(
     container: HTMLDivElement,
     gid: number,
-    files: { hash: string; name: string; width: number; height: number }[],
+    files: GalleryFile[],
 ): void {
     container.innerHTML = '';
     container.style.height = '';

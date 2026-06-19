@@ -183,17 +183,10 @@ export const provider: Provider = {
     },
 
     thumbUrl(file: GalleryFile): string {
-        return file.hash;
+        return file.key;
     },
 
-    async imageUrl(gid: number, pageIndex: number): Promise<string> {
-        // ?????????????????
-        const meta = await this.fetchMeta(gid);
-        const file = meta.files[pageIndex];
-        if (!file) throw new Error(`Page ${pageIndex} OOB`);
-
-        // this needs to be rewritten, like said in reader, to return a mapping of promises.
-
-        return file.hash;
+    async imageUrls(files: GalleryFile[]): Promise<string[]> {
+        return files.map(f => f.key);
     },
 };

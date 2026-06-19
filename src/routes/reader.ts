@@ -1,4 +1,4 @@
-import { fetchMeta, imageUrl, readerUrl } from '../provider';
+import {fetchMeta, type GalleryFile, imageUrls, readerUrl} from '../provider';
 import {cleanDocument} from "../ui/shell";
 
 const setSrc = (i: number, src: string) => {
@@ -6,9 +6,8 @@ const setSrc = (i: number, src: string) => {
     img.src = src;
 };
 
-async function applyImageSources(files: { hash: string; name: string; width: number; height: number }[], gid: number, currentIndex: number) {
-    // imageUrl is not only one call!!!!! this mapping should be handled by the provider!!!!
-    const promises: Promise<string>[] = files.map((_, i) => imageUrl(gid, i));
+async function applyImageSources(files: GalleryFile[], currentIndex: number) {
+    const urls = await imageUrls(files);
 
     // Generate pingpong index sequence: current, prev, next, prevPrev, nextNext, ...
     const order: number[] = [];
@@ -22,8 +21,7 @@ async function applyImageSources(files: { hash: string; name: string; width: num
 
     // Resolve sequentially in pingpong order
     for (const i of order) {
-        const src = await promises[i];
-        setSrc(i, src);
+        setSrc(i, urls[i]);
     }
 }
 
@@ -44,7 +42,7 @@ export async function open(gid: number, currentIndex: number): Promise<void> {
     const maxST = document.documentElement.scrollHeight - window.innerHeight;
     window.scrollTo(0, Math.max(0, Math.min(maxST, restoreImg.offsetTop - window.innerHeight / 2)));
 
-    void applyImageSources(files, gid, currentIndex);
+    void applyImageSources(files, currentIndex);
 
     window.addEventListener('scrollend', () => {
         setTimeout(() => {
