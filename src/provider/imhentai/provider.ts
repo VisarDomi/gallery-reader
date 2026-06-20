@@ -178,7 +178,7 @@ export const provider: Provider = {
     },
 
     tagSearchUrl(ns: string, value: string, language: string): string {
-        const query = ns === 'language' ? `language:${value}` : `${value},language:${language}`;
+        const query = ns === 'language' ? `language:${value}` : `language:${language},${value}`;
         return buildImhentaiSearchUrl(query);
     },
 

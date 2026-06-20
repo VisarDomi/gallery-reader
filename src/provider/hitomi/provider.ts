@@ -78,8 +78,9 @@ export const provider: Provider = {
     },
 
     tagSearchUrl(ns: string, value: string, language: string): string {
-        let q = ns + ':' + value.replace(/ /g, '_');
-        if (language && ns !== 'language') q += ' language:' + language;
+        let q = '';
+        if (language && ns !== 'language') q = 'language:' + language + ' ';
+        q += ns + ':' + value.replace(/ /g, '_');
         return this.searchUrl(q);
     },
 
