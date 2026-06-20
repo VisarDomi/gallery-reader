@@ -3,6 +3,9 @@ import {cleanDocument} from "../ui/shell";
 
 export async function open(gid: number, currentIndex: number): Promise<void> {
     cleanDocument();
+    const wrapper = document.createElement('div');
+    wrapper.className = 'hs-reader-body';
+    document.body.appendChild(wrapper);
     const meta = await fetchMeta(gid);
     const files = meta.files;
     for (let i = 0; i < files.length; i++) {
@@ -11,7 +14,7 @@ export async function open(gid: number, currentIndex: number): Promise<void> {
         img.className = 'hs-reader-img';
         img.style.aspectRatio = files[i].width + '/' + files[i].height;
         img.loading = 'lazy';
-        document.body.appendChild(img);
+        wrapper.appendChild(img);
     }
 
     const restoreImg = document.getElementById(`#${currentIndex}`) as HTMLImageElement;

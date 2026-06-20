@@ -206,6 +206,10 @@ html {
 }
 
 /* === Reader === */
+.hs-reader-body {
+    padding-block: 50svh;
+}
+
 .hs-reader-img {
     display: block;
     width: 100%;
