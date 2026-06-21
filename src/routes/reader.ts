@@ -18,8 +18,7 @@ export async function open(gid: number, currentIndex: number): Promise<void> {
     }
 
     const restoreImg = document.getElementById(`#${currentIndex}`) as HTMLImageElement;
-    const maxST = document.documentElement.scrollHeight - window.innerHeight;
-    window.scrollTo(0, Math.max(0, Math.min(maxST, restoreImg.offsetTop - window.innerHeight / 2)));
+    window.scrollTo(0, restoreImg.offsetTop - window.innerHeight / 2);
 
     const urls = await imageUrls(files);
     urls.forEach((src, i) => {

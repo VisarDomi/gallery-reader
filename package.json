@@ -4,8 +4,7 @@
   "description": "Userscript to improve ux on supported sites",
   "type": "module",
   "scripts": {
-    "build": "node increase.js && vite build",
-    "dev": "vite build --watch"
+    "build": "node increase.js && vite build"
   },
   "devDependencies": {
     "@types/tampermonkey": "^5.0.4",
