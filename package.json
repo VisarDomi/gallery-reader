@@ -1,7 +1,7 @@
 {
   "name": "gallery-reader",
   "version": "407",
-  "description": "Hitomi/Exhentai gallery browser with OCR support",
+  "description": "Userscript to improve ux on supported sites",
   "type": "module",
   "scripts": {
     "build": "node increase.js && vite build",

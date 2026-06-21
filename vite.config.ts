@@ -15,7 +15,7 @@ export default defineConfig({
             entry: "src/main.ts",
             userscript: {
                 name: `${pkg.name} v${pkg.version}`,
-                namespace: "https://github.com/visar",
+                namespace: "https://github.com/VisarDomi",
                 description: "Hitomi gallery browser",
                 match: ["https://hitomi.la/*", "https://imhentai.xxx/*"],
                 "run-at": "document-start",
