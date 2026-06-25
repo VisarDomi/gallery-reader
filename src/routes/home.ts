@@ -33,20 +33,36 @@ function buildImportSection(): void {
 
     const textarea = document.createElement('textarea');
     textarea.placeholder = 'Paste gallery IDs (space, newline, comma separated)';
-    textarea.style.cssText = 'display:none;width:100%;max-width:500px;height:120px;margin:8px auto;padding:8px;background:#111;color:#aaa;border:1px solid #555;border-radius:4px;font:13px monospace;resize:vertical';
+    textarea.style.cssText = 'display:none;width:100%;max-width:500px;min-height:40px;margin:8px auto;padding:8px;background:#111;color:#aaa;border:1px solid #555;border-radius:4px;font:13px monospace;resize:none;overflow:hidden;box-sizing:border-box';
+    const resizeTextarea = () => {
+        textarea.style.height = '0px';
+        textarea.style.height = textarea.scrollHeight + 'px';
+    };
+    textarea.addEventListener('input', resizeTextarea);
 
     const mergeBtn = document.createElement('button');
     mergeBtn.textContent = 'Merge';
     mergeBtn.style.cssText = 'display:none;background:#4a4;color:#fff;border:none;border-radius:4px;padding:6px 16px;font:13px monospace;cursor:pointer;margin-left:8px';
 
+    const exportBtn = document.createElement('button');
+    exportBtn.textContent = 'Export';
+    exportBtn.style.cssText = 'background:#333;color:#ccc;border:1px solid #555;border-radius:4px;padding:6px 16px;font:13px monospace;cursor:pointer;margin-left:8px';
+
     const status = document.createElement('span');
     status.style.cssText = 'display:none;color:#aaa;font:12px monospace;margin-left:8px';
 
-    btn.onclick = () => {
+    const showImport = () => {
         textarea.style.display = 'block';
         mergeBtn.style.display = 'inline-block';
         btn.style.display = 'none';
         status.style.display = 'none';
+    };
+
+    btn.onclick = showImport;
+    exportBtn.onclick = () => {
+        textarea.value = _ids.join(' ');
+        showImport();
+        resizeTextarea();
     };
 
     mergeBtn.onclick = async () => {
@@ -78,6 +94,7 @@ function buildImportSection(): void {
     wrap.appendChild(btn);
     wrap.appendChild(textarea);
     wrap.appendChild(mergeBtn);
+    wrap.appendChild(exportBtn);
     wrap.appendChild(status);
     document.body.appendChild(wrap);
 }
