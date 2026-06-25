@@ -2,16 +2,17 @@ import {render as renderSavedSearch} from "./saved-searches";
 import {preloadFavs} from "../storage/db";
 import {initProvider, providerName, searchUrl} from "../provider";
 import cssContent from '../css/style.css?inline';
-import { setupDebug } from '../debug';
+import {setupDebug} from '../debug';
 import {loadSearches} from "../storage/localstorage";
 
-function retryBrokenImages(selector: ".hs-reader-img" | ".hs-thumb", interval: number) : void {
+function retryBrokenImages(selector: ".hs-reader-img" | ".hs-thumb", interval: number): void {
     setInterval(() => {
         const imgs = document.querySelectorAll<HTMLImageElement>(selector);
         for (const img of imgs) {
             if (!img.complete || img.naturalWidth > 0) continue; // safari doesn't execute img.onerror on 429s so we have to do hacks
-            const fresh = img.cloneNode() as HTMLImageElement;
-            img.replaceWith(fresh);
+            const src = img.src;
+            img.src = '';
+            img.src = src + '#_r=' + Date.now();
         }
     }, interval);
 }
@@ -56,7 +57,10 @@ function buildSearch(): void {
         window.location.href = searchUrl(query, saved?.page);
     };
     input.addEventListener('keydown', e => {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            submit();
+        }
     });
     button.addEventListener('click', submit);
 
