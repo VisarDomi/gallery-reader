@@ -9,9 +9,9 @@ function retryBrokenImages(selector: ".hs-reader-img" | ".hs-thumb", interval: n
     setInterval(() => {
         const imgs = document.querySelectorAll<HTMLImageElement>(selector);
         for (const img of imgs) {
-            if (!img.complete || img.naturalWidth > 0) continue; // safari doesn't execute img.onerror on 429s so we have to do hacks
+            if (!img.complete || img.naturalWidth > 0) continue; // safari ios doesn't execute img.onerror on 429s so we have to do hacks
             const src = img.src;
-            img.src = '';
+            img.src = ''; // safari ios needs its source cleared first so that it can register the new (same) source
             img.src = src;
         }
     }, interval);
