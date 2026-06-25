@@ -12,7 +12,7 @@ function retryBrokenImages(selector: ".hs-reader-img" | ".hs-thumb", interval: n
             if (!img.complete || img.naturalWidth > 0) continue; // safari doesn't execute img.onerror on 429s so we have to do hacks
             const src = img.src;
             img.src = '';
-            img.src = src + '#_r=' + Date.now();
+            img.src = src;
         }
     }, interval);
 }
