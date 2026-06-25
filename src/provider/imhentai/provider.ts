@@ -8,7 +8,7 @@ export const provider: Provider = {
     name: 'imhentai',
 
     async init(): Promise<void> {
-        // No autocomplete to wire up
+        // TODO: implement DOM takeover so that imhentai doesn't break bfcache of safari ios
     },
 
     matchRoute(pathname: string, search: string, _hash: string) {

@@ -5,12 +5,25 @@ import cssContent from '../css/style.css?inline';
 import { setupDebug } from '../debug';
 import {loadSearches} from "../storage/localstorage";
 
-export function cleanDocument() {
+function retryBrokenImages(selector: ".hs-reader-img" | ".hs-thumb", interval: number) : void {
+    setInterval(() => {
+        const imgs = document.querySelectorAll<HTMLImageElement>(selector);
+        for (const img of imgs) {
+            if (!img.complete || img.naturalWidth > 0) continue; // safari doesn't execute img.onerror on 429s so we have to do hacks
+            const fresh = img.cloneNode() as HTMLImageElement;
+            img.replaceWith(fresh);
+        }
+    }, interval);
+}
+
+export function startInit() {
     document.open();
     document.close();
     const style = document.createElement('style');
     style.textContent = cssContent;
     document.head.appendChild(style);
+    retryBrokenImages(".hs-reader-img", 1000);
+    retryBrokenImages(".hs-thumb", 10000);
 }
 
 function buildSearch(): void {
@@ -60,31 +73,13 @@ function buildGridPlaceholder(): void {
     document.body.appendChild(grid);
 }
 
-export function startAdBlocker(): void {
-    new MutationObserver(mutations => {
-        for (const m of mutations) {
-            for (const node of m.addedNodes) {
-                if (!(node instanceof Element)) continue;
-                const tag = node.tagName;
-                const cls = (node as Element).className;
-                if (tag === 'SCRIPT' || tag === 'IFRAME' || tag === 'INS') {
-                    node.remove();
-                } else if (tag === 'DIV' && cls.length > 0 && !cls.startsWith('hs-')) {
-                    node.remove();
-                }
-            }
-        }
-    }).observe(document.body, { childList: true });
-}
-
 export async function initShell(): Promise<void> {
-    cleanDocument();
+    startInit();
     buildSearch();
     renderSavedSearch();
     buildGridPlaceholder();
     void preloadFavs();
     await initProvider();
-    startAdBlocker();
     const debug = false;
     if (debug) setupDebug();
 }

@@ -1,6 +1,6 @@
 import {type GalleryFile, type GalleryMeta, Handler, Provider, type SearchPage} from "../types";
 import {fetchText, intersectNozomi, parseGG, parseQuery} from "./decoder";
-import {detachJQueryFromSuggestionLinks, loadScript, setupDropdownHandler} from "./script";
+import {detachJQueryFromSuggestionLinks, loadScript, setupDropdownHandler, startAdBlocker} from "./script";
 import {DOMAIN} from "./constants";
 
 const PAGE_SIZE = 25;
@@ -21,6 +21,8 @@ export const provider: Provider = {
         await loadScript('searchlib.js');
         await loadScript('search.js');
         setupDropdownHandler();
+        startAdBlocker();
+        // TODO: investigate again why are we doing search manually instead of letting the search box execute the search... i'm not convinced
     },
     matchRoute(pathname: string, search: string, hash: string) {
         if (pathname === '/' || pathname.startsWith('/index')) {

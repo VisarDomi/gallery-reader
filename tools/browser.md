@@ -2,6 +2,8 @@
 
 ## Failures
 
+- `Failed to fetch` or `Unable to connect` when doing `page.evaluate(() => fetch(...))` — the fetch may be blocked by the page's CSP. Try using `page.evaluate` to read data already loaded by the page instead.
+
 - `results is not defined` when `code` returns a variable defined inside `page.evaluate()` — the outer scope doesn't have it. Capture with `const result = await page.evaluate(...)` then `return result`.
 - `document is not defined` when using `document` directly in `code` body — the code runs in Node context, not browser context. Use `page.evaluate()` to access the DOM.
 - `window is not defined` when using `window` directly in `code` body — same issue. Use `page.evaluate()` to access browser globals.

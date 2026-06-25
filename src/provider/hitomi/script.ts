@@ -54,3 +54,20 @@ export function setupDropdownHandler(): void {
         if (origClear) origClear();
     }, { capture: true });
 }
+
+export function startAdBlocker(): void {
+    new MutationObserver(mutations => {
+        for (const m of mutations) {
+            for (const node of m.addedNodes) {
+                if (!(node instanceof Element)) continue;
+                const tag = node.tagName;
+                const cls = (node as Element).className;
+                if (tag === 'SCRIPT' || tag === 'IFRAME' || tag === 'INS') {
+                    node.remove();
+                } else if (tag === 'DIV' && cls.length > 0 && !cls.startsWith('hs-')) {
+                    node.remove();
+                }
+            }
+        }
+    }).observe(document.body, { childList: true });
+}
