@@ -11,7 +11,7 @@ export const provider: Provider = {
         // no-op
     },
 
-    matchRoute(pathname: string, search: string, _hash: string) {
+    async matchRoute(pathname: string, search: string, _hash: string) {
         if (pathname === '/' || pathname === '') {
             return { handler: Handler.Home };
         }
@@ -173,11 +173,11 @@ export const provider: Provider = {
         return `https://${DOMAIN}/view/${gid}/1/`;
     },
 
-    searchUrl(rawQuery: string, page?: number): string {
+    async searchUrl(rawQuery: string, page?: number): Promise<string> {
         return buildImhentaiSearchUrl(rawQuery, page);
     },
 
-    tagSearchUrl(ns: string, value: string, language: string): string {
+    async tagSearchUrl(ns: string, value: string, language: string): Promise<string> {
         const query = ns === 'language' ? `language:${value}` : `language:${language},${value}`;
         return buildImhentaiSearchUrl(query);
     },

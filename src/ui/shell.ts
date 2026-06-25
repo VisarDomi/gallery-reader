@@ -49,16 +49,16 @@ function buildSearch(): void {
     header.appendChild(searchWrap);
     header.appendChild(button);
 
-    const submit = () => {
+    const submit = async () => {
         const val = input.value.trim();
         const query = val || 'language:japanese';
         const saved = loadSearches(providerName()).find(s => s.query === query);
-        window.location.href = searchUrl(query, saved?.page);
+        window.location.href = await searchUrl(query, saved?.page);
     };
     input.addEventListener('keydown', e => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            submit();
+            void submit();
         }
     });
     button.addEventListener('click', submit);

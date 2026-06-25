@@ -24,7 +24,7 @@ export const provider: Provider = {
         startAdBlocker();
         // TODO: investigate again why are we doing search manually instead of letting the search box execute the search... i'm not convinced
     },
-    matchRoute(pathname: string, search: string, hash: string) {
+    async matchRoute(pathname: string, search: string, hash: string) {
         if (pathname === '/' || pathname.startsWith('/index')) {
             return { handler: Handler.Home };
         }
@@ -73,13 +73,13 @@ export const provider: Provider = {
         return url;
     },
 
-    searchUrl(query: string, page?: number): string {
+    async searchUrl(query: string, page?: number): Promise<string> {
         let url = 'https://hitomi.la/search.html?' + encodeURIComponent(query);
         if (page !== undefined) url += '#' + page;
         return url;
     },
 
-    tagSearchUrl(ns: string, value: string, language: string): string {
+    async tagSearchUrl(ns: string, value: string, language: string): Promise<string> {
         let q = '';
         if (language && ns !== 'language') q = 'language:' + language + ' ';
         q += ns + ':' + value.replace(/ /g, '_');

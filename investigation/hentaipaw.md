@@ -1,17 +1,11 @@
 # Hentaipaw.com Provider Investigation
 
-## Goal
-
-Determine if the site supports combined artist/group + language=japanese searches, and if not, how to build the intersection client-side.
-
----
-
 ## Site Architecture
 
 - **Framework**: Next.js SSR (`_next/static` assets confirm). All content rendered server-side as HTML.
 - **No API**: Zero JSON data endpoints. All non-HTML network requests are ad networks (`api.shinybirdwhispered.com`, etc.).
 - **No client-side search**: The only search form searches `/articles/search` (keyword-only, no filters).
-- **Cloudflare anti-bot**: Obfuscated challenge script on every page. Simple HTTP fetches work from Node but may trigger CAPTCHAs at scale.
+- **Cloudflare anti-bot**: Obfuscated challenge script on every page. Simple HTTP fetches work from browser context (tested: 10 parallel fetches all 200 OK, no CAPTCHA).
 
 ---
 
@@ -34,6 +28,8 @@ Determine if the site supports combined artist/group + language=japanese searche
 
 ## Artist/Group Discovery
 
+### Listing pages
+
 **Artist listing** paginated at `/artists?page=N`. Format:
 
 ```html
@@ -41,8 +37,23 @@ Determine if the site supports combined artist/group + language=japanese searche
 <a href="/artists/31613" title="02">02</a>
 ```
 
-Each page has ~100 artists. Page 100 contains entries starting with "hg" — the full list spans hundreds of pages, alphabetically sorted (A-Z with a jump anchor `[A-Z](#)` at top).
-**Artist detail page** `/artists/{id}` is paginated — 30 galleries per page (`?page=N`). Each entry carries the language tag in the anchor text:
+Each page has ~85-100 artists, alphabetically sorted (A-Z with a jump anchor `[A-Z](#)` at top). The `?letter=X` parameter is ignored (returns page 1 regardless).
+
+**Distribution by page** (sampled):
+
+| Page | First entry |
+|---|---|
+| 1 | numbers/symbols (007, 013...) |
+| 100 | "hg" |
+| 300 | "se" (senko, sera...) |
+
+"i" names fall in pages 60–90. Binary search narrows to the exact page in ~3-5 fetches.
+
+**Group pages** work identically: `/groups?page=N` → `/groups/{id}?page=1`.
+
+### Detail pages
+
+**Artist/group detail page** `/artists/{id}` or `/groups/{id}` is paginated — 30 galleries per page (`?page=N`). Each entry carries the language tag in the anchor text:
 
 ```html
 <a href="/articles/928225">秘密距離ゼロセンチ, 日本語 秘密距離ゼロセンチ</a>
@@ -51,20 +62,41 @@ Each page has ~100 artists. Page 100 contains entries starting with "hg" — the
 
 Format: `[Title, LanguageCode TranslationTitle]`. The `, LanguageCode` token in the anchor text reliably matches the article detail page's `### Language:` metadata (verified: English→English, Русский→Русский, 日本語→日本語).
 
-**Page count**: Most artists have <5 pages. Artist 412 ("agobitch nee-san") has ~300 galleries across ~10 pages. Artist 7 ("007") has 13 galleries on 1 page.
+**Page count**: Most artists have <5 pages. Artist 412 ("agobitch nee-san") has ~300 galleries across ~10 pages.
 
-**Group pages** work identically: `/groups?page=N` → `/groups/{id}?page=1`.
+### Detail page as reverse-lookup source
 
-**Artist/group listing** is alphabetical, paginated at ~85 entries per page. No search-by-name endpoint. The `[A-Z](#)` link is a client-side anchor within the same page, not a server-side filter. The `?letter=X` parameter is ignored (returns page 1 regardless).
+The detail page (`/groups/{id}` or `/artists/{id}`) also contains the group/artist **name** in the page body (heading). This is used for ID→Name reverse resolution when a URL like `/groups/14406` is encountered and the ID isn't in cache. One `fetch()` to the detail page extracts the name via DOM scraping.
 
-**Distribution by page** (sampled):
-| Page | First entry |
-|---|---|
-| 1 | numbers/symbols (007, 013...) |
-| 100 | "hg" |
-| 300 | "se" (senko, sera...) |
+---
 
-"i" names fall in pages 60–90. Binary search narrows to the exact page in ~3-5 fetches.
+## Name/ID Resolution Cache
+
+### Bidirectional mapping with namespace-qualified keys
+
+IDs can collide across namespaces (e.g., ID 7 could be both an artist and a group), so all cache keys include the namespace prefix.
+
+**In-memory** (two Maps, loaded from IndexedDB at provider `init()`):
+
+```
+nameToId: Map<string, number>    // e.g. "group:irotenya" → 14406
+idToName: Map<string, string>    // e.g. "group:14406" → "irotenya"
+```
+
+**IndexedDB**: One object store, rows `{ns, name, id}`. E.g. `{ns: "group", name: "irotenya", id: 14406}`.
+
+### Resolution paths
+
+| Direction | Input | Cache miss method | Cache key |
+|---|---|---|---|
+| Name → ID | `group:irotenya` | Binary search `/groups?page=N` (~3-5 fetches) | `name:group:irotenya → 14406` |
+| ID → Name | `/groups/14406` | Fetch detail page `/groups/14406`, scrape heading | `id:group:14406 → "irotenya"` |
+
+On any successful resolution, both cache directions are populated:
+- `nameToId.set("group:irotenya", 14406)` AND `idToName.set("group:14406", "irotenya")`
+- One `{ns: "group", name: "irotenya", id: 14406}` row written to IndexedDB
+
+At `init()`, load all IndexedDB rows into both Maps. Subsequent lookups in either direction hit memory (sync).
 
 ---
 
@@ -86,45 +118,32 @@ Format: `[Title, LanguageCode TranslationTitle]`. The `, LanguageCode` token in 
 
 Verified against article detail page `### Language:` metadata (2/2 sample, zero mismatches). The tag is generated by the same Next.js template that renders the detail page, so consistency is structural, not coincidental.
 
-**This means no gallery detail pages need to be opened for language filtering.** One listing page gives 30 `(articleId, language)` pairs.
+**No gallery detail pages need to be opened for language filtering.** One listing page gives 30 `(articleId, language)` pairs.
 
 ---
 
-## Sitemaps
-
-Discovered via `robots.txt` → `/sitemap-index.xml`:
-
-- **39 article sitemaps** — ~600 URLs each, ~23,400+ articles total
-- Format: only `<loc>https://hentaipaw.com/articles/{id}</loc>` — no metadata
-- Also: artist, group, tag, character, parody sitemaps
-
-Not useful for language filtering (no metadata). Potentially useful for building a full article ID index for local caching.
-
----
-
-## Recommended Pipeline
+## Search Pipeline
 
 For a query like `group:irotenya language:japanese`:
 
 ### 1. Resolve name → ID (cached after first lookup)
 
-Binary search the alphabetical `/groups?page=N` listing for the name "irotenya":
-- Jump to page 70 (estimated "i" range)
-- If names start below "i", jump up; if above, jump down
-- ~3-5 page fetches to find the exact page
-- Extract ID from `<a href="/groups/{id}" title="irotenya">irotenya</a>`
-- **Cache** the mapping `group:irotenya → {id}` in IndexedDB. Subsequent queries skip the binary search.
+```
+resolveName("group", "irotenya"):
+  hit  → return 14406
+  miss → binary search /groups?page=N → extract ID → cache bidirectionally → return 14406
+```
 
 ### 2. Fetch galleries with language filter
 
 Scrape `/groups/{id}?page=1`:
 - Parse each anchor: extract article ID and `, LanguageCode`
-- Filter to `日本語` in memory
+- Filter to target language in memory
 - Collect remaining article IDs
 
 ### 3. Paginate
 
-Repeat `?page=2`, `?page=3` until a page returns zero entries.
+Repeat `?page=2`, `?page=3` until a page returns zero entries. Parallel fetch all pages.
 
 ### Performance (verified with browser `fetch`)
 
@@ -134,12 +153,66 @@ Repeat `?page=2`, `?page=3` until a page returns zero entries.
 | Large artist (300 galleries) | 10 | 10× parallel `fetch()` | **349ms** (all HTTP 200) |
 | Artist 412 test | 10 pages (288 articles) | 10× parallel | 349ms, zero failures |
 
-**Parallel fetching works from browser context.** 10 concurrent same-origin `fetch()` calls to `/artists/412?page=1..10` all returned HTTP 200 with no rate limiting, no CAPTCHA, no Cloudflare interference. Safari iOS userscript would see identical behavior.
+Parallel fetching works from browser context. 10 concurrent same-origin `fetch()` calls all returned HTTP 200 with no rate limiting.
 
-- Name→ID resolution: 3-5 page fetches on first query (binary search), 0 on subsequent (cached)
-- **No gallery detail pages opened** — language comes from the listing
+---
 
-### Image Thumbnails (search grid)
+## URL Design (Architecture Decision)
+
+### App URL format
+
+The app URL encodes the resolved ID in the path (matching the real site's URL structure) and carries the language filter in a `lang` query parameter. The `lang` param is ignored by the real site. Page comes first, language last:
+
+```
+/groups/14406?page=2&lang=Japanese
+/artists/8199?page=1&lang=Japanese
+```
+
+This is the URL stored in browser history and restored on Safari restart.
+
+### Round-trip contract
+
+Three provider methods have **changed to async** (breaking change to `Provider` interface):
+
+```
+searchUrl(rawQuery, page?)  → Promise<string>
+tagSearchUrl(ns, value, lang) → Promise<string>
+matchRoute(pathname, search, hash) → Promise<RouteMatch | null>
+```
+
+Existing providers (hitomi, imhentai) trivially wrap their sync returns in `Promise.resolve(...)`.
+
+### searchUrl flow
+
+1. Parse `rawQuery` → extract namespace names (`group:irotenya`, `artist:tokunaga`)
+2. For each namespace name, call `resolveName(ns, name)` → ID from cache or binary search
+3. Build URL: `/{namespace}s/{id}?page={page}&lang={language}`
+4. The URL IS the real site path (ID-based) + lang param
+
+### matchRoute flow
+
+1. Parse `pathname`: if `/groups/{id}` → extract `ns=group`, `id=14406`
+2. Parse `search`: extract `page` and `lang` params
+3. Call `resolveId(ns, id)` → name from reverse cache or detail page fetch
+4. Reconstruct query: e.g. `"group:irotenya language:japanese"`
+5. Return `{ handler: Handler.Search, query, page }`
+
+### tagSearchUrl flow
+
+1. Resolve `ns:value` → ID (same resolveName as searchUrl)
+2. Build URL: `/{namespace}s/{id}?lang={language}` (no page param — defaults to 1)
+
+### Home
+
+`/` → `Handler.Home` (no change from existing pattern).
+
+### Reader
+
+`/viewer?articleId={id}&page=N` → `Handler.Reader` with `gid=id`, `index=N-1`.
+
+---
+
+## Image Thumbnails (search grid)
 
 Extension is in the listing page HTML alongside the article ID and language. One `fetch()` gives everything:
 
@@ -149,7 +222,8 @@ Extension is in the listing page HTML alongside the article ID and language. One
 ```
 
 Regex: `/cdn\.imagedeliveries\.com\/(\d+)\/thumbnails\/cover\.(\w+)/g`. No fallback needed — the extension is known at search time. `thumbUrl` builds `cdn.imagedeliveries.com/{id}/thumbnails/1.{ext}`.
-### Reader Images
+
+## Reader Images
 
 Full-size images are at:
 
@@ -159,7 +233,7 @@ cdn.imagedeliveries.com/{articleId}/{40-char-sha1-hash}/{pageNum}.webp
 
 The hash is a per-page SHA-1, embedded in the Next.js RSC payload. It is NOT predictable from article ID or page number.
 
-#### Approach A: `fetch()` the viewer page (winner)
+### Approach A: `fetch()` the viewer page (winner)
 
 One `fetch()` from the same origin returns the full HTML including the RSC payload with **all pages** for the article. No DOM needed. No JavaScript execution needed. Clean `document.open()` behavior preserved.
 
@@ -174,64 +248,82 @@ while ((match = re.exec(html)) !== null) pages[parseInt(match[2])] = match[1];
 
 Verified: article 21743 (50 pages), all 50 hashes extracted from one fetch. Range 1-50 complete. 25KB response, ~100ms.
 
-#### Approach B: DOM extraction before takeover (fallback)
-
-Load the viewer page normally, let Next.js execute its JavaScript, the RSC payload populates `<img>` elements. Before `document.open()`, read all image `src` attributes from the DOM to build the hash map. Works but requires the site's scripts to run — fine for a fallback, not needed with Approach A available.
-
 Viewer pages load 5 `<img>` elements at a time into a yarl lightbox, but the full hash set exists in `document.documentElement.outerHTML` from the RSC payload regardless of which viewer page you're on.
 
+### Reader URL
 
-## Provider Notes
+`readerUrl(id, index)` returns `/viewer?articleId={id}&page={index||1}`.
 
-### URL routing
+---
 
-`matchRoute` dispatches on real site paths:
-- `/` → `Handler.Home`
-- `/artists/{id}?page=N` → `Handler.Search` (query=`artist:{id}`, page=N)
-- `/groups/{id}?page=N` → `Handler.Search` (query=`group:{id}`, page=N)
-- `/viewer?articleId={id}&page=N` → `Handler.Reader`
-
-`goToPage(query, page)` navigates to `/artists/{id}?page=N` or `/groups/{id}?page=N`. `searchUrl(query, page)` returns the same.
-
-### Image dimensions
-
-Binary header parser from manga-reader works on the CDN. `Range: bytes=0-2047` fetch, parse WebP VP8 headers. Full pages ~700×1024, thumbnails ~350×499. Need to add VP8 (lossy) case to existing parser.
-
-### Reader page
-
-The viewer (`/viewer?articleId=X&page=N`) doubles as the reader. Before `document.open()` takeover, `fetch()` the page RSC payload to extract all image hashes. `readerUrl(id, index)` returns `/viewer?articleId={id}&page={index||1}`.
-
-### Info modal
+## Info Modal
 
 One `fetch('/articles/{id}')` provides all metadata: artists, groups, tags, language, category, page count. No additional requests needed.
 
-- **`GalleryMeta.date`** — not present on article detail page. Default to empty.
-- **`GalleryMeta.title_jpn`** — extracted from the listing title before the `, LanguageCode` comma. Already available from the search fetch, no extra request.
+- **`GalleryMeta.date`** — not present on article detail page. Default to empty string.
+- **`GalleryMeta.title_jpn`** — extracted from the listing title before the `, LanguageCode` comma. Already available from the search fetch; no extra request.
+
 ---
 
-## Second-Pass Blindspots
+## Image Dimensions
 
-### `searchUrl` / `goToPage` vs real URLs
+Binary header parser from manga-reader works on the CDN. `Range: bytes=0-2047` fetch, parse WebP VP8 headers. Full pages ~700×1024, thumbnails ~350×499. Need to add VP8 (lossy) case to existing parser.
 
-`goToPage(query, page)` is synchronous — it must build a URL immediately before the async `search()` resolves the name→ID mapping. But the real site URL (`/groups/1942?page=2`) requires the resolved ID. Until the ID is known, `goToPage` can't use the real path.
+For a 50-page gallery, that's 50 parallel range requests. CDN supports it, tested at ~200-500ms. Also viable: dimension-less placeholder (width=0, height=0) — layout shift is cosmetic.
 
-Options:
-- Use a query-param URL initially (`/?q=group:irotenya&page=2`), then `history.replaceState` to `/groups/1942?page=2` after ID resolution.
-- Cache resolved name→ID in memory so `goToPage` can read it synchronously on subsequent paginations (after first `search()` completes).
+---
 
-Same applies to `tagSearchUrl(ns, value)` — without ID resolution, can't return `/artists/{id}`.
+## Sitemaps
 
-### `fetchMeta`: image dimensions
+Discovered via `robots.txt` → `/sitemap-index.xml`:
+- **39 article sitemaps** — ~600 URLs each, ~23,400+ articles total
+- Format: only `<loc>https://hentaipaw.com/articles/{id}</loc>` — no metadata
+- Also: artist, group, tag, character, parody sitemaps
 
-`GalleryFile` requires `width`/`height`. Getting dimensions means `Range: bytes=0-2047` fetches per image. For a 50-page gallery, that's 50 parallel range requests. CDN supports it, tested at ~200-500ms. Acceptable. Dimension-less placeholder (width=0, height=0) also viable — layout shift is cosmetic.
+Not useful for language filtering (no metadata). Potentially useful for building a full article ID index.
 
-### `fetchMeta`: page count
+---
 
+## Implementation Decisions (Final)
 
+### Contract changes
 
-## Implementation Decisions
+Breaking changes to `Provider` interface (both existing providers updated to return `Promise.resolve(...)`):
 
-- **`GalleryFile.key`** — full CDN URL (`cdn.imagedeliveries.com/{id}/{hash}/{page}.webp`), same as imhentai. `imageUrls` maps `file.key`. `thumbUrl(file)` regex-extracts article ID, returns `cdn.imagedeliveries.com/{id}/thumbnails/1.{ext}`. Extension is known from listing page.
-- **No-language search** — `artist:name` without `language:japanese` shows all languages for that artist/group.
-- **Query parsing** — reuse hitomi's `namespace:value` tokenizer or decide later. Same pattern, decouple if needed.
-- **Error states** — generic. Promises reject, app error handling applies. No provider-specific error logic needed.
+- `searchUrl(rawQuery, page?): Promise<string>` — was sync, now async (name→ID resolution)
+- `tagSearchUrl(ns, value, language): Promise<string>` — was sync, now async (name→ID resolution)
+- `matchRoute(pathname, search, hash): Promise<RouteMatch | null>` — was sync, now async (reverse ID→name resolution)
+
+### Cache
+
+- In-memory: two `Map`s (`nameToId`, `idToName`), namespace-qualified keys, loaded from IndexedDB at `init()`
+- IndexedDB: one object store, rows `{ns, name, id}`
+- Bidirectional: any resolution (either direction) populates both Maps + one IndexedDB row
+
+### URL format
+
+- Real site paths: `/groups/{id}?page=N&lang=Japanese`, `/artists/{id}?page=N&lang=Japanese`
+- Page param first, lang param last
+- `q=` NOT used; language is carried in `lang=`
+
+### Query representation
+
+- Internal query format: `"group:irotenya language:japanese"` (human-readable, same as user typed)
+- `matchRoute` reconstructs the full query from URL path + params + reverse cache
+- `search()` receives the human-readable query, resolves names→IDs internally
+
+### GalleryFile.key
+
+Full CDN URL (`cdn.imagedeliveries.com/{id}/{hash}/{page}.webp`), same as imhentai. `imageUrls` maps `file.key`. `thumbUrl(file)` regex-extracts article ID, returns `cdn.imagedeliveries.com/{id}/thumbnails/1.{ext}`. Extension is known from listing page.
+
+### No-language search
+
+`artist:name` without `language:japanese` shows all languages for that artist/group (no lang filter applied).
+
+### Query parsing
+
+Reuse hitomi's `namespace:value` tokenizer pattern. Decouple if needed.
+
+### Error states
+
+Generic. Promises reject, app error handling applies. No provider-specific error logic needed.

@@ -11,7 +11,7 @@ function syncInputFromUrl(query: string): void {
     input.value = query;
 }
 
-function render(result: { ids: number[]; totalResults: number; pageSize: number }, page: number, query: string): void {
+async function render(result: { ids: number[]; totalResults: number; pageSize: number }, page: number, query: string): Promise<void> {
     const pageInfo = renderPaginatedGrid(
         result.ids,
         page,
@@ -21,7 +21,8 @@ function render(result: { ids: number[]; totalResults: number; pageSize: number 
         (newPage) => { goToPage(query, newPage); void init(query, newPage); },
     );
 
-    history.replaceState(null, '', searchUrl(query, pageInfo.currentPage));
+    const url = await searchUrl(query, pageInfo.currentPage);
+    history.replaceState(null, '', url);
     saveSearch(query, pageInfo.currentPage, providerName(), renderSavedSearch);
 }
 
@@ -43,6 +44,6 @@ export async function init(query: string, page: number): Promise<void> {
     window.addEventListener('pagehide', saveScroll);
 
     const result = await search(query, page);
-    render(result, page, query);
+    await render(result, page, query);
     applyPendingScroll();
 }

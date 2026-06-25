@@ -35,7 +35,7 @@ export interface SearchPage {
 export interface Provider {
     readonly name: string;
 
-    matchRoute(pathname: string, search: string, hash: string): RouteMatch | null;
+    matchRoute(pathname: string, search: string, hash: string): Promise<RouteMatch | null>;
     init(): Promise<void>;
 
     // ── core ──────────────────────────────────────────────────────────
@@ -46,9 +46,9 @@ export interface Provider {
 
     // ── URL constructors ──────────────────────────────────────────────
     readerUrl(gid: number, index?: number): string;
-    searchUrl(rawQuery: string, page?: number): string;
+    searchUrl(rawQuery: string, page?: number): Promise<string>;
     /** Build a search URL from a tag/artist/etc click in the info modal. */
-    tagSearchUrl(ns: string, value: string, language: string): string;
+    tagSearchUrl(ns: string, value: string, language: string): Promise<string>;
     thumbUrl(file: GalleryFile): string;
     imageUrls(files: GalleryFile[]): Promise<string[]>;
 }

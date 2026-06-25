@@ -1,5 +1,5 @@
-import { loadSearches, removeSearch } from "../storage/localstorage";
-import { searchUrl, providerName } from "../provider";
+import {loadSearches, removeSearch} from "../storage/localstorage";
+import {providerName, searchUrl} from "../provider";
 
 const VISIBLE_DEFAULT = 3;
 
@@ -29,9 +29,9 @@ export function render(): void {
             removeSearch(s.query, providerName(), render);
         };
         chip.appendChild(x);
-        chip.onclick = () => {
+        chip.onclick = async () => {
             input.value = s.query;
-            window.location.href = searchUrl(s.query, s.page);
+            window.location.href = await searchUrl(s.query, s.page);
         };
         container.appendChild(chip);
     }
