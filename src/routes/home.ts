@@ -1,7 +1,7 @@
 import { preloadFavs, mergeFavs } from '../storage/db';
 import { initShell } from '../ui/shell';
 import { renderPaginatedGrid } from "../ui/paginated-grid";
-import { getPage, savePage } from "../storage/localstorage";
+import { getPage, savePage, saveScrollPosition, loadScrollPosition, deferScrollRestore, applyPendingScroll } from "../storage/localstorage";
 
 const COUNT_KEY = ' Favorites';
 const HOME_PAGE_SIZE = 25;
@@ -102,6 +102,18 @@ function buildImportSection(): void {
 export async function init(): Promise<void> {
     await initShell();
     _ids = await preloadFavs();
+
+    const urlKey = location.pathname;
+    const savedY = loadScrollPosition(urlKey);
+    if (savedY !== null) deferScrollRestore(savedY);
+
+    const saveScroll = () => saveScrollPosition(location.pathname, window.scrollY);
+    window.addEventListener('scrollend', () => {
+        setTimeout(saveScroll, 100);
+    });
+    window.addEventListener('pagehide', saveScroll);
+
     if (_ids.length > 0) renderPage(getPage());
+    applyPendingScroll();
     buildImportSection();
 }

@@ -52,9 +52,8 @@ export function savePage(page: number): void {
     localStorage.setItem(FAVORITES_KEY, String(page));
 }
 
-// ── scroll persistence (imhentai bfcache workaround) ──────────
+// ── scroll persistence (survives bfcache failure) ─────────────
 const SCROLL_KEY_PREFIX = 'scroll-pos-';
-// deferred bridge: provider.init() sets this, search route reads it after render
 let _pendingScroll: number | null = null;
 
 export function saveScrollPosition(urlKey: string, y: number): void {

@@ -35,7 +35,6 @@ export function renderPaginatedGrid(
         void fetchMeta(gid).then(meta => populateRow(skeleton, gid, meta.files));
     }
     renderPaginationBar(pageInfo, onPageChange, grid);
-    grid.scrollIntoView();
 
     return pageInfo;
 }
