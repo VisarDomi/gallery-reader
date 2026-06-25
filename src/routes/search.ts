@@ -1,7 +1,7 @@
 import { search, searchUrl, goToPage, providerName } from '../provider';
 import { initShell } from '../ui/shell';
 import { renderPaginatedGrid } from "../ui/paginated-grid";
-import { saveSearch } from "../storage/localstorage";
+import { saveSearch, applyPendingScroll } from "../storage/localstorage";
 import { render as renderSavedSearch} from "../ui/saved-searches";
 
 const COUNT_KEY = ' Results';
@@ -31,4 +31,5 @@ export async function init(query: string, page: number): Promise<void> {
     window.addEventListener('pagereveal', () => syncInputFromUrl(query));
     const result = await search(query, page);
     render(result, page, query);
+    applyPendingScroll();
 }

@@ -2,7 +2,6 @@ import {render as renderSavedSearch} from "./saved-searches";
 import {preloadFavs} from "../storage/db";
 import {initProvider, providerName, searchUrl} from "../provider";
 import cssContent from '../css/style.css?inline';
-import {setupDebug} from '../debug';
 import {loadSearches} from "../storage/localstorage";
 
 function retryBrokenImages(selector: ".hs-reader-img" | ".hs-thumb", interval: number): void {
@@ -84,6 +83,4 @@ export async function initShell(): Promise<void> {
     buildGridPlaceholder();
     void preloadFavs();
     await initProvider();
-    const debug = false;
-    if (debug) setupDebug();
 }

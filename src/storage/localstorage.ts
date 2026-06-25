@@ -4,13 +4,13 @@ interface SavedSearch {
     provider: string;
 }
 
-export const SAVED_SEARCH_KEY = 'saved_searches';
+const SAVED_SEARCH_KEY = 'saved_searches';
 const FAVORITES_KEY = 'favorites';
 
 export function loadSearches(provider: string): SavedSearch[] {
+    const raw = localStorage.getItem(SAVED_SEARCH_KEY);
+    if (!raw) return [];
     try {
-        const raw = localStorage.getItem(SAVED_SEARCH_KEY);
-        if (!raw) return [];
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed)) return [];
         return parsed.filter(s => s?.query && s?.provider === provider) as SavedSearch[];
@@ -50,4 +50,31 @@ export function getPage(): number {
 
 export function savePage(page: number): void {
     localStorage.setItem(FAVORITES_KEY, String(page));
+}
+
+// ── scroll persistence (imhentai bfcache workaround) ──────────
+const SCROLL_KEY_PREFIX = 'scroll-pos-';
+// deferred bridge: provider.init() sets this, search route reads it after render
+let _pendingScroll: number | null = null;
+
+export function saveScrollPosition(urlKey: string, y: number): void {
+    localStorage.setItem(SCROLL_KEY_PREFIX + urlKey, String(y));
+}
+
+export function loadScrollPosition(urlKey: string): number | null {
+    const saved = localStorage.getItem(SCROLL_KEY_PREFIX + urlKey);
+    return saved !== null ? parseInt(saved, 10) : null;
+}
+
+export function deferScrollRestore(y: number): void {
+    _pendingScroll = y;
+}
+
+export function applyPendingScroll(): void {
+    if (_pendingScroll === null) return;
+    const y = _pendingScroll;
+    _pendingScroll = null;
+    requestAnimationFrame(() => {
+        window.scrollTo(0, y);
+    });
 }

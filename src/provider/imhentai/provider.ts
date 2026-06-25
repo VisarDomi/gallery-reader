@@ -1,6 +1,7 @@
 import {Provider, SearchPage, GalleryMeta, GalleryFile, Handler} from '../types';
 import {DOMAIN, LANG_PARAM} from "./constants";
 import {buildImhentaiSearchUrl, extractAll, extractBetween, fetchText, getFiles} from "./decoder";
+import {saveScrollPosition, loadScrollPosition, deferScrollRestore} from "../../storage/localstorage";
 
 const PAGE_SIZE = 20;
 
@@ -8,7 +9,23 @@ export const provider: Provider = {
     name: 'imhentai',
 
     async init(): Promise<void> {
-        // TODO: implement DOM takeover so that imhentai doesn't break bfcache of safari ios
+        // bfcache workaround: save/restore scroll position since imhentai
+        // serves Cache-Control: no-store which blocks bfcache on Safari.
+        const match = this.matchRoute(location.pathname, location.search, location.hash);
+        if (match?.handler === Handler.Search || match?.handler === Handler.Home) {
+            const urlKey = location.pathname + location.search;
+            const savedY = loadScrollPosition(urlKey);
+            if (savedY !== null) deferScrollRestore(savedY);
+        }
+        const saveScroll = () => {
+            const m = this.matchRoute(location.pathname, location.search, location.hash);
+            if (m?.handler !== Handler.Search && m?.handler !== Handler.Home) return;
+            saveScrollPosition(location.pathname + location.search, window.scrollY);
+        };
+        window.addEventListener('scrollend', () => {
+            setTimeout(saveScroll, 100);
+        });
+        window.addEventListener('pagehide', saveScroll);
     },
 
     matchRoute(pathname: string, search: string, _hash: string) {

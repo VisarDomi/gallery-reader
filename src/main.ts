@@ -2,6 +2,7 @@ import { matchRoute, Handler, selectProvider } from './provider';
 import { init as initHome } from './routes/home';
 import { init as initSearch } from './routes/search';
 import { open } from './routes/reader';
+import {setupDebug} from "./debug";
 
 const { pathname, search, hash, hostname } = window.location;
 selectProvider(hostname);
@@ -19,3 +20,6 @@ if (match) {
             break;
     }
 }
+
+const debug = false;
+if (debug) setupDebug();

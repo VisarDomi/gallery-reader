@@ -13,3 +13,5 @@
 - Use `page.evaluate(() => { ... })` inside the `code` body to run JS in the browser context. `page` is a puppeteer Page object available in scope.
 - Return pattern: `return await page.evaluate(() => { ... })` — the evaluate result IS the return value of `code`.
 - For async operations inside evaluate: `return await page.evaluate(async () => { const r = await fetch(url); return r.json(); })`.
+- `Unexpected identifier 'as'` / TypeScript syntax in `page.evaluate()` — `page.evaluate()` runs plain JavaScript in the browser, not TypeScript. Remove type annotations (`as any`, `: string`, etc.) from code inside `page.evaluate()` callbacks.
+- `Tab "X" is not alive. Reopen it.` — the tab was closed by a prior `close` call or timed out. `open` a new tab with the same name.

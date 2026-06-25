@@ -1,11 +1,25 @@
+// ── imhentai bfcache investigation debug ──────────────────────
+// Run from shell.ts: `if (providerName() === 'imhentai') setupDebug();`
+
 export function setupDebug() {
-    // ── panel ─────────────────────────────────────────────────
+    const isMobile = /ipad|iphone|ipod/i.test(navigator.userAgent);
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+    // ═══════════════════════════════════════════════════════════
+    // Debug panel (sticky log UI)
+    // ═══════════════════════════════════════════════════════════
     const logEl = document.createElement('div');
     logEl.id = 'hs-debug-log';
-    logEl.style.cssText = 'position:sticky;top:0;z-index:99999;background:#0a0a12;color:#aaa;font:12px/1.4 monospace;max-height:200px;overflow-y:auto;padding:4px 8px;border-bottom:1px solid #333;display:flex;flex-direction:column';
+    logEl.style.cssText = isMobile
+        ? 'position:sticky;top:0;z-index:99999;background:#0a0a12;color:#aaa;font:10px/1.3 monospace;max-height:140px;overflow-y:auto;padding:3px 6px;border-bottom:1px solid #333;display:flex;flex-direction:column;-webkit-overflow-scrolling:touch'
+        : 'position:sticky;top:0;z-index:99999;background:#0a0a12;color:#aaa;font:12px/1.4 monospace;max-height:200px;overflow-y:auto;padding:4px 8px;border-bottom:1px solid #333;display:flex;flex-direction:column';
 
     const toolbar = document.createElement('div');
-    toolbar.style.cssText = 'display:flex;justify-content:flex-end;margin-bottom:2px;flex-shrink:0';
+    toolbar.style.cssText = 'display:flex;justify-content:space-between;margin-bottom:2px;flex-shrink:0';
+    const titleEl = document.createElement('span');
+    titleEl.textContent = `bfcache debug — ${isSafari ? 'Safari' : 'other'}${isMobile ? ' mobile' : ''}`;
+    titleEl.style.cssText = 'color:#6af;font:11px monospace';
+    toolbar.appendChild(titleEl);
     const copyBtn = document.createElement('button');
     copyBtn.textContent = 'Copy log';
     copyBtn.style.cssText = 'background:#333;color:#ccc;border:1px solid #555;border-radius:3px;padding:2px 8px;font:11px monospace;cursor:pointer';
@@ -24,421 +38,196 @@ export function setupDebug() {
         const raw = `[${t}] ${msg.replace(/<[^>]+>/g, '')}`;
         logEntries.unshift(html);
         rawLines.unshift(raw);
-        if (logEntries.length > 50) { logEntries.length = 50; rawLines.length = 50; }
+        if (logEntries.length > 100) { logEntries.length = 100; rawLines.length = 100; }
         logBody.innerHTML = logEntries.join('<br>');
     }
     (window as any).hsLog = log;
 
-    // ── copy ──────────────────────────────────────────────────
-    function fallbackCopy(text: string) {
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none';
-        document.body.appendChild(ta);
-        const isIOS = /ipad|iphone|ipod/i.test(navigator.userAgent);
-        if (isIOS) {
-            const range = document.createRange();
-            range.selectNodeContents(ta);
-            const sel = window.getSelection()!;
-            sel.removeAllRanges();
-            sel.addRange(range);
-            ta.setSelectionRange(0, 999999);
-        } else {
-            ta.select();
-        }
-        try { document.execCommand('copy'); copyBtn.textContent = 'Copied!'; } catch { copyBtn.textContent = 'Failed'; }
-        setTimeout(() => { copyBtn.textContent = 'Copy log'; ta.remove(); }, 1500);
-    }
-
     copyBtn.onclick = () => {
         const text = rawLines.join('\n');
-        if (navigator.clipboard?.writeText) {
-            navigator.clipboard.writeText(text).then(() => {
-                copyBtn.textContent = 'Copied!';
-                setTimeout(() => { copyBtn.textContent = 'Copy log'; }, 1500);
-            }).catch(() => fallbackCopy(text));
-        } else {
-            fallbackCopy(text);
-        }
+        const doCopy = (t: string) => {
+            if (navigator.clipboard?.writeText) {
+                navigator.clipboard.writeText(t).then(() => {
+                    copyBtn.textContent = 'Copied!';
+                    setTimeout(() => { copyBtn.textContent = 'Copy log'; }, 1500);
+                }).catch(() => fallbackCopy(t));
+            } else {
+                fallbackCopy(t);
+            }
+        };
+        const fallbackCopy = (t: string) => {
+            const ta = document.createElement('textarea');
+            ta.value = t;
+            ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none';
+            document.body.appendChild(ta);
+            if (isMobile) { const r = document.createRange(); r.selectNodeContents(ta); const s = window.getSelection()!; s.removeAllRanges(); s.addRange(r); ta.setSelectionRange(0, 999999); }
+            else { ta.select(); }
+            try { document.execCommand('copy'); copyBtn.textContent = 'Copied!'; } catch { copyBtn.textContent = 'Failed'; }
+            setTimeout(() => { copyBtn.textContent = 'Copy log'; ta.remove(); }, 1500);
+        };
+        doCopy(text);
     };
 
     document.body.insertBefore(logEl, document.body.firstChild);
-    log('debug panel ready', '#6af');
+    log(`bfcache investigation — imhentai ${isSafari ? '(Safari)' : '(Chromium)'}`, '#6af');
 
-    // ── event monitors ────────────────────────────────────────
-    const sugg = document.getElementById('search-suggestions')!;
-    const searchWrap = sugg.parentElement!;
-    const input = document.getElementById('query-input') as HTMLInputElement;
+    // ═══════════════════════════════════════════════════════════
+    // Page snapshot
+    // ═══════════════════════════════════════════════════════════
+    const scripts = Array.from(document.querySelectorAll<HTMLScriptElement>('script[src]'));
+    log(`SCRIPTS: ${scripts.length}`, '#ff0');
+    scripts.forEach(s => log(`  ${s.src.slice(0, 100)}`, '#555'));
 
-    for (const ev of ['pointerdown', 'mousedown', 'click'] as const) {
-        sugg.addEventListener(ev, (e) => {
-            const t = e.target as Element;
-            const tag = t.tagName;
-            const cls = t.className?.toString?.() ?? '';
-            const txt = (t as HTMLElement).textContent ?? '';
-            const insideA = !!(t as HTMLElement).closest?.('a.search-suggestion_string');
-            const phase = {1:'CAPTURE',2:'TARGET',3:'BUBBLE'}[e.eventPhase] ?? e.eventPhase;
-            const inputVal = input.value;
-            log(
-                `${ev} ${phase} on <${tag.toLowerCase()}> ."${cls}" "${txt}" ` +
-                `insideLink=${insideA} defaultPrevented=${e.defaultPrevented} ` +
-                `cancelBubble=${e.cancelBubble} input="${inputVal}"`,
-                '#8f8',
-            );
-        }, true);
+    const iframes = Array.from(document.querySelectorAll<HTMLIFrameElement>('iframe'));
+    log(`IFRAMES: ${iframes.length}`, '#ff0');
+    iframes.forEach(f => log(`  src="${f.src.slice(0, 60)}" id="${f.id || '(none)'}"`, '#555'));
 
-        sugg.addEventListener(ev, (e) => {
-            const phase = {1:'CAPTURE',2:'TARGET',3:'BUBBLE'}[e.eventPhase] ?? e.eventPhase;
-            log(
-                `${ev} ${phase} (bubble) defaultPrevented=${e.defaultPrevented} ` +
-                `cancelBubble=${e.cancelBubble} input="${input.value}"`,
-                '#6c6',
-            );
-        });
-    }
+    const onProps = (['onunload','onbeforeunload','onpagehide'] as const)
+        .filter(p => (window as any)[p] !== null)
+        .map(p => `${p}=${typeof (window as any)[p]}`);
+    log(`window handlers: ${onProps.length ? onProps.join(', ') : 'none'}`, onProps.length ? '#f80' : '#0f0');
 
-    document.addEventListener('click', (e) => {
-        const t = e.target as Element;
-        const insideInput = !!(t as HTMLElement).closest?.('#query-input');
-        const insideSugg = !!(t as HTMLElement).closest?.('#search-suggestions');
-        log(
-            `click CAPTURE document → insideInput=${insideInput} insideSugg=${insideSugg} ` +
-            `target=<${t.tagName.toLowerCase()}> defaultPrevented=${e.defaultPrevented}`,
-            '#f88',
-        );
-    }, true);
+    log(`localStorage keys: ${localStorage.length}`, '#888');
+    log(`document.readyState: ${document.readyState}`, '#888');
 
-    document.addEventListener('click', (e) => {
-        const insideSugg = !!(e.target as Element).closest?.('#search-suggestions');
-        if (insideSugg) {
-            const val = input.value;
-            log(
-                `click BUBBLE document (post-handlers) → defaultPrevented=${e.defaultPrevented} ` +
-                `cancelBubble=${e.cancelBubble} input="${val}"`,
-                '#f44',
-            );
-        }
-    });
+    // ═══════════════════════════════════════════════════════════
+    // notRestoredReasons — Chrome-only API, absent on Safari
+    // ═══════════════════════════════════════════════════════════
+    let nrrSupported = false;
+    try {
+        const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+        const nav = navEntries[0];
+        const navType = nav ? (nav as any).type : 'N/A';
+        log(`NAV-TYPE: ${navType}`, '#ff0');
 
-    // ── .active monitor ───────────────────────────────────────
-    const activeObserver = new MutationObserver(() => {
-        const active = searchWrap.classList.contains('active');
-        log(`.active ${active ? 'ADDED' : 'REMOVED'} on hs-search-input`, active ? '#8af' : '#f84');
-    });
-    activeObserver.observe(searchWrap, { attributes: true, attributeFilter: ['class'] });
-    log('monitoring .active class toggles', '#8af');
+        const hasNRR = nav && 'notRestoredReasons' in nav;
+        log(`notRestoredReasons API: ${hasNRR ? 'available' : 'NOT available (expected on Safari)'}`, hasNRR ? '#0f0' : '#888');
 
-    // ── jQuery handler inspection ─────────────────────────────
-    const jq = (window as any).jQuery;
-    if (jq) {
-        for (const el of [sugg, sugg.parentElement!, document.body, document.documentElement, document]) {
-            const data = jq._data?.(el, 'events') as Record<string, any[]> | undefined;
-            if (!data) continue;
-            for (const [type, handlers] of Object.entries(data)) {
-                for (const h of handlers) {
-                    const sel = h.selector ? ` selector="${h.selector}"` : '';
-                    const ns = h.namespace ? ` ns="${h.namespace}"` : '';
-                    const origin = h.origType ? ` origType="${h.origType}"` : '';
-                    const elName = (el as Element).tagName?.toLowerCase() ?? (el === document ? 'document' : 'unknown');
-                    const handlerSrc = String(h.handler).replace(/\n/g, '↵');
-                    log(
-                        `jQuery handler on [${elName}] ` +
-                        `type="${type}"${sel}${ns}${origin} src="${handlerSrc}"`,
-                        '#aaf',
-                    );
+        if (hasNRR) {
+            nrrSupported = true;
+            const nrr = (nav as any).notRestoredReasons;
+            if (nrr === undefined) {
+                log('  value: undefined (fresh navigation)', '#888');
+            } else if (nrr === null) {
+                log('  value: null — bfcache NOT blocked ✓', '#0f0');
+            } else if (nrr.reasons && nrr.reasons.length > 0) {
+                log(`  BLOCKED — ${nrr.reasons.length} reason(s):`, '#f44');
+                for (const r of nrr.reasons) log(`    • ${r.reason}`, '#f44');
+                if (nrr.children && nrr.children.length > 0) {
+                    for (const c of nrr.children) {
+                        const cr = c.reasons?.map((r: any) => r.reason).join(', ') || 'none';
+                        log(`    iframe id="${c.id || '?'}" reasons=[${cr}]`, '#f44');
+                    }
                 }
+            } else {
+                log(`  value: ${JSON.stringify(nrr)}`, '#888');
             }
         }
-        log('jQuery handler inspection complete', '#aaf');
-    } else {
-        log('jQuery not found — cannot inspect handlers', '#f84');
+    } catch(e) {
+        log(`notRestoredReasons error: ${(e as Error).message}`, '#f44');
     }
 
-    // ── inline onclick check on existing suggestion links ─────
-    for (const a of sugg.querySelectorAll('a')) {
-        const onclick = (a as any).onclick;
-        const hasAttr = a.hasAttribute('onclick');
-        const href = a.getAttribute('href') ?? '';
-        log(
-            `suggestion <a> href="${href}" has-onclick-attr=${hasAttr} onclick-prop=${!!onclick} ` +
-            `text="${a.textContent ?? ''}"`,
-            '#ff0',
-        );
-    }
+    // ═══════════════════════════════════════════════════════════
+    // Page lifecycle monitors (Chrome + Safari)
+    // ═══════════════════════════════════════════════════════════
+    log('--- lifecycle monitors active ---', '#f0f');
 
-    // ── input value change monitoring around clicks ───────────
-    if (input) {
-        let preClickVal = '';
-        sugg.addEventListener('pointerdown', () => {
-            preClickVal = input.value;
-        }, true);
-        sugg.addEventListener('click', () => {
-            const postVal = input.value;
-            if (preClickVal !== postVal) {
-                log(
-                    `INPUT-VAL-CHANGE from click: "${preClickVal}" → "${postVal}"`,
-                    '#ff0',
-                );
-            }
-        });
-
-        // Delayed check — site handler may run after ours and change it back
-        sugg.addEventListener('click', () => {
-            const immediateVal = input.value;
-            setTimeout(() => {
-                const delayedVal = input.value;
-                if (immediateVal !== delayedVal) {
-                    log(
-                        `INPUT-VAL-REVERTED after 0ms: "${immediateVal}" → "${delayedVal}"`,
-                        '#f00',
-                    );
-                }
-            }, 0);
-        });
-    }
-
-    // ── stopPropagation / stopImmediatePropagation monitor ────
-    const origStop = Event.prototype.stopPropagation;
-    const origStopImm = Event.prototype.stopImmediatePropagation;
-    Event.prototype.stopPropagation = function () {
-        const insideSugg = this.target instanceof Element &&
-            !!(this.target as Element).closest?.('#search-suggestions');
-        if (this.type === 'click' && insideSugg) {
-            log('stopPropagation() called on click inside suggestions', '#f80');
-        }
-        return origStop.call(this);
-    };
-    Event.prototype.stopImmediatePropagation = function () {
-        const insideSugg = this.target instanceof Element &&
-            !!(this.target as Element).closest?.('#search-suggestions');
-        if (this.type === 'click' && insideSugg) {
-            log('stopImmediatePropagation() called on click inside suggestions', '#f00');
-        }
-        return origStopImm.call(this);
-    };
-    log('Event.prototype.stopPropagation wrappers active', '#f80');
-
-    // ── function wrappers ─────────────────────────────────────
-    const origClearPage = (window as any).clear_page as Function | undefined;
-    if (origClearPage) {
-        (window as any).clear_page = function () {
-            log('clear_page() called — dropdown HTML cleared', '#fa0');
-            return origClearPage();
-        };
-        log('wrapped clear_page()', '#fa0');
-    }
-
-    const origToPage = (window as any).to_page as Function | undefined;
-    if (origToPage) {
-        (window as any).to_page = function (result: any) {
-            log(`to_page("${result.s ?? ''}") ns="${result.n ?? ''}" t="${result.t ?? ''}"`, '#0f0');
-            return origToPage.call(this, result);
-        };
-        log('wrapped to_page()', '#0f0');
-    }
-
-    const origGSQ = (window as any).get_suggestions_for_query as Function | undefined;
-    if (origGSQ) {
-        (window as any).get_suggestions_for_query = function (term: string, serial: number) {
-            log(`get_suggestions_for_query("${term}", serial=${serial})`, '#c0f');
-            const p = origGSQ.call(this, term, serial);
-            if (p?.then) {
-                p.then((r: any) => {
-                    const [results] = r || [];
-                    log(`← suggestions returned: ${results?.length ?? 0} results`, '#c0f');
-                }, (err: any) => {
-                    log(`← suggestions FAILED: ${err?.message ?? err}`, '#f44');
-                });
-            }
-            return p;
-        };
-        log('wrapped get_suggestions_for_query()', '#c0f');
-    }
-
-    log('all monitors active — click a dropdown item', '#6af');
-
-    // ── bfcache / page lifecycle monitors ──────────────────────
-    log('--- bfcache monitors active ---', '#f0f');
-
-    // sentinel: capture init-time state
-    log(`INIT-STATE search="${window.location.search}" input.value="${input?.value ?? 'NO-ELEMENT'}" readyState=${document.readyState}`, '#ff0');
-
-    // 1) pageshow — canonical bfcache restore detection
+    // pageshow is THE bfcache signal on Safari
     window.addEventListener('pageshow', (e) => {
-        const inp = (document.getElementById('query-input') as HTMLInputElement)?.value ?? 'NO-EL';
-        log(`PAGESHOW persisted=${e.persisted} search="${window.location.search}" input="${inp}"`, e.persisted ? '#0f0' : '#888');
+        const persisted = e.persisted;
+        log(`PAGESHOW persisted=${persisted}`, persisted ? '#0f0' : '#888');
+        if (persisted) {
+            log('  → bfcache RESTORE confirmed ✓', '#0f0');
+            if (nrrSupported) {
+                try {
+                    const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+                    const nrr = (nav as any)?.notRestoredReasons;
+                    if (nrr && nrr.reasons) {
+                        log('  notRestoredReasons (post-restore):', '#f44');
+                        for (const r of nrr.reasons) log(`    • ${r.reason}`, '#f44');
+                    }
+                } catch {}
+            }
+        }
     });
 
-    // 2) pagehide — fires when entering bfcache (or unloading)
+    // pagehide — persisted=true means entering bfcache
     window.addEventListener('pagehide', (e) => {
         log(`PAGEHIDE persisted=${e.persisted}`, e.persisted ? '#0f0' : '#f80');
+        if (e.persisted) log('  → entering bfcache', '#0f0');
     });
 
-    // 3) visibilitychange — fires on tab switch AND bfcache restore
     document.addEventListener('visibilitychange', () => {
-        const inp = (document.getElementById('query-input') as HTMLInputElement)?.value ?? 'NO-EL';
-        log(`VISIBILITY visible=${!document.hidden} search="${window.location.search}" input="${inp}"`, '#0cf');
+        log(`VISIBILITY visible=${!document.hidden}`, '#0cf');
     });
 
-    // 4) freeze / resume — Page Lifecycle API (Chromium, not Safari)
-    document.addEventListener('freeze', () => { log('FREEZE', '#c0f'); });
-    document.addEventListener('resume', () => {
-        const inp = (document.getElementById('query-input') as HTMLInputElement)?.value ?? 'NO-EL';
-        log(`RESUME search="${window.location.search}" input="${inp}"`, '#c0f');
+    window.addEventListener('beforeunload', () => {
+        log('BEFOREUNLOAD fired — may block bfcache on Chrome/Firefox', '#f44');
     });
 
-    // 5) focus / blur
-    window.addEventListener('focus', () => {
-        log(`FOCUS search="${window.location.search}" input="${(document.getElementById('query-input') as HTMLInputElement)?.value ?? 'NO-EL'}"`, '#fa0');
-    });
-    window.addEventListener('blur', () => { log('BLUR', '#fa0'); });
-
-    // 6) popstate — history navigation
     window.addEventListener('popstate', () => {
-        log(`POPSTATE search="${window.location.search}" input="${(document.getElementById('query-input') as HTMLInputElement)?.value ?? 'NO-EL'}"`, '#af0');
+        log('POPSTATE', '#af0');
     });
 
-    // 7) load / DOMContentLoaded — should NOT fire on bfcache restore
-    window.addEventListener('load', () => {
-        log(`LOAD search="${window.location.search}"`, '#888');
-    });
-    document.addEventListener('DOMContentLoaded', () => { log('DOMContentLoaded', '#888'); });
+    // ═══════════════════════════════════════════════════════════
+    // Sentinel — survives bfcache freeze/thaw if bfcache worked
+    // ═══════════════════════════════════════════════════════════
+    (window as any).__bfcacheSentinel = ((window as any).__bfcacheSentinel || 0) + 1;
+    const sentinel = (window as any).__bfcacheSentinel;
+    if (sentinel > 1) {
+        log(`SENTINEL=${sentinel} — init re-ran → bfcache did NOT work ✗`, '#f44');
+    } else {
+        log(`SENTINEL=${sentinel} (will be >1 on next init if bfcache fails)`, '#ff0');
+    }
 
-    // 8) beforeunload — bfcache eligibility check (Safari allows it, Chrome/Firefox don't)
-    window.addEventListener('beforeunload', () => { log('BEFOREUNLOAD', '#f44'); });
-
-    // 9) unload — known bfcache killer, log if it fires
-    window.addEventListener('unload', () => { log('UNLOAD — page is dying', '#f00'); });
-
-    // 10) navigation timing — check if navigated via back/forward
-    try {
-        const navEntries = performance.getEntriesByType('navigation');
-        const navType = navEntries.length > 0 ? (navEntries[0] as any).type : 'N/A';
-        const oldType = (performance.navigation as any)?.type ?? 'N/A';
-        log(`NAV-TYPE=new=${navType} old=${oldType}`, '#ff0');
-    } catch { log('NAV-TYPE=ERROR', '#f44'); }
-
-    // 11) document.wasDiscarded (Safari 17+)
+    // wasDiscarded — Safari 17+
     if ('wasDiscarded' in document) {
         log(`wasDiscarded=${(document as any).wasDiscarded}`, '#ff0');
     }
 
-    // 12) mutation observer on input value attribute
-    if (input) {
-        const mo = new MutationObserver((muts) => {
-            for (const m of muts) {
-                log(`INPUT-MUTATION attr=${m.attributeName} val="${input.value}"`, '#f8f');
+    // ═══════════════════════════════════════════════════════════
+    // Intercept addEventListener for bfcache-killing registrations
+    // ═══════════════════════════════════════════════════════════
+    const origAddEventListener = EventTarget.prototype.addEventListener;
+    const breakingEvents = ['unload', 'beforeunload'];
+    EventTarget.prototype.addEventListener = function(
+        type: string,
+        listener: EventListenerOrEventListenerObject | null,
+        options?: boolean | AddEventListenerOptions,
+    ) {
+        if (breakingEvents.includes(type) && listener) {
+            const targetName = this === window ? 'window' :
+                               this === document ? 'document' :
+                               this === document.body ? 'body' :
+                               (this as Element).tagName?.toLowerCase?.() ?? '?';
+            log(`addEventListener("${type}") on ${targetName} — BREAKS BFCACHE`, '#f00');
+            try { throw new Error(); } catch(e) {
+                const stack = (e as Error).stack?.split('\n').slice(1, 4).join(' ← ') ?? '';
+                log(`  trace: ${stack}`, '#f44');
             }
-        });
-        mo.observe(input, { attributes: true, attributeFilter: ['value'] });
-        // polling: MutationObserver doesn't catch .value = x (property, not attribute)
-        let lastVal = input.value;
-        setInterval(() => {
-            if (input.value !== lastVal) {
-                log(`INPUT-VALUE-CHANGED "${lastVal}" -> "${input.value}"`, '#f8f');
-                lastVal = input.value;
-            }
-        }, 250);
-    }
-
-    // 13) pagereveal — newer event, Safari may support it
-    window.addEventListener('pagereveal', () => {
-        log(`PAGEREVEAL search="${window.location.search}"`, '#af0');
-    });
-
-    // 14) global sentinel — survives across bfcache if page was cached
-    (window as any).__bfcacheSentinel = (window as any).__bfcacheSentinel || 0;
-    (window as any).__bfcacheSentinel++;
-    log(`SENTINEL=${(window as any).__bfcacheSentinel} (1=first init, >1 if init ran again)`, '#ff0');
-
-    // 15) also use the property form (some old Safari inconsistencies)
-    const origOnPageShow = window.onpageshow;
-    window.onpageshow = (e) => {
-        log(`ONPAGESHOW persisted=${e.persisted}`, '#fa0');
-        if (origOnPageShow) origOnPageShow.call(window, e);
+        }
+        return origAddEventListener.call(this, type, listener, options);
     };
+    log('addEventListener interceptor: watching for unload/beforeunload', '#f80');
 
-    // ── bfcache fix-approach tests ──────────────────────────────
-    const query = decodeURIComponent(window.location.search.replace(/^\?/, ''));
-    function fixSet(tag: string) {
-        if (input && query) input.value = query;
-        log(`${tag} query="${query}" input="${input?.value ?? 'NO-EL'}"`, '#0f0');
+    // ═══════════════════════════════════════════════════════════
+    // Intercept sendBeacon — triggers no-store-with-js-network-request
+    // ═══════════════════════════════════════════════════════════
+    if (navigator.sendBeacon) {
+        const origSendBeacon = navigator.sendBeacon.bind(navigator);
+        navigator.sendBeacon = function(url: string | URL, data?: BodyInit | null) {
+            log(`sendBeacon → ${String(url).slice(0, 80)}`, '#f80');
+            return origSendBeacon(url, data);
+        };
+        log('sendBeacon interceptor active', '#f80');
     }
 
-    // 1) pageshow + setTimeout(0)
-    window.addEventListener('pageshow', (e) => {
-        if (!e.persisted) return;
-        log('fix-setTimeout scheduling', '#0f0');
-        setTimeout(() => fixSet('fix-setTimeout'), 0);
-    });
-
-    // 2) pageshow + queueMicrotask
-    window.addEventListener('pageshow', (e) => {
-        if (!e.persisted) return;
-        log('fix-microtask scheduling', '#0f0');
-        queueMicrotask(() => fixSet('fix-microtask'));
-    });
-
-    // 3) pageshow + rAF
-    window.addEventListener('pageshow', (e) => {
-        if (!e.persisted) return;
-        log('fix-rAF scheduling', '#0f0');
-        requestAnimationFrame(() => fixSet('fix-rAF'));
-    });
-
-    // 4) pageshow + double set (now + setTimeout(0))
-    window.addEventListener('pageshow', (e) => {
-        if (!e.persisted) return;
-        log('fix-double-1 scheduling', '#0f0');
-        if (input && query) input.value = query;
-        setTimeout(() => fixSet('fix-double-2'), 0);
-    });
-
-    // 5) pagereveal
-    window.addEventListener('pagereveal', () => {
-        log('fix-pagereveal scheduling', '#0f0');
-        fixSet('fix-pagereveal');
-    });
-
-    // 6) visibilitychange (when visible)
-    document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) {
-            log('fix-visibility scheduling', '#0f0');
-            fixSet('fix-visibility');
-        }
-    });
-
-    // 7) focus
-    window.addEventListener('focus', () => {
-        log('fix-focus scheduling', '#0f0');
-        fixSet('fix-focus');
-    });
-
-    // 8) MutationObserver — detect Safari clear, re-set
-    if (input) {
-        let moTimeout: ReturnType<typeof setTimeout> | null = null;
-        const mo = new MutationObserver(() => {
-            if (input.value !== query && query) {
-                log('fix-mo clearing detected, re-setting', '#0f0');
-                input.value = query;
-                if (moTimeout) clearTimeout(moTimeout);
-                moTimeout = setTimeout(() => {
-                    fixSet('fix-mo-final');
-                    moTimeout = null;
-                }, 500);
-            }
-        });
-        mo.observe(input, { attributes: true, attributeFilter: ['value'] });
+    // ═══════════════════════════════════════════════════════════
+    // Summary
+    // ═══════════════════════════════════════════════════════════
+    log('---', '#6af');
+    if (!nrrSupported) {
+        log('⚠ notRestoredReasons API not available. Rely on SENTINEL + PAGESHOW.persisted to judge bfcache.', '#fa0');
     }
-
-    // 9) polling — brute force 200ms intervals for 2s after pageshow
-    window.addEventListener('pageshow', (e) => {
-        if (!e.persisted) return;
-        log('fix-poll starting', '#0f0');
-        for (let i = 1; i <= 10; i++) {
-            setTimeout(() => fixSet(`fix-poll-${i * 200}ms`), i * 200);
-        }
-    });
-
-    log('all-fix-approaches REGISTERED', '#ff0');
+    log('READY — navigate away, then back. Watch for PAGESHOW persisted=true (✓) or SENTINEL>1 (✗).', '#6af');
 }
