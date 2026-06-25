@@ -1,4 +1,4 @@
-import { preloadFavs } from '../storage/db';
+import { preloadFavs, mergeFavs } from '../storage/db';
 import { initShell } from '../ui/shell';
 import { renderPaginatedGrid } from "../ui/paginated-grid";
 import { getPage, savePage } from "../storage/localstorage";
@@ -6,24 +6,85 @@ import { getPage, savePage } from "../storage/localstorage";
 const COUNT_KEY = ' Favorites';
 const HOME_PAGE_SIZE = 25;
 
-function renderPage(ids: number[], page: number): void {
+let _ids: number[] = [];
+
+function renderPage(page: number): void {
     const start = (page - 1) * HOME_PAGE_SIZE;
-    const galleryIds = ids.slice(start, start + HOME_PAGE_SIZE);
+    const galleryIds = _ids.slice(start, start + HOME_PAGE_SIZE);
     renderPaginatedGrid(
         galleryIds,
         page,
-        ids.length,
+        _ids.length,
         HOME_PAGE_SIZE,
         COUNT_KEY,
-        (newPage) => renderPage(ids, newPage),
+        (newPage) => renderPage(newPage),
     );
 
     savePage(page);
 }
 
+function buildImportSection(): void {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'text-align:center;margin:16px 0';
+
+    const btn = document.createElement('button');
+    btn.textContent = 'Import / Merge';
+    btn.style.cssText = 'background:#333;color:#ccc;border:1px solid #555;border-radius:4px;padding:6px 16px;font:13px monospace;cursor:pointer';
+
+    const textarea = document.createElement('textarea');
+    textarea.placeholder = 'Paste gallery IDs (space, newline, comma separated)';
+    textarea.style.cssText = 'display:none;width:100%;max-width:500px;height:120px;margin:8px auto;padding:8px;background:#111;color:#aaa;border:1px solid #555;border-radius:4px;font:13px monospace;resize:vertical';
+
+    const mergeBtn = document.createElement('button');
+    mergeBtn.textContent = 'Merge';
+    mergeBtn.style.cssText = 'display:none;background:#4a4;color:#fff;border:none;border-radius:4px;padding:6px 16px;font:13px monospace;cursor:pointer;margin-left:8px';
+
+    const status = document.createElement('span');
+    status.style.cssText = 'display:none;color:#aaa;font:12px monospace;margin-left:8px';
+
+    btn.onclick = () => {
+        textarea.style.display = 'block';
+        mergeBtn.style.display = 'inline-block';
+        btn.style.display = 'none';
+        status.style.display = 'none';
+    };
+
+    mergeBtn.onclick = async () => {
+        const raw = textarea.value;
+        const ids = [...raw.matchAll(/\d+/g)].map(m => parseInt(m[0], 10)).filter(n => n > 0);
+        if (ids.length === 0) {
+            status.textContent = 'No IDs found';
+            status.style.display = 'inline';
+            return;
+        }
+        mergeBtn.disabled = true;
+        mergeBtn.textContent = 'Merging...';
+        try {
+            const added = await mergeFavs(ids);
+            status.textContent = `Added ${added} of ${ids.length} IDs${ids.length - added > 0 ? ` (${ids.length - added} already existed)` : ''}`;
+            status.style.display = 'inline';
+            // refresh and re-render
+            _ids = await preloadFavs();
+            renderPage(getPage());
+        } catch (e) {
+            status.textContent = 'Error: ' + (e as Error).message;
+            status.style.display = 'inline';
+        } finally {
+            mergeBtn.disabled = false;
+            mergeBtn.textContent = 'Merge';
+        }
+    };
+
+    wrap.appendChild(btn);
+    wrap.appendChild(textarea);
+    wrap.appendChild(mergeBtn);
+    wrap.appendChild(status);
+    document.body.appendChild(wrap);
+}
+
 export async function init(): Promise<void> {
     await initShell();
-    const ids = await preloadFavs();
-    if (ids.length === 0) return;
-    renderPage(ids, getPage());
+    _ids = await preloadFavs();
+    if (_ids.length > 0) renderPage(getPage());
+    buildImportSection();
 }

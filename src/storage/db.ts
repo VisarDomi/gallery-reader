@@ -53,3 +53,25 @@ export function preloadFavs(): Promise<number[]> {
     if (!favsPromise) favsPromise = getAllFavs().then(ids => { favSet = new Set(ids); return ids; });
     return favsPromise;
 }
+
+export async function mergeFavs(ids: number[]): Promise<number> {
+    const db = await openDB();
+    const tx = db.transaction(OBJECT_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(OBJECT_STORE_NAME);
+    const existing = new Set(favSet);
+    let added = 0;
+    for (const id of ids) {
+        if (existing.has(id)) continue;
+        store.put({id, savedAt: Date.now()});
+        existing.add(id);
+        added++;
+    }
+    await new Promise<void>((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+    // refresh cache
+    favsPromise = getAllFavs().then(ids2 => { favSet = new Set(ids2); return ids2; });
+    await favsPromise;
+    return added;
+}
