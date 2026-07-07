@@ -16,7 +16,7 @@ export default defineConfig({
             userscript: {
                 name: `${pkg.name} v${pkg.version}`,
                 namespace: "https://github.com/VisarDomi",
-                description: "Hitomi gallery browser",
+                description: "gallery reader takeover",
                 match: ["https://hitomi.la/*", "https://imhentai.xxx/*"],
                 "run-at": "document-start",
             },
