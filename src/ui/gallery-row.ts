@@ -1,4 +1,4 @@
-import { thumbUrl, readerUrl, type GalleryFile } from '../provider';
+import { thumbUrl, readerUrl, type Thumbnail } from '../provider';
 import {isFav, toggleFav} from '../storage/db';
 import {show as showInfo} from './info-modal';
 
@@ -14,7 +14,7 @@ export function createSkeletonRow(): HTMLDivElement {
 export function populateRow(
     container: HTMLDivElement,
     gid: number,
-    files: GalleryFile[],
+    thumbs: Thumbnail[],
 ): void {
     container.innerHTML = '';
     container.style.height = '';
@@ -22,11 +22,11 @@ export function populateRow(
     const strip = document.createElement('div');
     strip.className = 'hs-row';
 
-    for (let i = 0; i < files.length; i++) {
+    for (let i = 0; i < thumbs.length; i++) {
         const img = document.createElement('img');
         img.className = 'hs-thumb';
         img.loading = 'lazy';
-        img.src = thumbUrl(files[i]);
+        img.src = thumbUrl(thumbs[i]);
         img.onclick = () => {
             window.location.href = readerUrl(gid, i);
         };

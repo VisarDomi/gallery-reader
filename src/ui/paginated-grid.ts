@@ -1,5 +1,5 @@
 import { createSkeletonRow, populateRow } from "./gallery-row";
-import { fetchMeta } from "../provider";
+import { getGallerySummary } from "../provider";
 
 interface PageInfo {
     totalCount: string;
@@ -32,7 +32,7 @@ export function renderPaginatedGrid(
     for (const gid of galleryIds) {
         const skeleton = createSkeletonRow();
         grid.appendChild(skeleton);
-        void fetchMeta(gid).then(meta => populateRow(skeleton, gid, meta.files));
+        void getGallerySummary(gid).then(summary => populateRow(skeleton, gid, summary.thumbs));
     }
     renderPaginationBar(pageInfo, onPageChange, grid);
 
@@ -47,7 +47,6 @@ function renderPaginationBar(
     const pag = document.createElement('div');
     pag.className = 'hs-page-bar hs-page-bar-pag';
 
-    // Favs link at position 0
     const favs = document.createElement('a');
     favs.href = '/';
     favs.textContent = 'Favs';

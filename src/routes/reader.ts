@@ -1,4 +1,4 @@
-import {fetchMeta, imageUrls, readerUrl} from '../provider';
+import {getReaderData, imageUrls, readerUrl} from '../provider';
 import {startInit} from "../ui/shell";
 
 export async function open(gid: number, currentIndex: number): Promise<void> {
@@ -6,13 +6,12 @@ export async function open(gid: number, currentIndex: number): Promise<void> {
     const wrapper = document.createElement('div');
     wrapper.className = 'hs-reader-body';
     document.body.appendChild(wrapper);
-    const meta = await fetchMeta(gid);
-    const files = meta.files;
-    for (let i = 0; i < files.length; i++) {
+    const { images } = await getReaderData(gid);
+    for (let i = 0; i < images.length; i++) {
         const img = document.createElement('img');
         img.id = `#${i}`;
         img.className = 'hs-reader-img';
-        img.style.aspectRatio = files[i].width + '/' + files[i].height;
+        img.style.aspectRatio = images[i].width + '/' + images[i].height;
         img.loading = 'lazy';
         wrapper.appendChild(img);
     }
@@ -20,7 +19,7 @@ export async function open(gid: number, currentIndex: number): Promise<void> {
     const restoreImg = document.getElementById(`#${currentIndex}`) as HTMLImageElement;
     window.scrollTo(0, restoreImg.offsetTop - window.innerHeight / 2);
 
-    const urls = await imageUrls(files);
+    const urls = await imageUrls(images);
     urls.forEach((src, i) => {
         const img = document.getElementById(`#${i}`) as HTMLImageElement;
         img.src = src;

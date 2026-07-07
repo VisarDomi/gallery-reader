@@ -4,9 +4,9 @@ import { renderPaginatedGrid } from "../ui/paginated-grid";
 import { saveSearch, applyPendingScroll } from "../storage/localstorage";
 import { render as renderSavedSearch} from "../ui/saved-searches";
 
-async function render(result: { ids: number[]; totalResults: number; pageSize: number }, page: number, query: string): Promise<void> {
+async function render(result: { galleryIds: number[]; totalResults: number; pageSize: number }, page: number, query: string): Promise<void> {
     const pageInfo = renderPaginatedGrid(
-        result.ids,
+        result.galleryIds,
         page,
         result.totalResults,
         result.pageSize,

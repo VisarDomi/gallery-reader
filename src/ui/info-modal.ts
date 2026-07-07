@@ -1,4 +1,4 @@
-import {fetchMeta, tagSearchUrl} from '../provider';
+import {getMeta, tagSearchUrl} from '../provider';
 
 function link(ns: string, val: string, display: string, lang: string, className = 'hs-modal-value-link'): HTMLSpanElement {
     const el = document.createElement('span');
@@ -55,7 +55,7 @@ export async function show(gid: number): Promise<void> {
 
     let meta;
     try {
-        meta = await fetchMeta(gid);
+        meta = await getMeta(gid);
     } catch {
         content.innerHTML = '<div class="hs-modal-body hs-modal-body-error">Failed to load gallery info</div>';
         return;
@@ -83,7 +83,7 @@ export async function show(gid: number): Promise<void> {
     if (meta.type) body.appendChild(linkRow('Type', 'type', [meta.type], lang));
     if (meta.characters.length) body.appendChild(linkRow('Characters', 'character', meta.characters, lang));
     if (meta.language) body.appendChild(linkRow('Language', 'language', [meta.language], lang));
-    body.appendChild(textRow('Pages', String(meta.files.length)));
+    body.appendChild(textRow('Pages', String(meta.pageCount)));
     if (meta.date) body.appendChild(textRow('Date', meta.date));
 
     if (meta.tags.length) {

@@ -1,8 +1,108 @@
-import {Provider, SearchPage, GalleryMeta, GalleryFile, Handler} from '../types';
+import {Provider, SearchResults, GalleryMeta, GallerySummary, ReaderImage, Thumbnail, Handler} from '../types';
 import {DOMAIN, LANG_PARAM} from "./constants";
-import {buildImhentaiSearchUrl, extractAll, extractBetween, fetchText, getFiles} from "./decoder";
+import {buildImhentaiSearchUrl, extractAll, extractBetween, fetchText} from "./decoder";
 
 const PAGE_SIZE = 20;
+const galleryCache = new Map<number, string>();
+
+interface ImhentaiThumb extends Thumbnail { url: string }
+interface ImhentaiImage extends ReaderImage { url: string }
+
+async function fetchGalleryHTML(gid: number): Promise<string> {
+    if (galleryCache.has(gid)) return galleryCache.get(gid)!;
+    const html = await fetchText(`https://${DOMAIN}/gallery/${gid}/`);
+    galleryCache.set(gid, html);
+    return html;
+}
+
+function parseGalleryHTML(html: string, gid: number): { thumbs: ImhentaiThumb[]; images: ImhentaiImage[]; pageCount: number } {
+    const srcM = extractBetween(html, 'data-src="', '"');
+    const base = srcM ? srcM.value.substring(0, srcM.value.lastIndexOf('/')) + '/' : '';
+    const exts: Record<string, string> = {j: 'jpg', p: 'png', g: 'gif', w: 'webp', a: 'avif'};
+
+    const thumbs: ImhentaiThumb[] = [];
+    const images: ImhentaiImage[] = [];
+
+    const jsonM = extractBetween(html, "$.parseJSON('", "'");
+    if (jsonM) {
+        try {
+            const data = JSON.parse(jsonM.value) as Record<string, string>;
+            const keys = Object.keys(data).sort((a, b) => parseInt(a) - parseInt(b));
+            let idx = 1;
+            for (const key of keys) {
+                const parts = data[key].split(',');
+                const ext = exts[parts[0]] ?? 'jpg';
+                const url = `${base}${idx}.${ext}`;
+                thumbs.push({ url });
+                images.push({ url, width: parseInt(parts[1]) || 0, height: parseInt(parts[2]) || 0 });
+                idx++;
+            }
+            return { thumbs, images, pageCount: idx - 1 };
+        } catch { /* fall through */ }
+    }
+
+    // Fallback
+    const lp = extractBetween(html, 'id="load_pages" value="', '"');
+    const count = lp ? parseInt(lp.value) : 0;
+    const viewCount = extractAll(html, 'href="/view/' + gid + '/', '"').length;
+    const imageCount = count || viewCount;
+
+    for (let i = 1; i <= imageCount; i++) {
+        const url = `${base}${i}.jpg`;
+        thumbs.push({ url });
+        images.push({ url, width: 0, height: 0 });
+    }
+    return { thumbs, images, pageCount: imageCount };
+}
+
+function extractMeta(html: string): Omit<GalleryMeta, 'pageCount'> {
+    const h1 = extractBetween(html, '<h1>', '</h1>');
+    const title = h1 ? h1.value.replace(/<[^>]*>/g, '').trim() : '';
+
+    const sub = extractBetween(html, 'class="subtitle">', '<');
+    const titleJpn = sub ? sub.value.trim() : '';
+
+    const infoStart = html.indexOf('class="galleries_info"');
+    const infoEnd = html.indexOf('</ul>', infoStart);
+    const chunk = infoStart !== -1 && infoEnd !== -1 ? html.slice(infoStart, infoEnd) : html;
+
+    function extractNS(ns: string): string[] {
+        const results: string[] = [];
+        let pos = 0;
+        while (true) {
+            const m = extractBetween(chunk, "href='/" + ns + "/", "'", pos);
+            if (!m) break;
+            const tagStart = chunk.indexOf('>', m.nextIndex) + 1;
+            const tagEnd = chunk.indexOf('</a>', tagStart);
+            if (tagEnd === -1) break;
+            let tag = chunk.slice(tagStart, tagEnd).replace(/<[^>]*>/g, '').trim();
+            tag = tag.replace(/\s+\d+$/, '');
+            if (tag) results.push(tag);
+            pos = tagEnd;
+        }
+        return results;
+    }
+
+    const cat = extractBetween(chunk, "href='/category/", "/'");
+    const type = cat ? cat.value : '';
+
+    let date = '';
+    const dm = extractBetween(html, '>Posted: ', '</li>');
+    if (dm) date = dm.value.trim();
+
+    return {
+        title,
+        title_jpn: titleJpn,
+        type,
+        language: extractNS('language')[0] ?? '',
+        date,
+        artists: extractNS('artist'),
+        groups: extractNS('group'),
+        parody: extractNS('parody'),
+        characters: extractNS('character'),
+        tags: extractNS('tag').map(t => ({ tag: t })),
+    };
+}
 
 export const provider: Provider = {
     name: 'imhentai',
@@ -57,8 +157,7 @@ export const provider: Provider = {
 
         return null;
     },
-    async search(rawQuery: string, page: number): Promise<SearchPage> {
-        // exclusion warning
+    async search(rawQuery: string, page: number): Promise<SearchResults> {
         const q = rawQuery.trim();
         if (q.includes(' -') || q.startsWith('-')) {
             const key = '__imh_exclusion_warned';
@@ -74,11 +173,8 @@ export const provider: Provider = {
         }
 
         const url = buildImhentaiSearchUrl(q, page);
-
-
         const html = await fetchText(url);
 
-        // Extract gallery IDs: href="/gallery/NNN"
         const ids: number[] = [];
         const hrefs = extractAll(html, 'href="/gallery/', '"');
         let prev = -1;
@@ -88,7 +184,6 @@ export const provider: Provider = {
             prev = id;
         }
 
-        // Count pages from pagination links
         const pageLinks = extractAll(html, "class='page-link' href='", "'");
         let totalPages = page;
         for (const href of pageLinks) {
@@ -97,72 +192,25 @@ export const provider: Provider = {
         }
         if (totalPages === page && ids.length === 0) totalPages = 0;
 
-        return { ids, totalResults: totalPages * PAGE_SIZE, pageSize: PAGE_SIZE };
+        return { galleryIds: ids, totalResults: totalPages * PAGE_SIZE, pageSize: PAGE_SIZE };
     },
 
-    async fetchMeta(gid: number): Promise<GalleryMeta> {
-        const html = await fetchText(`https://${DOMAIN}/gallery/${gid}/`);
+    async getGallerySummary(gid: number): Promise<GallerySummary> {
+        const html = await fetchGalleryHTML(gid);
+        const { thumbs, pageCount } = parseGalleryHTML(html, gid);
+        return { pageCount, thumbs };
+    },
 
-        // Title
-        const h1 = extractBetween(html, '<h1>', '</h1>');
-        const title = h1 ? h1.value.replace(/<[^>]*>/g, '').trim() : '';
+    async getMeta(gid: number): Promise<GalleryMeta> {
+        const html = await fetchGalleryHTML(gid);
+        const { pageCount } = parseGalleryHTML(html, gid);
+        return { ...extractMeta(html), pageCount };
+    },
 
-        // Japanese title
-        const sub = extractBetween(html, 'class="subtitle">', '<');
-        const titleJpn = sub ? sub.value.trim() : '';
-
-        // Metadata section
-        const infoStart = html.indexOf('class="galleries_info"');
-        const infoEnd = html.indexOf('</ul>', infoStart);
-        const chunk = infoStart !== -1 && infoEnd !== -1 ? html.slice(infoStart, infoEnd) : html;
-
-        function extractNS(ns: string): string[] {
-            const results: string[] = [];
-            let pos = 0;
-            while (true) {
-                const m = extractBetween(chunk, "href='/" + ns + "/", "'", pos);
-                if (!m) break;
-                const tagStart = chunk.indexOf('>', m.nextIndex) + 1;
-                const tagEnd = chunk.indexOf('</a>', tagStart);
-                if (tagEnd === -1) break;
-                let tag = chunk.slice(tagStart, tagEnd).replace(/<[^>]*>/g, '').trim();
-                tag = tag.replace(/\s+\d+$/, '');
-                if (tag) results.push(tag);
-                pos = tagEnd;
-            }
-            return results;
-        }
-
-        const artists = extractNS('artist');
-        const groups = extractNS('group');
-        const parody = extractNS('parody');
-        const characters = extractNS('character');
-        const tags = extractNS('tag');
-        const languages = extractNS('language');
-
-        // Category
-        const cat = extractBetween(chunk, "href='/category/", "/'");
-        const type = cat ? cat.value : '';
-
-        // Posted date
-        let date = '';
-        const dm = extractBetween(html, '>Posted: ', '</li>');
-        if (dm) date = dm.value.trim();
-        const files = getFiles(html, gid);
-
-        return {
-            title,
-            title_jpn: titleJpn,
-            type,
-            language: languages[0] ?? '',
-            date,
-            artists,
-            groups,
-            parody,
-            characters,
-            tags: tags.map(t => ({ tag: t })),
-            files,
-        };
+    async getReaderData(gid: number): Promise<{ images: ReaderImage[]; meta: GalleryMeta }> {
+        const html = await fetchGalleryHTML(gid);
+        const { images, pageCount } = parseGalleryHTML(html, gid);
+        return { images, meta: { ...extractMeta(html), pageCount } };
     },
 
     readerUrl(gid: number, index?: number): string {
@@ -179,11 +227,11 @@ export const provider: Provider = {
         return buildImhentaiSearchUrl(query);
     },
 
-    thumbUrl(file: GalleryFile): string {
-        return file.key;
+    thumbUrl(thumb: Thumbnail): string {
+        return (thumb as ImhentaiThumb).url;
     },
 
-    async imageUrls(files: GalleryFile[]): Promise<string[]> {
-        return files.map(f => f.key);
+    async imageUrls(images: ReaderImage[]): Promise<string[]> {
+        return images.map(img => (img as ImhentaiImage).url);
     },
 };

@@ -1,9 +1,17 @@
-export interface GalleryFile {
-    key: string;
-    name: string;
+// ── opaque container types ────────────────────────────────────────────
+// Each provider defines its own shape; the app only calls provider
+// methods and reads width/height from ReaderImage.
+
+export interface Thumbnail {
+    // provider-internal data for thumbUrl()
+}
+export interface ReaderImage {
     width: number;
     height: number;
+    // provider-internal data for imageUrls()
 }
+
+// ── public types ──────────────────────────────────────────────────────
 
 export interface GalleryMeta {
     title: string;
@@ -16,7 +24,18 @@ export interface GalleryMeta {
     parody: string[];
     characters: string[];
     tags: { tag: string; female?: string; male?: string }[];
-    files: GalleryFile[];
+    pageCount: number;
+}
+
+export interface GallerySummary {
+    pageCount: number;
+    thumbs: Thumbnail[];
+}
+
+export interface SearchResults {
+    galleryIds: number[];
+    totalResults: number;
+    pageSize: number;
 }
 
 export enum Handler { Home, Search, Reader }
@@ -26,11 +45,7 @@ export type RouteMatch =
     | { handler: Handler.Search; query: string; page: number }
     | { handler: Handler.Reader; gid: number; index: number };
 
-export interface SearchPage {
-    ids: number[];
-    totalResults: number;
-    pageSize: number;
-}
+// ── provider interface ────────────────────────────────────────────────
 
 export interface Provider {
     readonly name: string;
@@ -39,14 +54,15 @@ export interface Provider {
     init(): Promise<void>;
 
     // ── core ──────────────────────────────────────────────────────────
-    search(rawQuery: string, page: number): Promise<SearchPage>;
-    fetchMeta(gid: number): Promise<GalleryMeta>;
+    search(rawQuery: string, page: number): Promise<SearchResults>;
+    getMeta(gid: number): Promise<GalleryMeta>;
+    getGallerySummary(gid: number): Promise<GallerySummary>;
+    getReaderData(gid: number): Promise<{ images: ReaderImage[]; meta: GalleryMeta }>;
 
     // ── URL constructors ──────────────────────────────────────────────
     readerUrl(gid: number, index?: number): string;
     searchUrl(rawQuery: string, page?: number): Promise<string>;
-    /** Build a search URL from a tag/artist/etc click in the info modal. */
     tagSearchUrl(ns: string, value: string, language: string): Promise<string>;
-    thumbUrl(file: GalleryFile): string;
-    imageUrls(files: GalleryFile[]): Promise<string[]>;
+    thumbUrl(thumb: Thumbnail): string;
+    imageUrls(images: ReaderImage[]): Promise<string[]>;
 }

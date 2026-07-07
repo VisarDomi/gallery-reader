@@ -1,7 +1,7 @@
 export { Handler } from './types';
-export type { GalleryMeta, Provider, RouteMatch, SearchPage, GalleryFile } from './types';
+export type { GalleryMeta, Provider, RouteMatch, SearchResults, GallerySummary, Thumbnail, ReaderImage } from './types';
 
-import type { GalleryFile, Provider } from './types';
+import type { Provider, Thumbnail, ReaderImage } from './types';
 import { provider as hitomi } from './hitomi/provider';
 import { provider as imhentai } from './imhentai/provider';
 
@@ -19,9 +19,11 @@ export const providerName = () => p.name;
 
 // ── lazy forwarders ──────────────────────────────────────────────────
 
-export const fetchMeta = (gid: number) => p.fetchMeta(gid);
-export const thumbUrl = (file: GalleryFile) => p.thumbUrl(file);
-export const imageUrls = (files: GalleryFile[]) => p.imageUrls(files);
+export const getMeta = (gid: number) => p.getMeta(gid);
+export const getGallerySummary = (gid: number) => p.getGallerySummary(gid);
+export const getReaderData = (gid: number) => p.getReaderData(gid);
+export const thumbUrl = (thumb: Thumbnail) => p.thumbUrl(thumb);
+export const imageUrls = (images: ReaderImage[]) => p.imageUrls(images);
 export const search = (rawQuery: string, page: number) => p.search(rawQuery, page);
 export const readerUrl = (gid: number, index?: number) => p.readerUrl(gid, index);
 export const searchUrl = (query: string, page?: number) => p.searchUrl(query, page);
