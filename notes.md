@@ -18,20 +18,20 @@ exhentai japanese purged... went from biggest to smallest library
 
 
 
- | Provider       | Japanese | AND                                     | NOT                      | Pagination                   | CF  | API      |                                                                                                                                                                  
- |----------------|----------|-----------------------------------------|--------------------------|------------------------------|-----|----------|                                                                                                                                                                                          
- | hitomi.la      | 541k     | lang:jp female:tag                      | -female:yaoi             | instant (Nozomi blob)        | ❌   | gg.js    |                                                                                                                                
- | imhentai.xxx** | 745k     | key=tag1,tag2                           | ❌                        | random page=N (40/pg)        | ❌   | none     |                                                                                                                                             
- | nhentai.net    | 259k     | tag:"x"                                 | -tag:"y"                 | random page=N (25/pg)        | YES | /api/v2/ |                                                                                                                                         
- | hentaipaw.com  | 1.16M    | ❌                                       | ❌                        | random page=N (30/pg)        | ❌   | none     |                                                                                                                                                      
- | asmhentai.com* | 347k     | ❌                                       | ❌                        | random page=N (~25/pg)       | ❌   | none     |                                                                                                                                                      
- | imhentai.to    | 335k     | ❌                                       | ❌                        | random page=N (~25/pg)       | ❌   | none     |                                                                                                                                                        
- | hentaihand.com | 310k     | ⚠️ languages=3&tags=168 (lang+tag only) | ❌                        | random page=N (18/pg capped) | ❌   | /api/    |                                                                                                         
- | 3hentai.net    | ~173k    | ❌                                       | ❌                        | random page=N (25/pg)        | ❌   | none     |                                                                                                                                                        
- | naisho.moe     | ~555k    | tags[0][name]=female:nakadashi          | tags[1][excluded]=1      | sequential cursor (24/pg)    | ❌   | Livewire |                                                                                                    
- | cin.guru       | ~308k    | tags=lang:jp,tag:nakadashi              | tagsRemove=tags:cheating | random page=N (25/pg)        | ❌   | none     |                                                                                                             
- | exhentai.org   | 0.8k     | ✅ namespaced                            | ✅ namespaced             | API                          | ❌   | api.php  |
- | akuma.moe      | ?        | ❓                                       | ❓                        | sequential (cursor)          | ❌   | none     |
+ | Provider       | Japanese    | AND                                     | NOT                      | Pagination                   | CF  | API      | bfcache              |
+ |----------------|-------------|-----------------------------------------|--------------------------|------------------------------|-----|----------|----------------------|
+ | hitomi.la      | 541k        | lang:jp female:tag                      | -female:yaoi             | instant (Nozomi blob)        | no  | gg.js    | max-age=3600         |
+ | imhentai.xxx** | 745k        | key=tag1,tag2                           | no                       | random page=N (40/pg)        | no  | none     | no-store             |
+ | nhentai.net    | 259k        | tag:"x"                                 | -tag:"y"                 | random page=N (25/pg)        | yes | /api/v2/ | unknown (CF block)   |
+ | hentaipaw.com  | 1.16M total | no                                      | no                       | random page=N (30/pg)        | no  | none     | no-store             |
+ | asmhentai.com* | 347k        | no                                      | no                       | random page=N (~25/pg)       | no  | none     | no-store             |
+ | imhentai.to    | 335k        | no                                      | no                       | random page=N (~25/pg)       | no  | none     | no-cache, private    |
+ | hentaihand.com | 310k        | languages=3&tags=168 (lang+tag only)    | no                       | random page=N (18/pg capped) | no  | /api/    | no-cache, private    |
+ | 3hentai.net    | ~173k       | no                                      | no                       | random page=N (25/pg)        | no  | none     | no-cache, private    |
+ | naisho.moe     | ~555k       | tags[0][name]=female:nakadashi          | tags[1][excluded]=1      | sequential cursor (24/pg)    | no  | Livewire | no-store             |
+ | cin.guru       | ~308k       | tags=lang:jp,tag:nakadashi              | tagsRemove=tags:cheating | random page=N (25/pg)        | no  | none     | max-age=14400        |
+ | exhentai.org   | 0.8k        | namespaced                               | namespaced               | API                          | no  | api.php  | unknown (no resp)    |
+ | akuma.moe      | ?           | ?                                       | ?                        | sequential (cursor)          | no  | none     | no-store             |
 
 
 * asmhentai.com/hentai.name/hentai2.net
