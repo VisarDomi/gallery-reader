@@ -1,8 +1,7 @@
 import {render as renderSavedSearch} from "./saved-searches";
-import {preloadFavs} from "../storage/db";
 import {initProvider, providerName, searchUrl} from "../provider";
 import cssContent from '../css/style.css?inline';
-import {loadSearches} from "../storage/localstorage";
+import {deferScrollRestore, loadScrollPosition, loadSearches, saveScrollPosition} from "../storage/localstorage";
 
 function retryBrokenImages(selector: ".hs-reader-img" | ".hs-thumb", interval: number): void {
     setInterval(() => {
@@ -76,11 +75,34 @@ function buildGridPlaceholder(): void {
     document.body.appendChild(grid);
 }
 
-export async function initShell(): Promise<void> {
+function syncInputFromUrl(query?: string): void {
+    const input = document.getElementById('query-input') as HTMLInputElement;
+    input.value = query ? query : "";
+}
+
+let _listenersInstalled = false;
+
+function initAppState(query?: string) {
+    syncInputFromUrl(query);
+    if (!_listenersInstalled) {
+        _listenersInstalled = true;
+        window.addEventListener('pagereveal', () => syncInputFromUrl(query));
+        const saveScroll = () => saveScrollPosition(location.pathname + location.search, window.scrollY);
+        window.addEventListener('scrollend', () => {
+            setTimeout(saveScroll, 100);
+        });
+        window.addEventListener('pagehide', saveScroll);
+    }
+    const urlKey = location.pathname + location.search;
+    const savedY = loadScrollPosition(urlKey);
+    if (savedY !== null) deferScrollRestore(savedY);
+}
+
+export async function initShell(query?: string): Promise<void> {
     startInit();
     buildSearch();
     renderSavedSearch();
     buildGridPlaceholder();
-    void preloadFavs();
     await initProvider();
+    initAppState(query);
 }

@@ -40,8 +40,6 @@ export interface Provider {
 
     // ── core ──────────────────────────────────────────────────────────
     search(rawQuery: string, page: number): Promise<SearchPage>;
-    /** Navigate to a search page. Provider decides hash vs URL navigation. */
-    goToPage(rawQuery: string, page: number): void;
     fetchMeta(gid: number): Promise<GalleryMeta>;
 
     // ── URL constructors ──────────────────────────────────────────────

@@ -63,10 +63,6 @@ export const provider: Provider = {
         };
     },
 
-    goToPage(_query: string, page: number): void {
-        window.location.hash = '#' + page;
-    },
-
     readerUrl(gid: number, index?: number): string {
         let url = `https://hitomi.la/reader/${gid}.html`;
         if (index !== undefined) url += '#' + index;

@@ -1,14 +1,12 @@
 import { preloadFavs, mergeFavs } from '../storage/db';
 import { initShell } from '../ui/shell';
 import { renderPaginatedGrid } from "../ui/paginated-grid";
-import { getPage, savePage, saveScrollPosition, loadScrollPosition, deferScrollRestore, applyPendingScroll } from "../storage/localstorage";
-
-const COUNT_KEY = ' Favorites';
-const HOME_PAGE_SIZE = 25;
+import { getPage, savePage, applyPendingScroll } from "../storage/localstorage";
 
 let _ids: number[] = [];
 
 function renderPage(page: number): void {
+    const HOME_PAGE_SIZE = 25;
     const start = (page - 1) * HOME_PAGE_SIZE;
     const galleryIds = _ids.slice(start, start + HOME_PAGE_SIZE);
     renderPaginatedGrid(
@@ -16,7 +14,7 @@ function renderPage(page: number): void {
         page,
         _ids.length,
         HOME_PAGE_SIZE,
-        COUNT_KEY,
+        ' Favorites',
         (newPage) => renderPage(newPage),
     );
 
@@ -102,17 +100,6 @@ function buildImportSection(): void {
 export async function init(): Promise<void> {
     await initShell();
     _ids = await preloadFavs();
-
-    const urlKey = location.pathname;
-    const savedY = loadScrollPosition(urlKey);
-    if (savedY !== null) deferScrollRestore(savedY);
-
-    const saveScroll = () => saveScrollPosition(location.pathname, window.scrollY);
-    window.addEventListener('scrollend', () => {
-        setTimeout(saveScroll, 100);
-    });
-    window.addEventListener('pagehide', saveScroll);
-
     if (_ids.length > 0) renderPage(getPage());
     applyPendingScroll();
     buildImportSection();

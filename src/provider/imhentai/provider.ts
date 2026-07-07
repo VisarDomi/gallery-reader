@@ -99,9 +99,6 @@ export const provider: Provider = {
 
         return { ids, totalResults: totalPages * PAGE_SIZE, pageSize: PAGE_SIZE };
     },
-    goToPage(rawQuery: string, page: number): void {
-        history.replaceState(null, '', buildImhentaiSearchUrl(rawQuery, page));
-    },
 
     async fetchMeta(gid: number): Promise<GalleryMeta> {
         const html = await fetchText(`https://${DOMAIN}/gallery/${gid}/`);
