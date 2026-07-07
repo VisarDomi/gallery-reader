@@ -11,7 +11,7 @@ async function render(result: { ids: number[]; totalResults: number; pageSize: n
         result.totalResults,
         result.pageSize,
         ' Results',
-        (newPage) => { void init(query, newPage); },
+        (newPage) => { void paginate(query, newPage); },
     );
 
     const url = await searchUrl(query, pageInfo.currentPage);
@@ -19,9 +19,13 @@ async function render(result: { ids: number[]; totalResults: number; pageSize: n
     saveSearch(query, pageInfo.currentPage, providerName(), renderSavedSearch);
 }
 
-export async function init(query: string, page: number): Promise<void> {
-    await initShell(query);
+async function paginate(query: string, page: number) {
     const result = await search(query, page);
     await render(result, page, query);
+}
+
+export async function init(query: string, page: number): Promise<void> {
+    await initShell(query);
+    void paginate(query, page)
     applyPendingScroll();
 }

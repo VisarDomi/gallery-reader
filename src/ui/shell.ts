@@ -80,19 +80,14 @@ function syncInputFromUrl(query?: string): void {
     input.value = query ? query : "";
 }
 
-let _listenersInstalled = false;
-
 function initAppState(query?: string) {
     syncInputFromUrl(query);
-    if (!_listenersInstalled) {
-        _listenersInstalled = true;
-        window.addEventListener('pagereveal', () => syncInputFromUrl(query));
-        const saveScroll = () => saveScrollPosition(location.pathname + location.search, window.scrollY);
-        window.addEventListener('scrollend', () => {
-            setTimeout(saveScroll, 100);
-        });
-        window.addEventListener('pagehide', saveScroll);
-    }
+    window.addEventListener('pagereveal', () => syncInputFromUrl(query));
+    const saveScroll = () => saveScrollPosition(location.pathname + location.search, window.scrollY);
+    window.addEventListener('scrollend', () => {
+        setTimeout(saveScroll, 100);
+    });
+    window.addEventListener('pagehide', saveScroll);
     const urlKey = location.pathname + location.search;
     const savedY = loadScrollPosition(urlKey);
     if (savedY !== null) deferScrollRestore(savedY);
