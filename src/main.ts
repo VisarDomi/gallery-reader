@@ -3,8 +3,10 @@ import { init as initHome } from './routes/home';
 import { init as initSearch } from './routes/search';
 import { open } from './routes/reader';
 import {setupDebug} from "./debug";
+import {startInit} from "./ui/shell";
 
 async function main() {
+    startInit();
     const { pathname, search, hash, hostname } = window.location;
     selectProvider(hostname);
     const match = await matchRoute(pathname, search, hash);

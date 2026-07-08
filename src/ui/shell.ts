@@ -21,8 +21,8 @@ export function startInit() {
     const style = document.createElement('style');
     style.textContent = cssContent;
     document.head.appendChild(style);
-    retryBrokenImages(".hs-reader-img", 1000);
-    retryBrokenImages(".hs-thumb", 10000);
+    retryBrokenImages(".hs-reader-img", 2000);
+    retryBrokenImages(".hs-thumb", 2000);
 }
 
 function buildSearch(): void {
@@ -94,7 +94,6 @@ function initAppState(query?: string) {
 }
 
 export async function initShell(query?: string): Promise<void> {
-    startInit();
     buildSearch();
     renderSavedSearch();
     buildGridPlaceholder();

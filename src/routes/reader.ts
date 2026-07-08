@@ -1,8 +1,6 @@
 import {getReaderData, imageUrls, readerUrl} from '../provider';
-import {startInit} from "../ui/shell";
 
 export async function open(gid: number, currentIndex: number): Promise<void> {
-    startInit();
     const wrapper = document.createElement('div');
     wrapper.className = 'hs-reader-body';
     document.body.appendChild(wrapper);

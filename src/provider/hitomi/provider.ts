@@ -1,6 +1,6 @@
 import {type Thumbnail, type ReaderImage, type GalleryMeta, type GallerySummary, Handler, Provider, type SearchResults} from "../types";
 import {fetchText, intersectNozomi, parseGG, parseQuery} from "./decoder";
-import {detachJQueryFromSuggestionLinks, loadScript, setupDropdownHandler, startAdBlocker} from "./script";
+import {detachJQueryFromSuggestionLinks, loadScript, setupDropdownHandler} from "./script";
 import {DOMAIN} from "./constants";
 
 const PAGE_SIZE = 25;
@@ -39,8 +39,6 @@ export const provider: Provider = {
         await loadScript('search.js');
         setupDropdownHandler();
         // TODO: investigate again why are we doing search manually instead of letting the search box execute the search... i'm not convinced
-        startAdBlocker();
-        // TODO: be more aggressive on adblock: remove listeners, remove interval/timeout ids, remove localstorage/indexeddb
     },
     async matchRoute(pathname: string, search: string, hash: string) {
         if (pathname === '/' || pathname.startsWith('/index')) {
