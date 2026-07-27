@@ -8,14 +8,16 @@ function retryBrokenImages(selector: ".hs-reader-img" | ".hs-thumb", interval: n
         const imgs = document.querySelectorAll<HTMLImageElement>(selector);
         for (const img of imgs) {
             if (!img.complete || img.naturalWidth > 0) continue; // safari ios doesn't execute img.onerror on 429s so we have to do hacks
-            const src = img.src;
+            const src = new URL(img.src);
+            if (src.origin === location.origin) src.searchParams.set('retry', Date.now().toString());
             img.src = ''; // safari ios needs its source cleared first so that it can register the new (same) source
-            img.src = src;
+            img.src = src.href;
         }
     }, interval);
 }
 
 export function startInit() {
+    window.stop();
     document.open();
     document.close();
     const style = document.createElement('style');
@@ -82,7 +84,7 @@ function syncInputFromUrl(query?: string): void {
 
 function initAppState(query?: string) {
     syncInputFromUrl(query);
-    window.addEventListener('pagereveal', () => syncInputFromUrl(query));
+    window.addEventListener('pagereveal', () => syncInputFromUrl(query)); // bfcache in action
     const saveScroll = () => saveScrollPosition(location.pathname + location.search, window.scrollY);
     window.addEventListener('scrollend', () => {
         setTimeout(saveScroll, 100);
