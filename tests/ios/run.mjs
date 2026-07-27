@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "../..");
 const bridgeOrigin = process.env.IOS_DEBUG_ORIGIN ?? "https://127.0.0.1:38888";
-const casePauseMs = Math.max(500, Number(process.env.IOS_TEST_SETTLE_MS ?? 500));
+const phasePauseMs = Math.max(1000, Number(process.env.IOS_TEST_SETTLE_MS ?? 1000));
 const commandTimeoutMs = Number(process.env.IOS_TEST_COMMAND_TIMEOUT_MS ?? 90000);
 const clientTimeoutMs = Number(process.env.IOS_TEST_CLIENT_TIMEOUT_MS ?? 45000);
 const connectionTimeoutMs = Number(process.env.IOS_TEST_CONNECTION_TIMEOUT_MS ?? 120000);
@@ -19,7 +19,7 @@ let claimedClient = null;
 let lastNavigationAt = 0;
 
 function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise(resolveSleep => setTimeout(resolveSleep, ms));
 }
 
 function request(path, { method = "GET", body } = {}) {
@@ -69,10 +69,9 @@ async function ensureServer() {
             stdio: ["ignore", "ignore", "inherit"],
         });
     }
-
     for (let attempt = 0; attempt < 30; attempt++) {
         if (ownedServer.exitCode !== null) {
-            throw new Error("The repository-local iOS bridge failed to start. Run `npm run tests:setup`.");
+            throw new Error("The gallery iOS bridge failed to start. Run `npm run tests:setup`.");
         }
         try {
             await request("/__debug_state");
@@ -81,7 +80,7 @@ async function ensureServer() {
             await sleep(250);
         }
     }
-    throw new Error("Timed out starting the repository-local iOS bridge.");
+    throw new Error("Timed out starting the gallery iOS bridge.");
 }
 
 async function state() {
@@ -91,44 +90,39 @@ async function state() {
 async function waitForDebugger() {
     const info = await request("/__debug_info");
     console.log(`Waiting for iPhone debugger on port ${new URL(bridgeOrigin).port}.`);
-    console.log(`If it is not installed yet, open:\n  ${info.debuggerUrl}`);
-
+    console.log(`If needed, install:\n  ${info.debuggerUrl}`);
     const deadline = Date.now() + connectionTimeoutMs;
     while (Date.now() < deadline) {
         const snapshot = await state();
         const now = Date.now() / 1000;
-        const active = snapshot.clients.some(client => now - client.lastSeen < 3);
-        if (active) return;
+        if (snapshot.clients.some(client => now - client.lastSeen < 3)) return;
         await sleep(250);
     }
-
     throw new Error(
-        "No iPhone debugger is connected to the repository bridge.\n" +
-        `Install or update “manga-reader debug” from:\n  ${info.debuggerUrl}\n` +
-        "Then open any matched page in foreground Safari and rerun `npm run tests`.\n" +
-        "The older central “debug” userscript on port 35897 does not connect to this suite.",
+        "No gallery-reader debugger is connected.\n" +
+        `Install it from ${info.debuggerUrl}, then keep Safari foregrounded.`,
     );
 }
 
-function runLocalCommand(command, args) {
-    const completed = spawnSync(command, args, { cwd: root, stdio: "inherit" });
+function runLocalCommand(commandName, args) {
+    const completed = spawnSync(commandName, args, { cwd: root, stdio: "inherit" });
     if (completed.error) throw completed.error;
     if (completed.status !== 0) {
-        throw new Error(`${command} ${args.join(" ")} failed with exit code ${completed.status}`);
+        throw new Error(`${commandName} ${args.join(" ")} failed with exit code ${completed.status}`);
     }
 }
 
 function checkAndBuild() {
     runLocalCommand("npx", ["tsc", "--noEmit"]);
-    runLocalCommand("node", ["scripts/build.mjs", "--no-increase-version"]);
+    runLocalCommand("npx", ["vite", "build"]);
 }
 
 async function postCommand(target, code) {
-    const command = await request("/__debug_command", {
+    const posted = await request("/__debug_command", {
         method: "POST",
         body: { target, code },
     });
-    return command.id;
+    return posted.id;
 }
 
 async function waitForResult(commandId) {
@@ -138,8 +132,8 @@ async function waitForResult(commandId) {
         const result = [...snapshot.results].reverse().find(item => item.commandId === commandId);
         if (result) {
             if (!result.ok) {
-                const error = result.error?.message ?? JSON.stringify(result.error);
-                throw new Error(`Remote command ${commandId} failed: ${error}`);
+                const detail = result.error?.message ?? JSON.stringify(result.error);
+                throw new Error(`Remote command ${commandId} failed: ${detail}`);
             }
             return result.result;
         }
@@ -153,20 +147,12 @@ async function command(target, code, { expectResult = true } = {}) {
     return expectResult ? waitForResult(id) : id;
 }
 
-async function navigationCommand(target, code) {
-    const remainingPause = lastNavigationAt + casePauseMs - Date.now();
-    if (remainingPause > 0) await sleep(remainingPause);
-    lastNavigationAt = Date.now();
-    return command(target, code);
-}
-
 async function foregroundClient() {
     const snapshot = await state();
     const now = Date.now() / 1000;
     const active = snapshot.clients.filter(client => now - client.lastSeen < 3);
     if (!active.length) throw new Error("No active iPhone debugger client");
-
-    const commandId = await postCommand("*", `
+    const id = await postCommand("*", `
         return {
             visibilityState: document.visibilityState,
             hasFocus: document.hasFocus(),
@@ -176,15 +162,10 @@ async function foregroundClient() {
     const deadline = Date.now() + 5000;
     while (Date.now() < deadline) {
         const current = await state();
-        const results = current.results.filter(result =>
-            result.commandId === commandId && result.ok
-        );
-        const focused = results.find(result =>
+        const results = current.results.filter(result => result.commandId === id && result.ok);
+        const visible = results.find(result =>
             result.result?.visibilityState === "visible" && result.result?.hasFocus
-        );
-        const visible = focused ?? results.find(result =>
-            result.result?.visibilityState === "visible"
-        );
+        ) ?? results.find(result => result.result?.visibilityState === "visible");
         if (visible) {
             const client = active.find(item => item.client === visible.client);
             if (client) return client;
@@ -192,93 +173,113 @@ async function foregroundClient() {
         await sleep(100);
     }
     if (active.length === 1) return active[0];
-    throw new Error(
-        `Could not identify the foreground Safari tab among ${active.length} active debugger clients`,
-    );
+    throw new Error(`Could not identify foreground Safari tab among ${active.length} clients`);
 }
 
-async function claimExampleTab(providerHosts) {
-    let client = await foregroundClient();
-    const foregroundUrl = new URL(client.href);
-    if (foregroundUrl.hostname !== "example.com") {
-        const controlled = await command(client.client, `
-            return Boolean(
-                globalThis.__mangaReaderTestPhase ||
-                document.querySelector(".hs-reader-body")
-            );
-        `);
-        if (!controlled && !providerHosts.has(foregroundUrl.hostname)) {
-            throw new Error(
-                "The foreground Safari tab is unrelated to the current test session.\n" +
-                "Open https://example.com once so the harness can claim it safely.\n" +
-                `Foreground tab is currently: ${client.href}`,
-            );
-        }
-
-        const snapshot = await state();
-        const known = new Set(snapshot.clients.map(item => item.client));
-        console.log(`Returning controlled tab from ${client.href} to https://example.com/.`);
-        await navigationCommand(
-            client.client,
-            `location.href = "https://example.com/"; return "navigating";`,
+function assertClaimableClient(client, targetUrls) {
+    const hostname = new URL(client.href).hostname;
+    const allowedHosts = new Set([
+        "example.com",
+        ...Object.values(targetUrls).map(url => new URL(url).hostname),
+    ]);
+    if (!allowedHosts.has(hostname)) {
+        throw new Error(
+            "The foreground Safari tab is unrelated to this test suite.\n" +
+            "Open https://example.com/ or one of the frozen target sites, then rerun.\n" +
+            `Foreground tab is currently: ${client.href}`,
         );
-        client = await waitForNewClient(known, "https://example.com/");
     }
-
-    claimedClient = client;
-    console.log(`Claimed foreground Safari tab at ${client.href}.`);
 }
 
-function navigationMatches(actualUrl, expectedUrl) {
-    if (actualUrl === expectedUrl) return true;
+function urlsMatch(actualText, expectedText) {
     try {
-        const actual = new URL(actualUrl);
-        const expected = new URL(expectedUrl);
-        const actualTail = actual.pathname.split("/").filter(Boolean).slice(-2).join("/");
-        const expectedTail = expected.pathname.split("/").filter(Boolean).slice(-2).join("/");
-        return (
-            actual.hostname === expected.hostname &&
-            actualTail === expectedTail &&
-            actual.hash === expected.hash
-        );
+        const actual = new URL(actualText);
+        const expected = new URL(expectedText);
+        return actual.hostname === expected.hostname
+            && actual.pathname === expected.pathname
+            && actual.search === expected.search
+            && actual.hash === expected.hash;
     } catch {
         return false;
     }
 }
 
-async function waitForNewClient(knownClients, expectedUrl) {
+async function waitForActiveClient(predicate, description) {
     const deadline = Date.now() + clientTimeoutMs;
     while (Date.now() < deadline) {
         const snapshot = await state();
-        const client = [...snapshot.clients]
-            .filter(item =>
-                !knownClients.has(item.client) &&
-                navigationMatches(item.href, expectedUrl)
-            )
+        const now = Date.now() / 1000;
+        const match = [...snapshot.clients]
+            .filter(client => now - client.lastSeen < 3 && predicate(client))
             .sort((a, b) => b.lastSeen - a.lastSeen)[0];
-        if (client) return client;
+        if (match) return match;
         await sleep(250);
     }
-    throw new Error(`No iPhone debugger connected at ${expectedUrl}`);
+    throw new Error(`No active iPhone debugger client for ${description}`);
 }
 
-function describeCase(urlText) {
-    const url = new URL(urlText);
-    const hostname = url.hostname.replace(/^www\./, "");
-    return {
-        name: hostname.split(".")[0],
-        url: urlText,
-    };
+async function navigate(url) {
+    if (!claimedClient) throw new Error("No claimed Safari tab");
+    const remaining = lastNavigationAt + phasePauseMs - Date.now();
+    if (remaining > 0) await sleep(remaining);
+    lastNavigationAt = Date.now();
+    await command(claimedClient.client, `
+        const target = ${JSON.stringify(url)};
+        if (location.href === target) location.reload();
+        else location.href = target;
+        return "navigating";
+    `, { expectResult: false });
+    claimedClient = await waitForActiveClient(
+        client => urlsMatch(client.href, url),
+        url,
+    );
+    return claimedClient;
+}
+
+async function waitForNavigation(predicate, description) {
+    claimedClient = await waitForActiveClient(predicate, description);
+    return claimedClient;
+}
+
+async function returnToExample() {
+    if (!claimedClient) return;
+    try {
+        if (new URL(claimedClient.href).hostname === "example.com") return;
+        await command(
+            claimedClient.client,
+            `location.href = "https://example.com/"; return "returning";`,
+            { expectResult: false },
+        );
+        await waitForActiveClient(
+            client => new URL(client.href).hostname === "example.com",
+            "example.com cleanup",
+        );
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`Could not return Safari to example.com: ${message}`);
+    }
+}
+
+async function showPhase(text, stateName = "running") {
+    if (!claimedClient) return;
+    await command(claimedClient.client, `
+        globalThis.__galleryReaderTestPhase?.(
+            ${JSON.stringify(text)},
+            ${JSON.stringify(stateName)}
+        );
+        return true;
+    `);
+    await sleep(phasePauseMs);
 }
 
 function injectCode(bundle, url) {
     return `
         history.replaceState(null, "", ${JSON.stringify(url)});
-        globalThis.__mangaReaderTestPhase = (text, state = "running") => {
-            let box = document.getElementById("__manga-reader-test-phase");
+        globalThis.__galleryReaderTestPhase = (text, stateName = "running") => {
+            let box = document.getElementById("__gallery-reader-test-phase");
             if (!box) {
                 box = document.createElement("div");
-                box.id = "__manga-reader-test-phase";
+                box.id = "__gallery-reader-test-phase";
                 Object.assign(box.style, {
                     position: "fixed",
                     zIndex: "2147483647",
@@ -295,349 +296,480 @@ function injectCode(bundle, url) {
                 });
                 (document.body || document.documentElement).appendChild(box);
             }
-            box.style.background = state === "success"
+            box.style.background = stateName === "success"
                 ? "#15803d"
-                : state === "error" ? "#b91c1c" : "#1d4ed8";
+                : stateName === "error" ? "#b91c1c" : "#1d4ed8";
             box.textContent = text;
         };
         const source = ${JSON.stringify(bundle)};
-        new Function(source + String.fromCharCode(10) + "//# sourceURL=manga-reader.test.user.js")();
-        globalThis.__mangaReaderTestPhase("1/4 Restoring requested position");
+        new Function(
+            source + String.fromCharCode(10) + "//# sourceURL=gallery-reader.test.user.js"
+        )();
         return { injectedBytes: source.length };
     `;
 }
 
-function positionSnapshot() {
-    return `
+async function inject(bundle, url = claimedClient.href) {
+    const previousClient = claimedClient.client;
+    const commandId = await postCommand(previousClient, injectCode(bundle, url));
+    const deadline = Date.now() + clientTimeoutMs;
+    while (Date.now() < deadline) {
+        const snapshot = await state();
+        const now = Date.now() / 1000;
+        const matchingClients = snapshot.clients
+            .filter(client => now - client.lastSeen < 3 && urlsMatch(client.href, url))
+            .sort((a, b) => b.lastSeen - a.lastSeen);
+        const freshClient = matchingClients.find(client => client.client !== previousClient);
+        if (freshClient) {
+            claimedClient = freshClient;
+            return;
+        }
+        const result = snapshot.results.find(item => item.commandId === commandId);
+        if (result) {
+            if (!result.ok) {
+                const detail = result.error?.message ?? JSON.stringify(result.error);
+                throw new Error(`Gallery injection failed: ${detail}`);
+            }
+            const sameClient = matchingClients.find(client => client.client === previousClient);
+            if (sameClient) {
+                claimedClient = sameClient;
+                return;
+            }
+        }
+        await sleep(250);
+    }
+    throw new Error(`Gallery takeover did not settle at ${url}`);
+}
+
+function assert(condition, message) {
+    if (!condition) throw new Error(message);
+}
+
+async function waitForGallery(expectedPage) {
+    return command(claimedClient.client, `
         const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
-        const current = () => Array.from(document.querySelectorAll(".hs-reader-img"))
-            .filter(image => image.complete && image.naturalWidth > 0)
-            .map(image => ({
-                image,
-                top: image.getBoundingClientRect().top,
-            }))
-            .sort((a, b) => Math.abs(a.top) - Math.abs(b.top))[0];
         for (let i = 0; i < 360; i++) {
-            const item = current();
-            if (item && Math.abs(item.top) <= 1) break;
+            const active = document.querySelector(".hs-page-active")?.textContent;
+            const rows = document.querySelectorAll(".hs-row-wrap").length;
+            if (active === ${JSON.stringify(String(expectedPage))} && rows > 0) break;
             await wait(250);
         }
-        const item = current();
-        const chapter = item?.image.closest(".hs-chapter");
+        const active = document.querySelector(".hs-page-active")?.textContent ?? null;
+        const rows = document.querySelectorAll(".hs-row-wrap").length;
+        for (let i = 0; i < 120 && !document.querySelector(".hs-row .hs-thumb"); i++) {
+            await wait(250);
+        }
         return {
-            readerBodies: document.querySelectorAll(".hs-reader-body").length,
-            chapterIds: Array.from(document.querySelectorAll(".hs-chapter")).map(element => element.dataset.chapter),
-            imageId: item?.image.id ?? null,
-            chapterId: chapter?.dataset.chapter ?? null,
-            imageLoaded: !!item?.image.complete && item.image.naturalWidth > 0,
-            imageTop: item?.top ?? null,
+            active,
+            rows,
+            populatedRows: document.querySelectorAll(".hs-row").length,
+            thumbs: document.querySelectorAll(".hs-thumb").length,
+            pages: document.querySelectorAll(".hs-page-link").length + 1,
+            href: location.href,
+            input: document.getElementById("query-input")?.value ?? "",
+        };
+    `);
+}
+
+async function normalizePage(page) {
+    const result = await command(claimedClient.client, `
+        const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+        const desired = ${JSON.stringify(String(page))};
+        const current = document.querySelector(".hs-page-active")?.textContent;
+        if (current !== desired) {
+            const link = Array.from(document.querySelectorAll(".hs-page-link"))
+                .find(element => element.textContent === desired);
+            if (!link) return { error: "page " + desired + " link missing", current };
+            link.click();
+            for (let i = 0; i < 360; i++) {
+                if (document.querySelector(".hs-page-active")?.textContent === desired) break;
+                await wait(250);
+            }
+        }
+        return {
+            active: document.querySelector(".hs-page-active")?.textContent ?? null,
             href: location.href,
         };
-    `;
-}
-
-function saveNextPosition(chapterId, imageId) {
-    return `
-        const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
-        globalThis.__mangaReaderTestPhase?.("2/4 Scrolling naturally to the next image");
-        const chapter = Array.from(document.querySelectorAll(".hs-chapter"))
-            .find(element => element.dataset.chapter === ${JSON.stringify(chapterId)});
-        const images = Array.from(chapter?.querySelectorAll(".hs-reader-img") || []);
-        const currentIndex = images.findIndex(image => image.id === ${JSON.stringify(imageId)});
-        const target = images[currentIndex + 1];
-        if (!target) return { error: "restored image has no next image to test" };
-        const before = location.href;
-
-        const scrollAndWait = top => new Promise(resolve => {
-            const timeout = setTimeout(finish, 5000);
-            function finish() {
-                clearTimeout(timeout);
-                removeEventListener("scrollend", finish);
-                resolve();
-            }
-            addEventListener("scrollend", finish, { once: true });
-            scrollTo(0, top);
-        });
-
-        target.loading = "eager";
-        for (let i = 0; i < 360 && !(target.complete && target.naturalWidth > 0); i++) {
-            await wait(250);
-        }
-        const timing = new Promise(resolve => {
-            const timeout = setTimeout(() => resolve({
-                at50ms: location.href,
-                href: location.href,
-            }), 5000);
-            addEventListener("scrollend", () => {
-                setTimeout(() => {
-                    const at50ms = location.href;
-                    setTimeout(() => {
-                        clearTimeout(timeout);
-                        resolve({ at50ms, href: location.href });
-                    }, 100);
-                }, 50);
-            }, { once: true });
-        });
-        await scrollAndWait(target.offsetTop - innerHeight / 2 + 10);
-        const measured = await timing;
-
-        return {
-            before,
-            at50ms: measured.at50ms,
-            href: measured.href,
-            imageId: target.id,
-            chapterId: chapter?.dataset.chapter ?? null,
-            imageLoaded: target.complete && target.naturalWidth > 0,
-        };
-    `;
-}
-
-function chapterAssertions() {
-    return `
-        const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
-        globalThis.__mangaReaderTestPhase?.("4/4 Loading one newer chapter per visible chapter");
-        const chapterIds = () => Array.from(document.querySelectorAll(".hs-chapter"))
-            .map(element => element.dataset.chapter);
-        const scrollAndWait = top => new Promise(resolve => {
-            const timeout = setTimeout(finish, 5000);
-            function finish() {
-                clearTimeout(timeout);
-                removeEventListener("scrollend", finish);
-                setTimeout(resolve, 150);
-            }
-            addEventListener("scrollend", finish, { once: true });
-            scrollTo(0, top);
-        });
-        const waitForChapterCount = async count => {
-            for (let i = 0; i < 40 && chapterIds().length < count; i++) {
-                if (i > 1 && !document.querySelector(".hs-loading")) break;
-                await wait(250);
-            }
-        };
-
-        const initial = chapterIds();
-        await scrollAndWait(scrollY + 100);
-        await waitForChapterCount(initial.length + 1);
-        const afterFirst = chapterIds();
-
-        await scrollAndWait(scrollY + 100);
-        await wait(500);
-        const afterRepeated = chapterIds();
-
-        const chapters = document.querySelectorAll(".hs-chapter");
-        const last = chapters[chapters.length - 1];
-        const lastImage = last?.querySelector(".hs-reader-img");
-        if (lastImage) {
-            await scrollAndWait(lastImage.offsetTop);
-            for (let i = 0; i < 360 && !(lastImage.complete && lastImage.naturalWidth > 0); i++) {
-                await wait(250);
-            }
-            await scrollAndWait(lastImage.offsetTop + 100);
-            await waitForChapterCount(afterRepeated.length + 1);
-        }
-        return {
-            initial,
-            afterFirst,
-            afterRepeated,
-            final: chapterIds(),
-            lastWasLoaded: !!lastImage?.complete && lastImage.naturalWidth > 0,
-        };
-    `;
-}
-
-function assertPosition(expected, phase, result) {
-    const failures = [];
-    if (result.readerBodies !== 1) failures.push(`expected one reader body, got ${result.readerBodies}`);
-    if (!result.chapterIds?.length) failures.push("no chapter rendered");
-    if (!result.imageLoaded) failures.push("restored image was incomplete or broken");
-    if (result.imageTop === null || Math.abs(result.imageTop) > 1) {
-        failures.push(`restored image top was ${result.imageTop}, expected 0 ±1px`);
-    }
-    if (expected.href && result.href !== expected.href) failures.push(`URL changed to ${result.href}`);
-    if (expected.imageId && result.imageId !== expected.imageId) {
-        failures.push(`restored ${result.imageId}, expected ${expected.imageId}`);
-    }
-    if (expected.chapterId && result.chapterId !== expected.chapterId) {
-        failures.push(`restored chapter ${result.chapterId}, expected ${expected.chapterId}`);
-    }
-    if (failures.length) throw new Error(`${phase}: ${failures.join("; ")}`);
-}
-
-function assertSave(result) {
-    const failures = [];
-    if (result.error) failures.push(result.error);
-    if (result.at50ms !== result.before) failures.push("URL changed before scrollend + 100ms");
-    if (!result.imageLoaded) failures.push("saved image was incomplete or broken");
-    if (result.href === result.before) failures.push("provider URL did not change after saving");
-    if (failures.length) throw new Error(`save: ${failures.join("; ")}`);
-}
-
-function assertChapters(result) {
-    const failures = [];
-    if (result.afterFirst?.length > result.initial?.length + 1) {
-        failures.push("one visible chapter appended more than one newer chapter");
-    }
-    if (result.afterRepeated?.length !== result.afterFirst?.length) {
-        failures.push("repeated scrolling on one visible chapter appended another chapter");
-    }
-    if (result.final?.length > result.afterRepeated?.length + 1) {
-        failures.push("the next visible chapter appended more than one newer chapter");
-    }
-    if (new Set(result.final).size !== result.final?.length) failures.push("a chapter was appended twice");
-    if (!result.lastWasLoaded) failures.push("visible chapter had no loaded image");
-    if (failures.length) throw new Error(`chapters: ${failures.join("; ")}`);
-}
-
-async function navigateClaimedTab(testCase) {
-    if (!claimedClient) throw new Error("No Safari tab has been claimed");
-    const before = await state();
-    const known = new Set(before.clients.map(item => item.client));
-    await navigationCommand(claimedClient.client, `
-        const target = ${JSON.stringify(testCase.url)};
-        if (location.href === target) location.reload();
-        else location.href = target;
-        return "navigating";
     `);
-    claimedClient = await waitForNewClient(known, testCase.url);
-    return claimedClient;
+    if (result.error) throw new Error(result.error);
+    assert(result.active === String(page), `failed to normalize to page ${page}`);
 }
 
-async function showPhase(client, text, state = "running") {
-    await command(
-        client.client,
-        `globalThis.__mangaReaderTestPhase?.(${JSON.stringify(text)}, ${JSON.stringify(state)}); return true;`,
-    );
-    await sleep(casePauseMs);
+async function testPagination(label) {
+    await normalizePage(2);
+    const result = await command(claimedClient.client, `
+        const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+        const run = async page => {
+            const pagination = document.querySelector(".hs-page-bar-pag");
+            pagination.scrollIntoView({ block: "center" });
+            await wait(${phasePauseMs});
+            const before = {
+                historyLength: history.length,
+                scrollY,
+                paginationTop: pagination.getBoundingClientRect().top,
+            };
+            const link = Array.from(document.querySelectorAll(".hs-page-link"))
+                .find(element => element.textContent === String(page));
+            if (!link) return { error: "page " + page + " link missing" };
+            link.click();
+            for (let i = 0; i < 360; i++) {
+                if (document.querySelector(".hs-page-active")?.textContent === String(page)) break;
+                await wait(250);
+            }
+            await wait(500);
+            return {
+                before,
+                active: document.querySelector(".hs-page-active")?.textContent ?? null,
+                gridTop: document.getElementById("hs-grid")?.getBoundingClientRect().top ?? null,
+                rows: document.querySelectorAll(".hs-row-wrap").length,
+                href: location.href,
+                historyLength: history.length,
+            };
+        };
+        const forward = await run(3);
+        const backward = await run(2);
+        return { forward, backward };
+    `);
+    for (const [direction, step] of Object.entries(result)) {
+        if (step.error) throw new Error(`${label} ${direction}: ${step.error}`);
+        assert(step.active === (direction === "forward" ? "3" : "2"),
+            `${label} ${direction}: wrong active page ${step.active}`);
+        assert(step.rows > 0, `${label} ${direction}: no gallery rows`);
+        assert(step.gridTop !== null && Math.abs(step.gridTop) <= 1,
+            `${label} ${direction}: gallery top was ${step.gridTop}`);
+        assert(step.historyLength === step.before.historyLength,
+            `${label} ${direction}: pagination changed history length`);
+    }
+    await showPhase(`${label}: pagination passed`);
+    return result;
 }
 
-async function runCase(testCase, bundle) {
-    const navigationClient = await navigateClaimedTab(testCase);
-    await command(navigationClient.client, injectCode(bundle, testCase.url));
-    const initial = await command(navigationClient.client, positionSnapshot());
-    assertPosition({ href: testCase.url }, "initial restore", initial);
-    await showPhase(
-        navigationClient,
-        `1/4 Restore complete at ${initial.chapterId}${initial.imageId}`,
-    );
+async function snapshotLocalStorage() {
+    return command(claimedClient.client, `
+        const keys = ["saved_searches", "favorites", "scroll-pos-/"];
+        return Object.fromEntries(keys.map(key => [key, localStorage.getItem(key)]));
+    `);
+}
 
-    const saved = await command(
-        navigationClient.client,
-        saveNextPosition(initial.chapterId, initial.imageId),
-    );
-    assertSave(saved);
-    await showPhase(
-        navigationClient,
-        `2/4 Save complete at ${saved.chapterId}${saved.imageId}`,
-    );
-
-    const beforeRefresh = await state();
-    const known = new Set(beforeRefresh.clients.map(item => item.client));
-    await navigationCommand(
-        navigationClient.client,
-        `
-            globalThis.__mangaReaderTestPhase?.("3/4 Reloading saved position");
-            await new Promise(resolve => setTimeout(resolve, ${casePauseMs}));
-            history.replaceState(null, "", ${JSON.stringify(saved.href)});
-            location.reload();
-            return "reloading";
-        `,
-    );
-    const restoredClient = await waitForNewClient(known, saved.href);
-    claimedClient = restoredClient;
-    await command(restoredClient.client, injectCode(bundle, saved.href));
-    await command(
-        restoredClient.client,
-        `globalThis.__mangaReaderTestPhase?.("3/4 Restoring saved position"); return true;`,
-    );
-    const restored = await command(restoredClient.client, positionSnapshot());
-    assertPosition({
-        imageId: saved.imageId,
-        chapterId: saved.chapterId,
-    }, "saved URL restore", restored);
-    await showPhase(
-        restoredClient,
-        `3/4 Saved position restored at ${restored.chapterId}${restored.imageId}`,
-    );
-
-    const chapters = await command(restoredClient.client, chapterAssertions());
-    assertChapters(chapters);
-    await showPhase(
-        restoredClient,
-        `4/4 Chapters loaded: ${chapters.final.join(" → ")}`,
-    );
-    await command(restoredClient.client, `
-        globalThis.__mangaReaderTestPhase?.("TEST SUCCESSFUL", "success");
+async function restoreLocalStorage(snapshot) {
+    if (!claimedClient) return;
+    await command(claimedClient.client, `
+        const snapshot = ${JSON.stringify(snapshot)};
+        for (const [key, value] of Object.entries(snapshot)) {
+            if (value === null) localStorage.removeItem(key);
+            else localStorage.setItem(key, value);
+        }
         return true;
     `);
+}
 
-    return { initial, restored, saved, chapters };
+async function testFavoriteToggle() {
+    const before = await command(claimedClient.client, `
+        const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+        for (let i = 0; i < 120 && !document.querySelector(".hs-row"); i++) await wait(250);
+        const row = document.querySelector(".hs-row-wrap");
+        const button = row?.querySelector(".row-action-btn:not(.info-btn)");
+        const image = row?.querySelector(".hs-thumb");
+        if (!row || !button || !image) return { error: "favorite test row unavailable" };
+        const gidMatch = image.onclick?.toString().match(/readerUrl\\((\\d+)/);
+        const original = button.textContent;
+        button.click();
+        for (let i = 0; i < 40 && button.textContent === original; i++) await wait(100);
+        const toggled = button.textContent;
+        button.click();
+        for (let i = 0; i < 40 && button.textContent !== original; i++) await wait(100);
+        return {
+            original,
+            toggled,
+            restored: button.textContent,
+            rowConnected: row.isConnected,
+            gidHint: gidMatch?.[1] ?? null,
+        };
+    `);
+    if (before.error) throw new Error(before.error);
+    assert(before.original !== before.toggled, "favorite button did not change");
+    assert(before.restored === before.original, "favorite button did not restore");
+    assert(before.rowConnected, "favorite toggle disturbed its row");
+    await showPhase("Favorite toggle passed and was restored");
+}
+
+async function testBasicModal() {
+    const result = await command(claimedClient.client, `
+        const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+        const info = document.querySelector(".info-btn");
+        if (!info) return { error: "info button missing" };
+        info.click();
+        for (let i = 0; i < 240 && !document.querySelector(".hs-modal-ok-btn"); i++) {
+            await wait(250);
+        }
+        const modal = document.querySelector(".hs-modal-backdrop");
+        const metadata = {
+            rows: modal?.querySelectorAll(".hs-modal-row").length ?? 0,
+            links: modal?.querySelectorAll(".hs-modal-value-link,.hs-tag-chip").length ?? 0,
+        };
+        modal?.querySelector(".hs-modal-ok-btn")?.click();
+        const closedByButton = !document.querySelector(".hs-modal-backdrop");
+        info.click();
+        for (let i = 0; i < 240 && !document.querySelector(".hs-modal-ok-btn"); i++) {
+            await wait(250);
+        }
+        const backdrop = document.querySelector(".hs-modal-backdrop");
+        backdrop?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        return {
+            metadata,
+            closedByButton,
+            closedByBackdrop: !document.querySelector(".hs-modal-backdrop"),
+        };
+    `);
+    if (result.error) throw new Error(result.error);
+    assert(result.metadata.rows > 0, "information modal has no metadata");
+    assert(result.metadata.links > 0, "information modal has no related-search links");
+    assert(result.closedByButton, "modal Close button failed");
+    assert(result.closedByBackdrop, "modal backdrop failed");
+    await showPhase("Gallery information modal passed");
+}
+
+async function testSearchState(expectedQuery) {
+    const result = await command(claimedClient.client, `
+        const searches = JSON.parse(localStorage.getItem("saved_searches") || "[]");
+        const provider = location.hostname.includes("hitomi.la") ? "hitomi" : "imhentai";
+        const entry = searches.find(item => item.provider === provider
+            && item.query === ${JSON.stringify(expectedQuery)});
+        const chip = Array.from(document.querySelectorAll(".hs-saved-chip"))
+            .find(item => item.firstElementChild?.textContent === ${JSON.stringify(expectedQuery)});
+        return {
+            entry: entry ?? null,
+            chip: Boolean(chip),
+            input: document.getElementById("query-input")?.value ?? null,
+        };
+    `);
+    assert(result.entry, `search was not saved for query ${expectedQuery}`);
+    assert(result.entry.page === 2, `saved search page was ${result.entry.page}, expected 2`);
+    assert(result.chip, "saved-search chip missing");
+    assert(result.input === expectedQuery, "search input does not match URL query");
+    await showPhase("Saved search and input state passed");
+}
+
+async function testReaderFlow(bundle, searchUrl, providerName) {
+    await normalizePage(2);
+    const searchPosition = await command(claimedClient.client, `
+        const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+        for (let i = 0; i < 120 && document.querySelectorAll(".hs-row").length < 4; i++) {
+            await wait(250);
+        }
+        const row = document.querySelectorAll(".hs-row-wrap")[3];
+        row?.scrollIntoView();
+        await wait(500);
+        const image = row?.querySelectorAll(".hs-thumb")[2] ?? row?.querySelector(".hs-thumb");
+        return {
+            available: Boolean(image),
+            imageIndex: image ? Array.from(image.parentElement.children).indexOf(image) : -1,
+            scrollY,
+            href: location.href,
+        };
+    `);
+    assert(searchPosition.available, `${providerName}: reader thumbnail unavailable`);
+    await command(claimedClient.client, `
+        const row = document.querySelectorAll(".hs-row-wrap")[3];
+        const image = row?.querySelectorAll(".hs-thumb")[2] ?? row?.querySelector(".hs-thumb");
+        image.click();
+        return "navigating";
+    `, { expectResult: false });
+    await waitForNavigation(
+        client => {
+            const path = new URL(client.href).pathname;
+            return providerName === "hitomi" ? path.startsWith("/reader/") : path.startsWith("/view/");
+        },
+        `${providerName} reader`,
+    );
+    const initialReaderUrl = claimedClient.href;
+    await inject(bundle, initialReaderUrl);
+    const reader = await command(claimedClient.client, `
+        const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+        const expected = ${searchPosition.imageIndex};
+        for (let i = 0; i < 360 && !document.getElementById("#" + expected); i++) await wait(250);
+        const images = document.querySelectorAll(".hs-reader-img");
+        const target = document.getElementById("#" + expected);
+        return {
+            bodies: document.querySelectorAll(".hs-reader-body").length,
+            images: images.length,
+            targetTop: target?.getBoundingClientRect().top ?? null,
+            expectedTop: innerHeight / 2,
+            skeleton: Boolean(target?.style.aspectRatio),
+        };
+    `);
+    assert(reader.bodies === 1 && reader.images > 1, `${providerName}: reader did not render`);
+    assert(reader.skeleton, `${providerName}: reader aspect-ratio skeleton missing`);
+    assert(Math.abs(reader.targetTop - reader.expectedTop) <= 2,
+        `${providerName}: selected image restored at ${reader.targetTop}, expected ${reader.expectedTop}`);
+
+    const saved = await command(claimedClient.client, `
+        const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+        const images = Array.from(document.querySelectorAll(".hs-reader-img"));
+        const current = ${searchPosition.imageIndex};
+        const target = images[Math.min(current + 1, images.length - 1)];
+        for (let i = 0; i < 360 && !(target.complete && target.naturalWidth > 0); i++) await wait(250);
+        const before = location.href;
+        scrollTo(0, target.offsetTop - innerHeight / 2 + 1);
+        for (let i = 0; i < 80 && location.href === before; i++) await wait(100);
+        return {
+            before,
+            href: location.href,
+            id: target.id,
+            loaded: target.complete && target.naturalWidth > 0,
+        };
+    `);
+    assert(saved.loaded, `${providerName}: reader target image did not load`);
+    assert(saved.href !== saved.before, `${providerName}: reader URL did not save on scroll`);
+
+    await command(claimedClient.client, `location.reload(); return "reloading";`, { expectResult: false });
+    await waitForNavigation(client => urlsMatch(client.href, saved.href), `${providerName} saved reader reload`);
+    await inject(bundle, saved.href);
+    const restored = await command(claimedClient.client, `
+        const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+        for (let i = 0; i < 360 && !document.getElementById(${JSON.stringify(saved.id)}); i++) {
+            await wait(250);
+        }
+        const image = document.getElementById(${JSON.stringify(saved.id)});
+        return {
+            top: image?.getBoundingClientRect().top ?? null,
+            expectedTop: innerHeight / 2,
+            href: location.href,
+        };
+    `);
+    assert(Math.abs(restored.top - restored.expectedTop) <= 2,
+        `${providerName}: saved reader restored at ${restored.top}, expected ${restored.expectedTop}`);
+
+    await command(claimedClient.client, `history.back(); return "back";`, { expectResult: false });
+    await waitForNavigation(client => {
+        const actual = new URL(client.href);
+        const expected = new URL(searchUrl);
+        return actual.hostname === expected.hostname
+            && actual.pathname === expected.pathname
+            && actual.search === expected.search
+            && actual.hash === expected.hash;
+    }, `${providerName} Back to search`);
+    const hasApp = await command(claimedClient.client,
+        `return Boolean(document.getElementById("hs-grid"));`);
+    if (!hasApp) await inject(bundle, searchUrl);
+    const returned = await waitForGallery(2);
+    assert(returned.active === "2", `${providerName}: Back restored page ${returned.active}`);
+    const scroll = await command(claimedClient.client, `return { scrollY };`);
+    assert(Math.abs(scroll.scrollY - searchPosition.scrollY) <= 2,
+        `${providerName}: Back restored scroll ${scroll.scrollY}, expected ${searchPosition.scrollY}`);
+    await showPhase(`${providerName}: reader save, reload, and Back passed`);
+}
+
+function extractEntryUrls(text) {
+    const urls = [...text.matchAll(/^https?:\/\/\S+$/gm)].map(match => match[0]);
+    const favorites = urls.find(url => new URL(url).hostname === "hitomi.la"
+        && new URL(url).pathname === "/");
+    const hitomiSearch = urls.find(url => new URL(url).hostname === "hitomi.la"
+        && new URL(url).pathname !== "/");
+    const imhentaiSearch = urls.find(url => new URL(url).hostname === "imhentai.xxx");
+    if (!favorites || !hitomiSearch || !imhentaiSearch) {
+        throw new Error("test.txt must contain Hitomi Favorites, Hitomi Search, and imhentai Search URLs");
+    }
+    return { favorites, hitomiSearch, imhentaiSearch };
+}
+
+function hitomiQuery(url) {
+    return decodeURIComponent(new URL(url).search.slice(1));
+}
+
+function imhentaiQuery(url) {
+    const parsed = new URL(url);
+    const key = parsed.searchParams.get("key") ?? "";
+    const languages = {
+        jp: "japanese", en: "english", es: "spanish", fr: "french",
+        kr: "korean", de: "german", ru: "russian",
+    };
+    const enabled = Object.entries(languages).filter(([code]) => parsed.searchParams.get(code) === "1");
+    return enabled.length === 1
+        ? (key ? `${key},language:${enabled[0][1]}` : `language:${enabled[0][1]}`)
+        : key;
+}
+
+async function runFavorites(bundle, url) {
+    await navigate(url);
+    const backup = await snapshotLocalStorage();
+    try {
+        await inject(bundle, url);
+        const gallery = await waitForGallery(Number(backup.favorites) || 1);
+        assert(gallery.pages >= 3,
+            `Favorites require at least 3 pages; phone has ${gallery.pages}`);
+        assert(gallery.rows > 0 && gallery.thumbs > 0, "Favorites did not populate gallery rows");
+        await showPhase(`Hitomi Favorites: ${gallery.pages} pages ready`);
+        await testPagination("Hitomi Favorites");
+    } finally {
+        await restoreLocalStorage(backup);
+    }
+}
+
+async function runSearch(bundle, url, providerName) {
+    await navigate(url);
+    const backup = await snapshotLocalStorage();
+    try {
+        await inject(bundle, url);
+        const query = providerName === "hitomi" ? hitomiQuery(url) : imhentaiQuery(url);
+        const gallery = await waitForGallery(2);
+        assert(gallery.active === "2", `${providerName}: initial page was ${gallery.active}`);
+        assert(gallery.rows > 0 && gallery.populatedRows > 0 && gallery.thumbs > 0,
+            `${providerName}: gallery rows did not populate`);
+        await showPhase(`${providerName}: gallery rendering passed`);
+        await testPagination(`${providerName} Search`);
+        await testSearchState(query);
+        await testBasicModal();
+        await testFavoriteToggle();
+        await testReaderFlow(bundle, url, providerName);
+    } finally {
+        await restoreLocalStorage(backup);
+    }
 }
 
 async function main() {
-    const requestedUrls = process.argv.slice(2);
-    if (requestedUrls.some(url => !/^https?:\/\//.test(url))) {
-        throw new Error("Each test argument must be a complete http(s) URL");
-    }
-
     await ensureServer();
     await waitForDebugger();
-    console.log("iPhone debugger connected.");
-    const frozenMatrixText = await readFile(resolve(root, "test.txt"), "utf8");
-    const providerHosts = new Set(
-        [...frozenMatrixText.matchAll(/https?:\/\/[^\s]+/g), ...requestedUrls.map(url => [url])]
-            .map(match => new URL(match[0]).hostname),
-    );
-    await claimExampleTab(providerHosts);
-
+    const contract = await readFile(resolve(root, "test.txt"), "utf8");
+    const urls = extractEntryUrls(contract);
+    claimedClient = await foregroundClient();
+    assertClaimableClient(claimedClient, urls);
+    console.log(`Claimed foreground Safari tab at ${claimedClient.href}.`);
     checkAndBuild();
-
-    const [matrixText, bundle] = await Promise.all([
-        requestedUrls.length
-            ? requestedUrls.join("\n")
-            : frozenMatrixText,
-        readFile(resolve(root, "dist/manga-reader.user.js"), "utf8"),
-    ]);
-    const cases = matrixText
-        .split(/\r?\n/)
-        .map(line => line.trim())
-        .filter(line => /^https?:\/\//.test(line))
-        .map(describeCase);
-
-    if (!cases.length) throw new Error("No test URLs were supplied");
-
-    console.log(`iOS Safari matrix: ${cases.length} cases; ${casePauseMs}ms minimum pause between phases/cases`);
+    const bundle = await readFile(resolve(root, "dist/gallery-reader.user.js"), "utf8");
+    const allCases = [
+        { name: "Hitomi Favorites", run: () => runFavorites(bundle, urls.favorites) },
+        { name: "Hitomi Search", run: () => runSearch(bundle, urls.hitomiSearch, "hitomi") },
+        { name: "imhentai Search", run: () => runSearch(bundle, urls.imhentaiSearch, "imhentai") },
+    ];
+    const smoke = process.argv.includes("--smoke");
+    const cases = smoke ? allCases.slice(0, 1) : allCases;
+    if (smoke) console.log("Smoke mode: running Hitomi Favorites only.");
     const failures = [];
-
     for (const [index, testCase] of cases.entries()) {
-        if (index > 0) await sleep(casePauseMs);
+        if (index) await sleep(phasePauseMs);
         process.stdout.write(`[${index + 1}/${cases.length}] ${testCase.name} ... `);
         try {
-            const result = await runCase(testCase, bundle);
-            console.log(
-                `PASS (${result.chapters.final.join(" → ")}, saved ${result.saved.chapterId}${result.saved.imageId} restored)`,
-            );
+            await testCase.run();
+            console.log("PASS");
         } catch (error) {
-            failures.push({ name: testCase.name, error });
             const message = error instanceof Error ? error.message : String(error);
-            if (claimedClient) {
-                try {
-                    await command(
-                        claimedClient.client,
-                        `globalThis.__mangaReaderTestPhase?.(${JSON.stringify(`TEST FAILED: ${message}`)}, "error"); return true;`,
-                    );
-                } catch {
-                    // The failed page may already have navigated away.
-                }
+            failures.push({ name: testCase.name, message });
+            try {
+                await showPhase(`${testCase.name} FAILED: ${message}`, "error");
+            } catch {
+                // Navigation failure may leave no controllable page.
             }
             console.log(`FAIL\n    ${message}`);
         }
     }
-
     if (failures.length) {
-        console.error(`\n${failures.length}/${cases.length} iOS Safari cases failed.`);
+        console.error(`\n${failures.length}/${cases.length} gallery iOS cases failed.`);
+        for (const failure of failures) console.error(`- ${failure.name}: ${failure.message}`);
         process.exitCode = 1;
     } else {
-        console.log(`\nAll ${cases.length} iOS Safari cases passed.`);
+        await showPhase("ALL GALLERY TESTS SUCCESSFUL", "success");
+        console.log("\nAll gallery iOS cases passed.");
     }
 }
 
@@ -647,5 +779,6 @@ try {
     console.error(`\n${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;
 } finally {
+    await returnToExample();
     if (ownedServer && ownedServer.exitCode === null) ownedServer.kill();
 }
