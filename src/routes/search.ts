@@ -26,6 +26,6 @@ async function paginate(query: string, page: number) {
 
 export async function init(query: string, page: number): Promise<void> {
     await initShell(query);
-    void paginate(query, page)
+    await paginate(query, page);
     applyPendingScroll();
 }

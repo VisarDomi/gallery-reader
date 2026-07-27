@@ -319,11 +319,6 @@ async function inject(bundle, url = claimedClient.href) {
         const matchingClients = snapshot.clients
             .filter(client => now - client.lastSeen < 3 && urlsMatch(client.href, url))
             .sort((a, b) => b.lastSeen - a.lastSeen);
-        const freshClient = matchingClients.find(client => client.client !== previousClient);
-        if (freshClient) {
-            claimedClient = freshClient;
-            return;
-        }
         const result = snapshot.results.find(item => item.commandId === commandId);
         if (result) {
             if (!result.ok) {
@@ -622,8 +617,12 @@ async function testReaderFlow(bundle, searchUrl, providerName) {
     assert(saved.loaded, `${providerName}: reader target image did not load`);
     assert(saved.href !== saved.before, `${providerName}: reader URL did not save on scroll`);
 
-    await command(claimedClient.client, `location.reload(); return "reloading";`, { expectResult: false });
-    await waitForNavigation(client => urlsMatch(client.href, saved.href), `${providerName} saved reader reload`);
+    const preReloadClient = claimedClient.client;
+    await command(preReloadClient, `location.reload(); return "reloading";`, { expectResult: false });
+    await waitForNavigation(
+        client => client.client !== preReloadClient && urlsMatch(client.href, saved.href),
+        `${providerName} saved reader reload`,
+    );
     await inject(bundle, saved.href);
     const restored = await command(claimedClient.client, `
         const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
