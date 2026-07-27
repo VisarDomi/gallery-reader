@@ -1,0 +1,82 @@
+Tester prerequisites:
+
+- Run the suite on the configured iPhone with gallery-reader-debug enabled and other scripts disabled.
+- Hitomi Favorites must already contain at least 51 galleries, providing at
+  least three pages at 25 galleries per page.
+- The suite uses the tester's existing Favorites as read-only test data. It
+  must not import, replace, or delete the Favorites database.
+
+Frozen critical flows:
+
+1. App takeover and gallery rendering
+- Supported home, search, and reader URLs are replaced by the gallery-reader UI.
+- Search and Favorites render galleries in provider order as 300 px skeleton
+  rows, then populate each row asynchronously with horizontally scrollable
+  thumbnails.
+- A thumbnail opens the reader at that thumbnail's image index.
+
+2. Pagination scrolling
+- Pagination displays every available page and identifies the active page.
+- After the pagination numbers have been visible for one second, selecting any
+  other page waits for that page to render and then places the first gallery
+  row at the viewport top.
+- The active page, gallery rows, URL, and saved page state all match the newly
+  selected page.
+- This behavior is required for Hitomi Favorites, Hitomi Search, and imhentai
+  Search.
+
+3. Search state and browser history
+- Executing a search saves it for the active provider.
+- Paginating a search updates the saved search to its latest page.
+- Selecting a saved search returns to that search's latest page.
+- Search pagination replaces the current history entry rather than adding one,
+  so Back returns to the previous meaningful navigation instead of walking
+  through pagination pages.
+- On a bfcache restore, the search input is synchronized from the restored URL.
+
+4. Search to reader and Back
+- Opening a gallery thumbnail enters the reader at the selected image.
+- Returning Back to Search restores the same search and viewport position.
+- Hitomi may restore this directly from Safari's bfcache.
+- imhentai, which prevents bfcache, reloads and restores the saved scroll
+  position for that search URL.
+
+5. Reader position
+- The reader renders every image in one vertical strip with aspect-ratio
+  skeletons before image loading completes.
+- On scrollend + 100 ms, the image crossing the middle of the viewport is saved
+  in the provider's reader URL without adding a history entry.
+- Opening or reloading that saved URL restores the saved image with its top at
+  the middle of the viewport.
+
+6. Gallery information and related searches
+- The information button opens gallery metadata without leaving the gallery
+  list.
+- The modal exposes provider-supported metadata and clickable related-search
+  terms, preserving the gallery language where applicable.
+- On Hitomi, opening a related search from the modal, paginating that search,
+  and pressing Back returns to the original gallery list with the information
+  modal still open.
+- The modal closes through its Close button or by tapping its backdrop.
+
+7. Favorites
+- A gallery can be added to Favorites and removed again without disturbing its
+  gallery row.
+- Favorites are displayed newest first and remember their latest selected page.
+- The regression suite restores any Favorite toggle or local navigation state
+  that it changes during testing.
+
+Provider entry URLs:
+
+Hitomi Favorites:
+https://hitomi.la/
+
+Hitomi Search, starting on page 2:
+https://hitomi.la/search.html?language%3Ajapanese%20artist%3Ayoko_juusuke#2
+
+imhentai Search, starting on page 2:
+https://imhentai.xxx/search/?lt=1&pp=0&m=1&d=1&w=1&i=1&a=1&g=1&apply=Search&dl=0&tr=0&jp=1&en=0&es=0&fr=0&kr=0&de=0&ru=0&key=makinosaka+shinichi&page=2
+
+Reader and information-modal cases are entered from galleries rendered by the
+corresponding Search case so the suite does not depend on a permanently fixed
+gallery ID.

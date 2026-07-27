@@ -64,9 +64,8 @@ function renderPaginationBar(
             pageLink.textContent = String(pageNum);
             pageLink.className = 'hs-page-link';
             pageLink.onclick = async () => {
-                const movingForward = pageNum > info.currentPage;
                 await onPage(pageNum);
-                if (movingForward) grid.scrollIntoView();
+                grid.scrollIntoView();
             };
             pag.appendChild(pageLink);
         }
