@@ -1,6 +1,7 @@
 dist/
 node_modules/
 .idea/
+.ios-debug/
 /.repomixignore
 /repomix.config.json
 /repomix-output.txt

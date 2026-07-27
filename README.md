@@ -2,7 +2,7 @@
 A userscript used for tampermonkey on pc and userscript on ios.
 
 ## What?
-This script changes the UI of the providers supported by this script so that's it easies to navigate the site. 3 main features: favorites, search, reader. The script tries to be as minimal as possible in features and codelength.
+This script changes the UI of the providers supported by this script so that's it easies to navigate the site. 3 main features: favorites, search, reader.
 
 ## Why?
 Native navigation is cumbersome.

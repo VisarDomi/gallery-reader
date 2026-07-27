@@ -11,7 +11,7 @@ async function render(result: { galleryIds: number[]; totalResults: number; page
         result.totalResults,
         result.pageSize,
         ' Results',
-        (newPage) => { void paginate(query, newPage); },
+        (newPage) => paginate(query, newPage),
     );
 
     const url = await searchUrl(query, pageInfo.currentPage);

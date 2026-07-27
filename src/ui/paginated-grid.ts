@@ -13,7 +13,7 @@ export function renderPaginatedGrid(
     totalResults: number,
     pageSize: number,
     countLabel: string,
-    onPageChange: (page: number) => void,
+    onPageChange: (page: number) => void | Promise<void>,
 ): PageInfo {
     const totalPages = Math.max(1, Math.ceil(totalResults / pageSize));
     const pageInfo: PageInfo = {
@@ -41,7 +41,7 @@ export function renderPaginatedGrid(
 
 function renderPaginationBar(
     info: PageInfo,
-    onPage: (page: number) => void,
+    onPage: (page: number) => void | Promise<void>,
     grid: HTMLElement,
 ): void {
     const pag = document.createElement('div');
@@ -63,7 +63,11 @@ function renderPaginationBar(
             const pageLink = document.createElement('span');
             pageLink.textContent = String(pageNum);
             pageLink.className = 'hs-page-link';
-            pageLink.onclick = () => { onPage(pageNum); };
+            pageLink.onclick = async () => {
+                const movingForward = pageNum > info.currentPage;
+                await onPage(pageNum);
+                if (movingForward) grid.scrollIntoView();
+            };
             pag.appendChild(pageLink);
         }
     }
