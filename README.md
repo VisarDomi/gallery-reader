@@ -10,12 +10,6 @@ Native navigation is cumbersome.
 ## How?
 [features.md](features.md) explain the flows that this app handles best.
 
-## Sites supported
-```
-https://hitomi.la
-https://imhentai.xxx
-```
-
 ## Combo
 If you're on ios, you can use it's ocr and shirabe to translate kanjis you don't know:
 
