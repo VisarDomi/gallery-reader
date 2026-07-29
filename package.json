@@ -1,14 +1,14 @@
 {
   "name": "gallery-reader",
-  "version": "482",
+  "version": "483",
   "description": "Userscript to improve ux on supported sites",
   "type": "module",
   "scripts": {
     "build": "node increase.js && vite build",
     "tests": "node tests/ios/run.mjs",
     "tests:smoke": "node tests/ios/run.mjs --smoke",
-    "tests:server": "python3 tests/ios/bridge_server.py",
-    "tests:setup": "python3 tests/ios/bridge_server.py --setup"
+    "tests:server": "userscript-ios-test server --config tests/ios/config.json",
+    "tests:setup": "userscript-ios-test setup --config tests/ios/config.json"
   },
   "devDependencies": {
     "@types/tampermonkey": "^5.0.4",
@@ -17,6 +17,7 @@
     "typescript": "^5.9.3",
     "vite": "^7.1.9",
     "vite-plugin-monkey": "^7.1.4",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.9",
+    "userscript-ios-test": "file:../../userscript-ios-test"
   }
 }

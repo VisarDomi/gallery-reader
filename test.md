@@ -17,28 +17,20 @@ One-time setup on a new development machine:
 npm install
 ```
 
-The debugger is intentionally specific to the original development setup:
-`192.168.1.197:38888`. It is not generated from environment variables. After
-cloning the repository to another machine, change the fixed values before
-installing the debugger:
-
-- In `tests/ios/gallery-reader-debug.user.js`, change both `@connect` and
-  `SERVER` to the laptop's LAN address. Change the port in `SERVER` if needed.
-- If changing port `38888`, also change the bridge default in
-  `tests/ios/bridge_server.py` and `bridgeOrigin` in `tests/ios/run.mjs`.
-
-Keep these values identical. The bridge serves the checked-in userscript
-verbatim.
+The shared `userscript-ios-test` package builds one debugger userscript for all
+userscript repositories. Set `IOS_DEBUG_HOST` only when automatic LAN-address
+detection is not correct, then rebuild and reinstall that shared debugger.
 
 Generate and trust the HTTPS certificate by following
 [`certificate.md`](certificate.md). With `npm run tests:server` still running:
 
-1. Open
-   `https://192.168.1.197:38888/gallery-reader-debug.user.js`, or the
-   corresponding fixed URL configured above.
+1. Install
+   [`userscript-ios-test-debug.user.js`](../../userscript-ios-test/dist/userscript-ios-test-debug.user.js),
+   or open `https://192.168.1.197:37777/userscript-ios-test-debug.user.js`
+   while the bridge is running.
 2. Install it in the iOS userscript manager.
 3. Give the debugger permission to run on all tested websites.
-4. Enable `gallery-reader-debug` and disable the normal gallery-reader
+4. Enable `userscript-ios-test-debug` and disable the normal gallery-reader
    userscript. The test runner injects the freshly built app itself.
 5. Keep Safari unlocked and foregrounded. Temporarily set display auto-lock to
    **Never**, then restore the original setting after testing.
@@ -62,6 +54,13 @@ Run the complete suite with:
 npm run tests
 ```
 
+Select one behavior and/or site:
+
+```bash
+npm run tests -- --test favorites --site hitomi
+npm run tests -- --test search --site imhentai
+```
+
 The test command:
 
 - type-checks with `npx tsc --noEmit`;
@@ -82,11 +81,11 @@ it to `example.com` before restarting.
 ### Configuration
 
 - `IOS_DEBUG_ORIGIN` — local controller origin, default
-  `https://127.0.0.1:38888`. If overridden, the userscript and bridge port must
+  `https://127.0.0.1:37777`. If overridden, the userscript and bridge port must
   be edited to match.
 - `IOS_DEBUG_HOST` — address used for certificate generation and printed setup
   URLs only; it does not rewrite the userscript.
-- `IOS_DEBUG_PORT` — bridge port, default `38888`.
+- `tests/ios/config.json` — repository identity used by the shared harness.
 - `IOS_DEBUG_CERT` / `IOS_DEBUG_KEY` — custom HTTPS certificate paths.
 - `IOS_DEBUG_CA` — custom public root CA path for `/api/cert`.
 - `IOS_TEST_SETTLE_MS` — delay between visible phases, clamped to at least

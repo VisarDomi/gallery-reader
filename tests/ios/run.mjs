@@ -1,194 +1,48 @@
 #!/usr/bin/env node
 
-import { spawn, spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
-import https from "node:https";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
+import {
+    createController,
+    createSession,
+    parseSelection,
+    phaseBannerScript,
+    runBuildSteps,
+    runCaseMatrix,
+    sleep,
+} from "userscript-ios-test/controller";
 
-const here = dirname(fileURLToPath(import.meta.url));
-const root = resolve(here, "../..");
-const bridgeOrigin = process.env.IOS_DEBUG_ORIGIN ?? "https://127.0.0.1:38888";
+const root = resolve(import.meta.dirname, "../..");
+const iosConfig = JSON.parse(
+    await readFile(resolve(root, "tests/ios/config.json"), "utf8"),
+);
 const phasePauseMs = Math.max(1000, Number(process.env.IOS_TEST_SETTLE_MS ?? 1000));
-const commandTimeoutMs = Number(process.env.IOS_TEST_COMMAND_TIMEOUT_MS ?? 90000);
 const clientTimeoutMs = Number(process.env.IOS_TEST_CLIENT_TIMEOUT_MS ?? 45000);
-const connectionTimeoutMs = Number(process.env.IOS_TEST_CONNECTION_TIMEOUT_MS ?? 120000);
-const agent = new https.Agent({ rejectUnauthorized: false });
-let ownedServer = null;
+const controller = createController({
+    root,
+    name: iosConfig.name,
+    debuggerName: iosConfig.debuggerName,
+    port: iosConfig.port,
+    settleMs: phasePauseMs,
+    commandTimeoutMs: Number(process.env.IOS_TEST_COMMAND_TIMEOUT_MS ?? 90000),
+    clientTimeoutMs,
+    connectionTimeoutMs: Number(process.env.IOS_TEST_CONNECTION_TIMEOUT_MS ?? 120000),
+});
+const session = createSession({
+    controller,
+    sourceLabel: "gallery-reader.test.user.js",
+});
 let claimedClient = null;
-let lastNavigationAt = 0;
 
-function sleep(ms) {
-    return new Promise(resolveSleep => setTimeout(resolveSleep, ms));
-}
-
-function request(path, { method = "GET", body } = {}) {
-    return new Promise((resolveRequest, rejectRequest) => {
-        const url = new URL(path, bridgeOrigin);
-        const payload = body === undefined ? null : JSON.stringify(body);
-        const req = https.request(url, {
-            method,
-            agent,
-            headers: payload ? {
-                "content-type": "application/json",
-                "content-length": Buffer.byteLength(payload),
-            } : undefined,
-        }, response => {
-            const chunks = [];
-            response.on("data", chunk => chunks.push(chunk));
-            response.on("end", () => {
-                const text = Buffer.concat(chunks).toString();
-                if (!response.statusCode || response.statusCode < 200 || response.statusCode >= 300) {
-                    rejectRequest(new Error(`${method} ${url.pathname}: HTTP ${response.statusCode}: ${text}`));
-                    return;
-                }
-                if (!text) {
-                    resolveRequest(null);
-                    return;
-                }
-                try {
-                    resolveRequest(JSON.parse(text));
-                } catch {
-                    rejectRequest(new Error(`${method} ${url.pathname}: invalid JSON response`));
-                }
-            });
-        });
-        req.on("error", rejectRequest);
-        if (payload) req.write(payload);
-        req.end();
-    });
-}
-
-async function ensureServer() {
-    try {
-        await request("/__debug_state");
-        return;
-    } catch {
-        ownedServer = spawn("python3", [resolve(here, "bridge_server.py")], {
-            cwd: root,
-            stdio: ["ignore", "ignore", "inherit"],
-        });
-    }
-    for (let attempt = 0; attempt < 30; attempt++) {
-        if (ownedServer.exitCode !== null) {
-            throw new Error("The gallery iOS bridge failed to start. Run `npm run tests:setup`.");
-        }
-        try {
-            await request("/__debug_state");
-            return;
-        } catch {
-            await sleep(250);
-        }
-    }
-    throw new Error("Timed out starting the gallery iOS bridge.");
-}
-
-async function state() {
-    return request("/__debug_state");
-}
-
-async function waitForDebugger() {
-    const info = await request("/__debug_info");
-    console.log(`Waiting for iPhone debugger on port ${new URL(bridgeOrigin).port}.`);
-    console.log(`If needed, install:\n  ${info.debuggerUrl}`);
-    const deadline = Date.now() + connectionTimeoutMs;
-    while (Date.now() < deadline) {
-        const snapshot = await state();
-        const now = Date.now() / 1000;
-        if (snapshot.clients.some(client => now - client.lastSeen < 3)) return;
-        await sleep(250);
-    }
-    throw new Error(
-        "No gallery-reader debugger is connected.\n" +
-        `Install it from ${info.debuggerUrl}, then keep Safari foregrounded.`,
-    );
-}
-
-function runLocalCommand(commandName, args) {
-    const completed = spawnSync(commandName, args, { cwd: root, stdio: "inherit" });
-    if (completed.error) throw completed.error;
-    if (completed.status !== 0) {
-        throw new Error(`${commandName} ${args.join(" ")} failed with exit code ${completed.status}`);
-    }
-}
+const state = controller.state;
+const postCommand = (_client, code) => session.postCommand(code);
+const command = (_client, code, options) => session.command(code, options);
 
 function checkAndBuild() {
-    runLocalCommand("npx", ["tsc", "--noEmit"]);
-    runLocalCommand("npx", ["vite", "build"]);
-}
-
-async function postCommand(target, code) {
-    const posted = await request("/__debug_command", {
-        method: "POST",
-        body: { target, code },
-    });
-    return posted.id;
-}
-
-async function waitForResult(commandId) {
-    const deadline = Date.now() + commandTimeoutMs;
-    while (Date.now() < deadline) {
-        const snapshot = await state();
-        const result = [...snapshot.results].reverse().find(item => item.commandId === commandId);
-        if (result) {
-            if (!result.ok) {
-                const detail = result.error?.message ?? JSON.stringify(result.error);
-                throw new Error(`Remote command ${commandId} failed: ${detail}`);
-            }
-            return result.result;
-        }
-        await sleep(250);
-    }
-    throw new Error(`Timed out waiting for remote command ${commandId}`);
-}
-
-async function command(target, code, { expectResult = true } = {}) {
-    const id = await postCommand(target, code);
-    return expectResult ? waitForResult(id) : id;
-}
-
-async function foregroundClient() {
-    const snapshot = await state();
-    const now = Date.now() / 1000;
-    const active = snapshot.clients.filter(client => now - client.lastSeen < 3);
-    if (!active.length) throw new Error("No active iPhone debugger client");
-    const id = await postCommand("*", `
-        return {
-            visibilityState: document.visibilityState,
-            hasFocus: document.hasFocus(),
-            href: location.href,
-        };
-    `);
-    const deadline = Date.now() + 5000;
-    while (Date.now() < deadline) {
-        const current = await state();
-        const results = current.results.filter(result => result.commandId === id && result.ok);
-        const visible = results.find(result =>
-            result.result?.visibilityState === "visible" && result.result?.hasFocus
-        ) ?? results.find(result => result.result?.visibilityState === "visible");
-        if (visible) {
-            const client = active.find(item => item.client === visible.client);
-            if (client) return client;
-        }
-        await sleep(100);
-    }
-    if (active.length === 1) return active[0];
-    throw new Error(`Could not identify foreground Safari tab among ${active.length} clients`);
-}
-
-function assertClaimableClient(client, targetUrls) {
-    const hostname = new URL(client.href).hostname;
-    const allowedHosts = new Set([
-        "example.com",
-        ...Object.values(targetUrls).map(url => new URL(url).hostname),
+    runBuildSteps(controller, [
+        ["npx", ["tsc", "--noEmit"]],
+        ["npx", ["vite", "build"]],
     ]);
-    if (!allowedHosts.has(hostname)) {
-        throw new Error(
-            "The foreground Safari tab is unrelated to this test suite.\n" +
-            "Open https://example.com/ or one of the frozen target sites, then rerun.\n" +
-            `Foreground tab is currently: ${client.href}`,
-        );
-    }
 }
 
 function urlsMatch(actualText, expectedText) {
@@ -204,103 +58,33 @@ function urlsMatch(actualText, expectedText) {
     }
 }
 
-async function waitForActiveClient(predicate, description) {
-    const deadline = Date.now() + clientTimeoutMs;
-    while (Date.now() < deadline) {
-        const snapshot = await state();
-        const now = Date.now() / 1000;
-        const match = [...snapshot.clients]
-            .filter(client => now - client.lastSeen < 3 && predicate(client))
-            .sort((a, b) => b.lastSeen - a.lastSeen)[0];
-        if (match) return match;
-        await sleep(250);
-    }
-    throw new Error(`No active iPhone debugger client for ${description}`);
-}
-
 async function navigate(url) {
-    if (!claimedClient) throw new Error("No claimed Safari tab");
-    const remaining = lastNavigationAt + phasePauseMs - Date.now();
-    if (remaining > 0) await sleep(remaining);
-    lastNavigationAt = Date.now();
-    await command(claimedClient.client, `
-        const target = ${JSON.stringify(url)};
-        if (location.href === target) location.reload();
-        else location.href = target;
-        return "navigating";
-    `, { expectResult: false });
-    claimedClient = await waitForActiveClient(
-        client => urlsMatch(client.href, url),
-        url,
-    );
+    claimedClient = await session.navigate(url);
     return claimedClient;
 }
 
 async function waitForNavigation(predicate, description) {
-    claimedClient = await waitForActiveClient(predicate, description);
+    claimedClient = await session.waitForNavigation(predicate, description);
     return claimedClient;
 }
 
-async function returnToExample() {
-    if (!claimedClient) return;
-    try {
-        if (new URL(claimedClient.href).hostname === "example.com") return;
-        await command(
-            claimedClient.client,
-            `location.href = "https://example.com/"; return "returning";`,
-            { expectResult: false },
-        );
-        await waitForActiveClient(
-            client => new URL(client.href).hostname === "example.com",
-            "example.com cleanup",
-        );
-    } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.error(`Could not return Safari to example.com: ${message}`);
-    }
-}
-
 async function showPhase(text, stateName = "running") {
-    if (!claimedClient) return;
-    await command(claimedClient.client, `
-        globalThis.__galleryReaderTestPhase?.(
-            ${JSON.stringify(text)},
-            ${JSON.stringify(stateName)}
-        );
-        return true;
-    `);
-    await sleep(phasePauseMs);
+    if (!session.client) return;
+    await session.showPhase({
+        globalName: "__galleryReaderTestPhase",
+        text,
+        state: stateName,
+        pauseMs: phasePauseMs,
+    });
 }
 
 function injectCode(bundle, url) {
     return `
         history.replaceState(null, "", ${JSON.stringify(url)});
-        globalThis.__galleryReaderTestPhase = (text, stateName = "running") => {
-            let box = document.getElementById("__gallery-reader-test-phase");
-            if (!box) {
-                box = document.createElement("div");
-                box.id = "__gallery-reader-test-phase";
-                Object.assign(box.style, {
-                    position: "fixed",
-                    zIndex: "2147483647",
-                    top: "12px",
-                    left: "12px",
-                    right: "12px",
-                    padding: "14px 16px",
-                    borderRadius: "12px",
-                    color: "white",
-                    font: "700 18px/1.3 system-ui, sans-serif",
-                    textAlign: "center",
-                    boxShadow: "0 4px 20px #0009",
-                    pointerEvents: "none",
-                });
-                (document.body || document.documentElement).appendChild(box);
-            }
-            box.style.background = stateName === "success"
-                ? "#15803d"
-                : stateName === "error" ? "#b91c1c" : "#1d4ed8";
-            box.textContent = text;
-        };
+        ${phaseBannerScript({
+            globalName: "__galleryReaderTestPhase",
+            elementId: "__gallery-reader-test-phase",
+        })}
         const source = ${JSON.stringify(bundle)};
         new Function(
             source + String.fromCharCode(10) + "//# sourceURL=gallery-reader.test.user.js"
@@ -617,12 +401,9 @@ async function testReaderFlow(bundle, searchUrl, providerName) {
     assert(saved.loaded, `${providerName}: reader target image did not load`);
     assert(saved.href !== saved.before, `${providerName}: reader URL did not save on scroll`);
 
-    const preReloadClient = claimedClient.client;
-    await command(preReloadClient, `location.reload(); return "reloading";`, { expectResult: false });
-    await waitForNavigation(
-        client => client.client !== preReloadClient && urlsMatch(client.href, saved.href),
-        `${providerName} saved reader reload`,
-    );
+    claimedClient = await session.reload(saved.href, {
+        matches: (client, expected) => urlsMatch(client.href, expected),
+    });
     await inject(bundle, saved.href);
     const restored = await command(claimedClient.client, `
         const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -727,44 +508,63 @@ async function runSearch(bundle, url, providerName) {
 }
 
 async function main() {
-    await ensureServer();
-    await waitForDebugger();
+    const selection = parseSelection(process.argv.slice(2), {
+        defaultTest: process.argv.includes("--smoke") ? "favorites" : "full",
+    });
+    if (selection.args.some(argument => argument !== "--smoke")) {
+        throw new Error(`Unknown test arguments: ${selection.args.join(" ")}`);
+    }
+    if (!["full", "favorites", "search"].includes(selection.test)) {
+        throw new Error(`Unknown test "${selection.test}". Expected full, favorites, or search.`);
+    }
+    if (selection.site && !["hitomi", "imhentai"].includes(selection.site)) {
+        throw new Error(`Unknown site "${selection.site}". Expected hitomi or imhentai.`);
+    }
+
     const contract = await readFile(resolve(root, "test.txt"), "utf8");
     const urls = extractEntryUrls(contract);
-    claimedClient = await foregroundClient();
-    assertClaimableClient(claimedClient, urls);
-    console.log(`Claimed foreground Safari tab at ${claimedClient.href}.`);
+    claimedClient = await session.connect({
+        allowedHosts: Object.values(urls).map(url => new URL(url).hostname),
+        controlledCode: `
+            return Boolean(
+                globalThis.__galleryReaderTestPhase ||
+                document.getElementById("hs-grid") ||
+                document.querySelector(".hs-reader-body")
+            );
+        `,
+    });
     checkAndBuild();
     const bundle = await readFile(resolve(root, "dist/gallery-reader.user.js"), "utf8");
     const allCases = [
-        { name: "Hitomi Favorites", run: () => runFavorites(bundle, urls.favorites) },
-        { name: "Hitomi Search", run: () => runSearch(bundle, urls.hitomiSearch, "hitomi") },
-        { name: "imhentai Search", run: () => runSearch(bundle, urls.imhentaiSearch, "imhentai") },
+        { name: "Hitomi Favorites", test: "favorites", site: "hitomi", run: () => runFavorites(bundle, urls.favorites) },
+        { name: "Hitomi Search", test: "search", site: "hitomi", run: () => runSearch(bundle, urls.hitomiSearch, "hitomi") },
+        { name: "imhentai Search", test: "search", site: "imhentai", run: () => runSearch(bundle, urls.imhentaiSearch, "imhentai") },
     ];
-    const smoke = process.argv.includes("--smoke");
-    const cases = smoke ? allCases.slice(0, 1) : allCases;
-    if (smoke) console.log("Smoke mode: running Hitomi Favorites only.");
-    const failures = [];
-    for (const [index, testCase] of cases.entries()) {
-        if (index) await sleep(phasePauseMs);
-        process.stdout.write(`[${index + 1}/${cases.length}] ${testCase.name} ... `);
-        try {
-            await testCase.run();
-            console.log("PASS");
-        } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            failures.push({ name: testCase.name, message });
+    const cases = allCases.filter(testCase =>
+        (selection.test === "full" || testCase.test === selection.test) &&
+        (!selection.site || testCase.site === selection.site)
+    );
+    if (!cases.length) throw new Error("The selected test/site combination has no cases.");
+    if (selection.test === "favorites") {
+        console.log("Favorites mode: running Hitomi Favorites only.");
+    }
+    const { failures } = await runCaseMatrix({
+        cases,
+        pauseMs: phasePauseMs,
+        run: testCase => testCase.run(),
+        onFailure: async ({ testCase, message }) => {
             try {
                 await showPhase(`${testCase.name} FAILED: ${message}`, "error");
             } catch {
                 // Navigation failure may leave no controllable page.
             }
-            console.log(`FAIL\n    ${message}`);
-        }
-    }
+        },
+    });
     if (failures.length) {
         console.error(`\n${failures.length}/${cases.length} gallery iOS cases failed.`);
-        for (const failure of failures) console.error(`- ${failure.name}: ${failure.message}`);
+        for (const failure of failures) {
+            console.error(`- ${failure.testCase.name}: ${failure.message}`);
+        }
         process.exitCode = 1;
     } else {
         await showPhase("ALL GALLERY TESTS SUCCESSFUL", "success");
@@ -778,6 +578,6 @@ try {
     console.error(`\n${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;
 } finally {
-    await returnToExample();
-    if (ownedServer && ownedServer.exitCode === null) ownedServer.kill();
+    await session.cleanup();
+    session.close();
 }
