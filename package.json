@@ -6,9 +6,7 @@
   "scripts": {
     "build": "node increase.js && vite build",
     "tests": "node tests/ios/run.mjs",
-    "tests:smoke": "node tests/ios/run.mjs --smoke",
-    "tests:server": "userscript-ios-test server --config tests/ios/config.json",
-    "tests:setup": "userscript-ios-test setup --config tests/ios/config.json"
+    "tests:smoke": "node tests/ios/run.mjs --smoke"
   },
   "devDependencies": {
     "@types/tampermonkey": "^5.0.4",
