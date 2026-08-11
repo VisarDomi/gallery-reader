@@ -1,18 +1,17 @@
-import { preloadFavs, mergeFavs } from '../storage/db';
+import { getFavs, mergeFavs } from '../storage/favorites';
 import { initShell } from '../ui/shell';
 import { renderPaginatedGrid } from "../ui/paginated-grid";
 import { getPage, savePage, applyPendingScroll } from "../storage/localstorage";
 
-let _ids: number[] = [];
-
 function renderPage(page: number): void {
     const HOME_PAGE_SIZE = 25;
+    const ids = getFavs();
     const start = (page - 1) * HOME_PAGE_SIZE;
-    const galleryIds = _ids.slice(start, start + HOME_PAGE_SIZE);
+    const galleryIds = ids.slice(start, start + HOME_PAGE_SIZE);
     renderPaginatedGrid(
         galleryIds,
         page,
-        _ids.length,
+        ids.length,
         HOME_PAGE_SIZE,
         ' Favorites',
         (newPage) => renderPage(newPage),
@@ -58,12 +57,12 @@ function buildImportSection(): void {
 
     btn.onclick = showImport;
     exportBtn.onclick = () => {
-        textarea.value = _ids.join(' ');
+        textarea.value = getFavs().join(' ');
         showImport();
         resizeTextarea();
     };
 
-    mergeBtn.onclick = async () => {
+    mergeBtn.onclick = () => {
         const raw = textarea.value;
         const ids = [...raw.matchAll(/\d+/g)].map(m => parseInt(m[0], 10)).filter(n => n > 0);
         if (ids.length === 0) {
@@ -74,11 +73,9 @@ function buildImportSection(): void {
         mergeBtn.disabled = true;
         mergeBtn.textContent = 'Merging...';
         try {
-            const added = await mergeFavs(ids);
+            const added = mergeFavs(ids);
             status.textContent = `Added ${added} of ${ids.length} IDs${ids.length - added > 0 ? ` (${ids.length - added} already existed)` : ''}`;
             status.style.display = 'inline';
-            // refresh and re-render
-            _ids = await preloadFavs();
             renderPage(getPage());
         } catch (e) {
             status.textContent = 'Error: ' + (e as Error).message;
@@ -98,9 +95,12 @@ function buildImportSection(): void {
 }
 
 export async function init(): Promise<void> {
-    await initShell();
-    _ids = await preloadFavs();
-    if (_ids.length > 0) renderPage(getPage());
+    const providerReady = initShell();
+    if (getFavs().length > 0) renderPage(getPage());
     applyPendingScroll();
     buildImportSection();
+    window.addEventListener('pageshow', event => {
+        if (event.persisted) renderPage(getPage());
+    });
+    await providerReady;
 }

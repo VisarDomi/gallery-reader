@@ -44,19 +44,22 @@ export async function parseGG(): Promise<{ multiplierMap: Record<number, number>
     while ((match = ifRegex.exec(text)) !== null) multiplierMap[parseInt(match[1])] = parseInt(match[2]);
     const defaultOffsetMatch = /(?:var\s|default:)\s*o\s*=\s*(\d+)/.exec(text);
     const basePathMatch = /b:\s*[']([^']+)[']/.exec(text);
+    if (!defaultOffsetMatch) throw new Error('Hitomi gg.js did not contain the default host offset');
+    if (!basePathMatch || basePathMatch[1] === '') throw new Error('Hitomi gg.js did not contain the image base path');
     ggCache = {
         multiplierMap,
-        basePath: basePathMatch ? basePathMatch[1].replace(/\/$/, '') : '',
-        defaultOffset: defaultOffsetMatch ? parseInt(defaultOffsetMatch[1]) : 0,
+        basePath: basePathMatch[1].replace(/\/$/, ''),
+        defaultOffset: parseInt(defaultOffsetMatch[1]),
     };
     return ggCache;
 }
 
 function decodeNozomi(data: ArrayBuffer): number[] {
+    if (data.byteLength % 4 !== 0) throw new Error(`Invalid Nozomi response length: ${data.byteLength}`);
     const result: number[] = [];
-    const bytes = new Uint8Array(data);
-    for (let i = 0; i < bytes.length; i += 4) {
-        result.push((bytes[i] << 24) | (bytes[i + 1] << 16) | (bytes[i + 2] << 8) | bytes[i + 3]);
+    const view = new DataView(data);
+    for (let i = 0; i < view.byteLength; i += 4) {
+        result.push(view.getUint32(i));
     }
     return result;
 }
@@ -83,6 +86,7 @@ async function searchGalleries(term: string): Promise<number[]> {
     const resp = await fetch(url, {
         headers: { 'Origin': 'https://hitomi.la', 'Referer': 'https://hitomi.la/' },
     });
+    if (!resp.ok) throw new Error(`Nozomi request failed: ${resp.status}`);
     return decodeNozomi(await resp.arrayBuffer());
 }
 

@@ -38,9 +38,8 @@ export const provider: Provider = {
         await loadScript('searchlib.js');
         await loadScript('search.js');
         setupDropdownHandler();
-        // TODO: investigate again why are we doing search manually instead of letting the search box execute the search... i'm not convinced
     },
-    async matchRoute(pathname: string, search: string, hash: string) {
+    matchRoute(pathname: string, search: string, hash: string) {
         if (pathname === '/' || pathname.startsWith('/index')) {
             return { handler: Handler.Home };
         }

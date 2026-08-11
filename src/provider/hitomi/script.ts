@@ -1,10 +1,11 @@
 import {DOMAIN} from "./constants";
 
 export function loadScript(filename: string): Promise<void> {
-    const { promise, resolve } = Promise.withResolvers<void>();
+    const { promise, resolve, reject } = Promise.withResolvers<void>();
     const script = document.createElement('script');
     script.src = `https://ltn.${DOMAIN}/${filename}`;
     script.onload = () => resolve();
+    script.onerror = () => reject(new Error(`Could not load Hitomi script: ${filename}`));
     document.head.appendChild(script);
     return promise;
 }

@@ -25,20 +25,18 @@ function parseGalleryHTML(html: string, gid: number): { thumbs: ImhentaiThumb[];
 
     const jsonM = extractBetween(html, "$.parseJSON('", "'");
     if (jsonM) {
-        try {
-            const data = JSON.parse(jsonM.value) as Record<string, string>;
-            const keys = Object.keys(data).sort((a, b) => parseInt(a) - parseInt(b));
-            let idx = 1;
-            for (const key of keys) {
-                const parts = data[key].split(',');
-                const ext = exts[parts[0]] ?? 'jpg';
-                const url = `${base}${idx}.${ext}`;
-                thumbs.push({ url });
-                images.push({ url, width: parseInt(parts[1]) || 0, height: parseInt(parts[2]) || 0 });
-                idx++;
-            }
-            return { thumbs, images, pageCount: idx - 1 };
-        } catch { /* fall through */ }
+        const data = JSON.parse(jsonM.value) as Record<string, string>;
+        const keys = Object.keys(data).sort((a, b) => parseInt(a) - parseInt(b));
+        let idx = 1;
+        for (const key of keys) {
+            const parts = data[key].split(',');
+            const ext = exts[parts[0]] ?? 'jpg';
+            const url = `${base}${idx}.${ext}`;
+            thumbs.push({ url });
+            images.push({ url, width: parseInt(parts[1]) || 0, height: parseInt(parts[2]) || 0 });
+            idx++;
+        }
+        return { thumbs, images, pageCount: idx - 1 };
     }
 
     // Fallback
@@ -107,11 +105,7 @@ function extractMeta(html: string): Omit<GalleryMeta, 'pageCount'> {
 export const provider: Provider = {
     name: 'imhentai',
 
-    async init(): Promise<void> {
-        // no-op
-    },
-
-    async matchRoute(pathname: string, search: string, _hash: string) {
+    matchRoute(pathname: string, search: string, _hash: string) {
         if (pathname === '/' || pathname === '') {
             return { handler: Handler.Home };
         }

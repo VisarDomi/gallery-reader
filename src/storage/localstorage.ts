@@ -7,16 +7,22 @@ interface SavedSearch {
 const SAVED_SEARCH_KEY = 'saved_searches';
 const FAVORITES_KEY = 'favorites';
 
+function isSavedSearch(value: unknown): value is SavedSearch {
+    if (typeof value !== 'object' || value === null) return false;
+    const search = value as Partial<SavedSearch>;
+    return typeof search.query === 'string'
+        && typeof search.provider === 'string'
+        && (search.page === undefined || (Number.isInteger(search.page) && search.page > 0));
+}
+
 export function loadSearches(provider: string): SavedSearch[] {
     const raw = localStorage.getItem(SAVED_SEARCH_KEY);
-    if (!raw) return [];
-    try {
-        const parsed = JSON.parse(raw);
-        if (!Array.isArray(parsed)) return [];
-        return parsed.filter(s => s?.query && s?.provider === provider) as SavedSearch[];
-    } catch {
-        return [];
-    }
+    if (raw === null) return [];
+
+    const value = JSON.parse(raw) as unknown;
+    if (!Array.isArray(value)) throw new Error('Stored searches are not an array');
+    if (!value.every(isSavedSearch)) throw new Error('Stored searches contain an invalid entry');
+    return value.filter(search => search.provider === provider);
 }
 
 function saveSearches(searches: SavedSearch[]): void {
@@ -41,11 +47,11 @@ export function removeSearch(query: string, provider: string, callback: () => vo
 
 export function getPage(): number {
     const saved = localStorage.getItem(FAVORITES_KEY);
-    if (saved) {
-        const savedPage = parseInt(saved);
-        if (!isNaN(savedPage) && savedPage > 0) return savedPage;
-    }
-    return 1;
+    if (saved === null) return 1;
+
+    const page = Number(saved);
+    if (!Number.isInteger(page) || page <= 0) throw new Error('Stored favorites page is invalid');
+    return page;
 }
 
 export function savePage(page: number): void {
@@ -62,7 +68,11 @@ export function saveScrollPosition(urlKey: string, y: number): void {
 
 export function loadScrollPosition(urlKey: string): number | null {
     const saved = localStorage.getItem(SCROLL_KEY_PREFIX + urlKey);
-    return saved !== null ? parseInt(saved, 10) : null;
+    if (saved === null) return null;
+
+    const position = Number(saved);
+    if (!Number.isFinite(position) || position < 0) throw new Error('Stored scroll position is invalid');
+    return position;
 }
 
 export function deferScrollRestore(y: number): void {

@@ -16,10 +16,11 @@ function retryBrokenImages(selector: ".hs-reader-img" | ".hs-thumb", interval: n
     }, interval);
 }
 
-export function startInit() {
+export function startInit(documentTitle: string): void {
     window.stop();
     document.open();
     document.close();
+    document.title = documentTitle;
     const style = document.createElement('style');
     style.textContent = cssContent;
     document.head.appendChild(style);

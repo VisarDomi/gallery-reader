@@ -225,7 +225,7 @@ async function testPagination(label) {
 
 async function snapshotLocalStorage() {
     return command(claimedClient.client, `
-        const keys = ["saved_searches", "favorites", "scroll-pos-/"];
+        const keys = ["saved_searches", "favorites", "gallery-reader-favorites-v1", "scroll-pos-/"];
         return Object.fromEntries(keys.map(key => [key, localStorage.getItem(key)]));
     `);
 }

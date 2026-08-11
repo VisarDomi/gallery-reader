@@ -50,8 +50,8 @@ export type RouteMatch =
 export interface Provider {
     readonly name: string;
 
-    matchRoute(pathname: string, search: string, hash: string): Promise<RouteMatch | null>;
-    init(): Promise<void>;
+    matchRoute(pathname: string, search: string, hash: string): RouteMatch | null;
+    init?(): Promise<void>;
 
     // ── core ──────────────────────────────────────────────────────────
     search(rawQuery: string, page: number): Promise<SearchResults>;

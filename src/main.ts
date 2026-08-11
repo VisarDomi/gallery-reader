@@ -1,31 +1,26 @@
-import { matchRoute, Handler, selectProvider } from './provider';
+import { Handler, initializeProviderRoute } from './provider';
 import { init as initHome } from './routes/home';
 import { init as initSearch } from './routes/search';
 import { open } from './routes/reader';
 import {setupDebug} from "./debug";
 import {startInit} from "./ui/shell";
 
-async function main() {
-    startInit();
-    const { pathname, search, hash, hostname } = window.location;
-    selectProvider(hostname);
-    const match = await matchRoute(pathname, search, hash);
-    if (match) {
-        switch (match.handler) {
-            case Handler.Home:
-                void initHome();
-                break;
-            case Handler.Search:
-                void initSearch(match.query, match.page);
-                break;
-            case Handler.Reader:
-                void open(match.gid, match.index);
-                break;
-        }
+const { pathname, search, hash, hostname } = window.location;
+const match = initializeProviderRoute(hostname, pathname, search, hash);
+if (match) {
+    startInit(match.documentTitle);
+    switch (match.route.handler) {
+        case Handler.Home:
+            void initHome();
+            break;
+        case Handler.Search:
+            void initSearch(match.route.query, match.route.page);
+            break;
+        case Handler.Reader:
+            void open(match.route.gid, match.route.index);
+            break;
     }
-
-    const debug = false;
-    if (debug) setupDebug();
 }
 
-void main();
+const debug = false;
+if (debug) setupDebug();

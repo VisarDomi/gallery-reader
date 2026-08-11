@@ -1,5 +1,5 @@
 import { thumbUrl, readerUrl, type Thumbnail } from '../provider';
-import {isFav, toggleFav} from '../storage/db';
+import {isFav, toggleFav} from '../storage/favorites';
 import {show as showInfo} from './info-modal';
 
 const SKELETON_HEIGHT = 300;
@@ -51,14 +51,10 @@ export function populateRow(
     const favBtn = document.createElement('button');
     favBtn.className = 'row-action-btn';
     favBtn.textContent = '...';
-    void isFav(gid).then(f => {
-        favBtn.textContent = f ? '\u2764\uFE0F' : '\uD83E\uDD0D';
-    });
+    favBtn.textContent = isFav(gid) ? '\u2764\uFE0F' : '\uD83E\uDD0D';
     favBtn.onclick = (e) => {
         e.stopPropagation();
-        void toggleFav(gid).then(f => {
-            favBtn.textContent = f ? '\u2764\uFE0F' : '\uD83E\uDD0D';
-        });
+        favBtn.textContent = toggleFav(gid) ? '\u2764\uFE0F' : '\uD83E\uDD0D';
     };
     actions.appendChild(favBtn);
 
