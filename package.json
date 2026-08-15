@@ -1,6 +1,6 @@
 {
   "name": "gallery-reader",
-  "version": "492",
+  "version": "496",
   "description": "Userscript to improve ux on supported sites",
   "type": "module",
   "scripts": {

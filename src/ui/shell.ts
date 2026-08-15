@@ -1,5 +1,5 @@
 import {render as renderSavedSearch} from "./saved-searches";
-import {initProvider, providerName, searchUrl} from "../provider";
+import {initProvider, searchUrl} from "../provider";
 import cssContent from '../css/style.css?inline';
 import {deferScrollRestore, loadScrollPosition, loadSearches, saveScrollPosition} from "../storage/localstorage";
 
@@ -15,6 +15,10 @@ function retryBrokenImages(selector: ".hs-reader-img" | ".hs-thumb"): void {
         let retryPending = false;
         const imgs = document.querySelectorAll<HTMLImageElement>(selector);
         for (const img of imgs) {
+            if (!img.getAttribute('src')?.trim()) {
+                retrying.delete(img);
+                continue;
+            }
             if (img.naturalWidth > 0) {
                 retrying.delete(img);
                 continue;
@@ -76,16 +80,16 @@ function buildSearch(): void {
     header.appendChild(searchWrap);
     header.appendChild(button);
 
-    const submit = async () => {
+    const submit = () => {
         const val = input.value.trim();
         const query = val || 'language:japanese';
-        const saved = loadSearches(providerName()).find(s => s.query === query);
-        window.location.href = await searchUrl(query, saved?.page);
+        const saved = loadSearches().find(s => s.query === query);
+        window.location.href = searchUrl(query, saved?.page);
     };
     input.addEventListener('keydown', e => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            void submit();
+            submit();
         }
     });
     button.addEventListener('click', submit);

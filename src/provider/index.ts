@@ -35,8 +35,6 @@ export function initializeProviderRoute(
     };
 }
 
-export const providerName = () => p.name;
-
 // ── lazy forwarders ──────────────────────────────────────────────────
 
 export const getMeta = (gid: number) => p.getMeta(gid);

@@ -48,8 +48,6 @@ export type RouteMatch =
 // ── provider interface ────────────────────────────────────────────────
 
 export interface Provider {
-    readonly name: string;
-
     matchRoute(pathname: string, search: string, hash: string): RouteMatch | null;
     init?(): Promise<void>;
 
@@ -61,8 +59,8 @@ export interface Provider {
 
     // ── URL constructors ──────────────────────────────────────────────
     readerUrl(gid: number, index?: number): string;
-    searchUrl(rawQuery: string, page?: number): Promise<string>;
-    tagSearchUrl(ns: string, value: string, language: string): Promise<string>;
+    searchUrl(rawQuery: string, page?: number): string;
+    tagSearchUrl(ns: string, value: string, language: string): string;
     thumbUrl(thumb: Thumbnail): string;
     imageUrls(images: ReaderImage[]): Promise<string[]>;
 }

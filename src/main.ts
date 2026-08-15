@@ -2,7 +2,6 @@ import { Handler, initializeProviderRoute } from './provider';
 import { init as initHome } from './routes/home';
 import { init as initSearch } from './routes/search';
 import { open } from './routes/reader';
-import {setupDebug} from "./debug";
 import {startInit} from "./ui/shell";
 
 const { pathname, search, hash, hostname } = window.location;
@@ -21,6 +20,3 @@ if (match) {
             break;
     }
 }
-
-const debug = false;
-if (debug) setupDebug();

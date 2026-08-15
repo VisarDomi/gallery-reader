@@ -1,5 +1,5 @@
 import {loadSearches, removeSearch} from "../storage/localstorage";
-import {providerName, searchUrl} from "../provider";
+import {searchUrl} from "../provider";
 
 const VISIBLE_DEFAULT = 3;
 
@@ -8,7 +8,7 @@ export function render(): void {
     const input = document.getElementById('query-input') as HTMLTextAreaElement;
 
     container.innerHTML = '';
-    const searches = loadSearches(providerName());
+    const searches = loadSearches();
     if (searches.length === 0) return;
 
     const expanded = container.dataset.expanded === 'true';
@@ -26,12 +26,12 @@ export function render(): void {
         x.textContent = '\u00D7';
         x.onclick = (e) => {
             e.stopPropagation();
-            removeSearch(s.query, providerName(), render);
+            removeSearch(s.query, render);
         };
         chip.appendChild(x);
-        chip.onclick = async () => {
+        chip.onclick = () => {
             input.value = s.query;
-            window.location.href = await searchUrl(s.query, s.page);
+            window.location.href = searchUrl(s.query, s.page);
         };
         container.appendChild(chip);
     }

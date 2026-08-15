@@ -223,6 +223,25 @@ async function testPagination(label) {
     return result;
 }
 
+async function testPersistedRestorePreservesGallery() {
+    const result = await command(claimedClient.client, `
+        const row = document.querySelector(".hs-row-wrap");
+        const thumb = row?.querySelector(".hs-thumb");
+        if (!row || !thumb) return { error: "gallery row unavailable" };
+        const event = new Event("pageshow");
+        Object.defineProperty(event, "persisted", { value: true });
+        window.dispatchEvent(event);
+        return {
+            sameRow: document.querySelector(".hs-row-wrap") === row,
+            sameThumb: document.querySelector(".hs-thumb") === thumb,
+        };
+    `);
+    if (result.error) throw new Error(result.error);
+    assert(result.sameRow && result.sameThumb,
+        "persisted pageshow rebuilt the cached gallery DOM");
+    await showPhase("Hitomi Favorites: persisted restore preserves gallery DOM");
+}
+
 async function snapshotLocalStorage() {
     return command(claimedClient.client, `
         const keys = ["saved_searches", "favorites", "gallery-reader-favorites-v1", "scroll-pos-/"];
@@ -311,9 +330,7 @@ async function testBasicModal() {
 async function testSearchState(expectedQuery) {
     const result = await command(claimedClient.client, `
         const searches = JSON.parse(localStorage.getItem("saved_searches") || "[]");
-        const provider = location.hostname.includes("hitomi.la") ? "hitomi" : "imhentai";
-        const entry = searches.find(item => item.provider === provider
-            && item.query === ${JSON.stringify(expectedQuery)});
+        const entry = searches.find(item => item.query === ${JSON.stringify(expectedQuery)});
         const chip = Array.from(document.querySelectorAll(".hs-saved-chip"))
             .find(item => item.firstElementChild?.textContent === ${JSON.stringify(expectedQuery)});
         return {
@@ -340,6 +357,14 @@ async function testReaderFlow(bundle, searchUrl, providerName) {
         row?.scrollIntoView();
         await wait(500);
         const image = row?.querySelectorAll(".hs-thumb")[2] ?? row?.querySelector(".hs-thumb");
+        globalThis.__galleryReaderBfcacheProbe = {
+            row,
+            image,
+            persisted: false,
+        };
+        window.addEventListener("pageshow", event => {
+            globalThis.__galleryReaderBfcacheProbe.persisted = event.persisted;
+        }, { once: true });
         return {
             available: Boolean(image),
             imageIndex: image ? Array.from(image.parentElement.children).indexOf(image) : -1,
@@ -429,9 +454,23 @@ async function testReaderFlow(bundle, searchUrl, providerName) {
             && actual.search === expected.search
             && actual.hash === expected.hash;
     }, `${providerName} Back to search`);
-    const hasApp = await command(claimedClient.client,
-        `return Boolean(document.getElementById("hs-grid"));`);
-    if (!hasApp) await inject(bundle, searchUrl);
+    const returnState = await command(claimedClient.client, `
+        const probe = globalThis.__galleryReaderBfcacheProbe;
+        return {
+            hasApp: Boolean(document.getElementById("hs-grid")),
+            persisted: probe?.persisted === true,
+            sameRow: probe?.row === document.querySelectorAll(".hs-row-wrap")[3],
+            sameImage: probe?.image?.isConnected === true,
+        };
+    `);
+    if (providerName === "hitomi") {
+        assert(returnState.hasApp, "hitomi: Back reloaded instead of restoring the app from bfcache");
+        assert(returnState.persisted, "hitomi: Back did not fire a persisted pageshow");
+        assert(returnState.sameRow && returnState.sameImage,
+            "hitomi: Back rebuilt the gallery instead of preserving its cached DOM");
+    } else if (!returnState.hasApp) {
+        await inject(bundle, searchUrl);
+    }
     const returned = await waitForGallery(2);
     assert(returned.active === "2", `${providerName}: Back restored page ${returned.active}`);
     const scroll = await command(claimedClient.client, `return { scrollY };`);
@@ -481,6 +520,7 @@ async function runFavorites(bundle, url) {
         assert(gallery.rows > 0 && gallery.thumbs > 0, "Favorites did not populate gallery rows");
         await showPhase(`Hitomi Favorites: ${gallery.pages} pages ready`);
         await testPagination("Hitomi Favorites");
+        await testPersistedRestorePreservesGallery();
     } finally {
         await restoreLocalStorage(backup);
     }

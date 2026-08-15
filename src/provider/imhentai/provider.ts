@@ -103,8 +103,6 @@ function extractMeta(html: string): Omit<GalleryMeta, 'pageCount'> {
 }
 
 export const provider: Provider = {
-    name: 'imhentai',
-
     matchRoute(pathname: string, search: string, _hash: string) {
         if (pathname === '/' || pathname === '') {
             return { handler: Handler.Home };
@@ -212,11 +210,11 @@ export const provider: Provider = {
         return `https://${DOMAIN}/view/${gid}/1/`;
     },
 
-    async searchUrl(rawQuery: string, page?: number): Promise<string> {
+    searchUrl(rawQuery: string, page?: number): string {
         return buildImhentaiSearchUrl(rawQuery, page);
     },
 
-    async tagSearchUrl(ns: string, value: string, language: string): Promise<string> {
+    tagSearchUrl(ns: string, value: string, language: string): string {
         const query = ns === 'language' ? `language:${value}` : `language:${language},${value}`;
         return buildImhentaiSearchUrl(query);
     },

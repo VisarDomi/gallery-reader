@@ -26,7 +26,7 @@ Frozen critical flows:
   Search.
 
 3. Search state and browser history
-- Executing a search saves it for the active provider.
+- Executing a search saves it on the current origin.
 - Paginating a search updates the saved search to its latest page.
 - Selecting a saved search returns to that search's latest page.
 - Search pagination replaces the current history entry rather than adding one,
@@ -37,7 +37,7 @@ Frozen critical flows:
 4. Search to reader and Back
 - Opening a gallery thumbnail enters the reader at the selected image.
 - Returning Back to Search restores the same search and viewport position.
-- Hitomi may restore this directly from Safari's bfcache.
+- Hitomi must restore this directly from Safari's bfcache.
 - imhentai, which prevents bfcache, reloads and restores the saved scroll
   position for that search URL.
 

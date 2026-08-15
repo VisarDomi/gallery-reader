@@ -23,8 +23,6 @@ function parseGalleryJS(text: string) {
 }
 
 export const provider: Provider = {
-    name: 'hitomi',
-
     async init(): Promise<void> {
         const searchWrap = document.querySelector('.hs-search-input');
         if (searchWrap) {
@@ -141,13 +139,13 @@ export const provider: Provider = {
         return url;
     },
 
-    async searchUrl(query: string, page?: number): Promise<string> {
+    searchUrl(query: string, page?: number): string {
         let url = 'https://hitomi.la/search.html?' + encodeURIComponent(query);
         if (page !== undefined) url += '#' + page;
         return url;
     },
 
-    async tagSearchUrl(ns: string, value: string, language: string): Promise<string> {
+    tagSearchUrl(ns: string, value: string, language: string): string {
         let q = '';
         if (language && ns !== 'language') q = 'language:' + language + ' ';
         q += ns + ':' + value.replace(/ /g, '_');

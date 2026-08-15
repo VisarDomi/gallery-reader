@@ -1,7 +1,6 @@
 interface SavedSearch {
     query: string;
     page?: number;
-    provider: string;
 }
 
 const SAVED_SEARCH_KEY = 'saved_searches';
@@ -11,36 +10,35 @@ function isSavedSearch(value: unknown): value is SavedSearch {
     if (typeof value !== 'object' || value === null) return false;
     const search = value as Partial<SavedSearch>;
     return typeof search.query === 'string'
-        && typeof search.provider === 'string'
         && (search.page === undefined || (Number.isInteger(search.page) && search.page > 0));
 }
 
-export function loadSearches(provider: string): SavedSearch[] {
+export function loadSearches(): SavedSearch[] {
     const raw = localStorage.getItem(SAVED_SEARCH_KEY);
     if (raw === null) return [];
 
     const value = JSON.parse(raw) as unknown;
     if (!Array.isArray(value)) throw new Error('Stored searches are not an array');
     if (!value.every(isSavedSearch)) throw new Error('Stored searches contain an invalid entry');
-    return value.filter(search => search.provider === provider);
+    return value;
 }
 
 function saveSearches(searches: SavedSearch[]): void {
     localStorage.setItem(SAVED_SEARCH_KEY, JSON.stringify(searches));
 }
 
-export function saveSearch(query: string, page: number, provider: string, callback: () => void): void {
+export function saveSearch(query: string, page: number, callback: () => void): void {
     const q = query.trim();
     if (!q) return;
-    const searches = loadSearches(provider);
+    const searches = loadSearches();
     const filtered = searches.filter(s => s.query !== q);
-    filtered.unshift({query: q, page, provider});
+    filtered.unshift({query: q, page});
     saveSearches(filtered);
     callback();
 }
 
-export function removeSearch(query: string, provider: string, callback: () => void): void {
-    const searches = loadSearches(provider).filter(s => s.query !== query);
+export function removeSearch(query: string, callback: () => void): void {
+    const searches = loadSearches().filter(s => s.query !== query);
     saveSearches(searches);
     callback();
 }

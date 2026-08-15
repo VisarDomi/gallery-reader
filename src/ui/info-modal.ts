@@ -4,11 +4,11 @@ function link(ns: string, val: string, display: string, lang: string, className 
     const el = document.createElement('span');
     el.className = className;
     el.textContent = display;
-    el.onclick = async () => {
+    el.onclick = () => {
         if (ns === 'language') {
-            window.location.href = await tagSearchUrl(ns, val, '');
+            window.location.href = tagSearchUrl(ns, val, '');
         } else {
-            window.location.href = await tagSearchUrl(ns, val, lang);
+            window.location.href = tagSearchUrl(ns, val, lang);
         }
     };
     return el;

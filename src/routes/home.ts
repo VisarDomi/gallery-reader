@@ -95,12 +95,8 @@ function buildImportSection(): void {
 }
 
 export async function init(): Promise<void> {
-    const providerReady = initShell();
+    await initShell();
     if (getFavs().length > 0) renderPage(getPage());
-    applyPendingScroll();
     buildImportSection();
-    window.addEventListener('pageshow', event => {
-        if (event.persisted) renderPage(getPage());
-    });
-    await providerReady;
+    applyPendingScroll();
 }

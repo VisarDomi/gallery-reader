@@ -3,7 +3,8 @@
 The frozen behavior and target URLs are defined in [`test.txt`](test.txt). The
 automated suite exercises Hitomi Favorites, Hitomi Search, and imhentai Search,
 including gallery rendering, pagination, search state, gallery information,
-Favorites toggling, reader position, reload restoration, and Back navigation.
+Favorites toggling, reader position, reload restoration, genuine Hitomi
+bfcache restoration, and Back navigation.
 
 The suite uses the tester's existing Hitomi Favorites as read-only test data.
 The phone must have at least 51 Favorites so the list contains at least three
