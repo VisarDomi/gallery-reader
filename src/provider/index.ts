@@ -1,5 +1,5 @@
 export { Handler } from './types';
-export type { GalleryMeta, Provider, RouteMatch, SearchResults, GallerySummary, Thumbnail, ReaderImage } from './types';
+export type { GalleryMeta, Provider, RouteMatch, SearchResults, Thumbnail, ReaderImage } from './types';
 
 import type { Provider, Thumbnail, ReaderImage, RouteMatch } from './types';
 import { provider as hitomi } from './hitomi/provider';
@@ -38,7 +38,7 @@ export function initializeProviderRoute(
 // ── lazy forwarders ──────────────────────────────────────────────────
 
 export const getMeta = (gid: number) => p.getMeta(gid);
-export const getGallerySummary = (gid: number) => p.getGallerySummary(gid);
+export const getGalleryThumbnails = (gid: number) => p.getGalleryThumbnails(gid);
 export const getReaderData = (gid: number) => p.getReaderData(gid);
 export const thumbUrl = (thumb: Thumbnail) => p.thumbUrl(thumb);
 export const imageUrls = (images: ReaderImage[]) => p.imageUrls(images);

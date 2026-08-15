@@ -27,11 +27,6 @@ export interface GalleryMeta {
     pageCount: number;
 }
 
-export interface GallerySummary {
-    pageCount: number;
-    thumbs: Thumbnail[];
-}
-
 export interface SearchResults {
     galleryIds: number[];
     totalResults: number;
@@ -54,7 +49,7 @@ export interface Provider {
     // ── core ──────────────────────────────────────────────────────────
     search(rawQuery: string, page: number): Promise<SearchResults>;
     getMeta(gid: number): Promise<GalleryMeta>;
-    getGallerySummary(gid: number): Promise<GallerySummary>;
+    getGalleryThumbnails(gid: number): Promise<Thumbnail[]>;
     getReaderData(gid: number): Promise<{ images: ReaderImage[]; meta: GalleryMeta }>;
 
     // ── URL constructors ──────────────────────────────────────────────

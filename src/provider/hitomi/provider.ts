@@ -1,4 +1,4 @@
-import {type Thumbnail, type ReaderImage, type GalleryMeta, type GallerySummary, Handler, Provider, type SearchResults} from "../types";
+import {type Thumbnail, type ReaderImage, type GalleryMeta, Handler, Provider, type SearchResults} from "../types";
 import {fetchText, intersectNozomi, parseGG, parseQuery} from "./decoder";
 import {detachJQueryFromSuggestionLinks, loadScript, setupDropdownHandler} from "./script";
 import {DOMAIN} from "./constants";
@@ -76,11 +76,10 @@ export const provider: Provider = {
         };
     },
 
-    async getGallerySummary(gid: number): Promise<GallerySummary> {
+    async getGalleryThumbnails(gid: number): Promise<Thumbnail[]> {
         const text = await fetchGalleryJS(gid);
         const raw = parseGalleryJS(text);
-        const thumbs: HitomiThumb[] = raw.files.map((f: { hash: string }) => ({ key: f.hash }));
-        return { pageCount: raw.files.length, thumbs };
+        return raw.files.map((f: { hash: string }) => ({ key: f.hash }));
     },
 
     async getMeta(gid: number): Promise<GalleryMeta> {

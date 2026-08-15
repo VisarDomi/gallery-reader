@@ -16,7 +16,8 @@ function render(result: { galleryIds: number[]; totalResults: number; pageSize: 
 
     const url = searchUrl(query, pageInfo.currentPage);
     history.replaceState(null, '', url);
-    saveSearch(query, pageInfo.currentPage, renderSavedSearch);
+    saveSearch(query, pageInfo.currentPage);
+    renderSavedSearch();
 }
 
 async function paginate(query: string, page: number) {

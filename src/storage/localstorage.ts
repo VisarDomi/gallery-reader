@@ -27,20 +27,18 @@ function saveSearches(searches: SavedSearch[]): void {
     localStorage.setItem(SAVED_SEARCH_KEY, JSON.stringify(searches));
 }
 
-export function saveSearch(query: string, page: number, callback: () => void): void {
+export function saveSearch(query: string, page: number): void {
     const q = query.trim();
     if (!q) return;
     const searches = loadSearches();
     const filtered = searches.filter(s => s.query !== q);
     filtered.unshift({query: q, page});
     saveSearches(filtered);
-    callback();
 }
 
-export function removeSearch(query: string, callback: () => void): void {
+export function removeSearch(query: string): void {
     const searches = loadSearches().filter(s => s.query !== query);
     saveSearches(searches);
-    callback();
 }
 
 export function getPage(): number {

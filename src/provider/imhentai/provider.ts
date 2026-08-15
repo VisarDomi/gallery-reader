@@ -1,4 +1,4 @@
-import {Provider, SearchResults, GalleryMeta, GallerySummary, ReaderImage, Thumbnail, Handler} from '../types';
+import {Provider, SearchResults, GalleryMeta, ReaderImage, Thumbnail, Handler} from '../types';
 import {DOMAIN, LANG_PARAM} from "./constants";
 import {buildImhentaiSearchUrl, extractAll, extractBetween, fetchText} from "./decoder";
 
@@ -187,10 +187,9 @@ export const provider: Provider = {
         return { galleryIds: ids, totalResults: totalPages * PAGE_SIZE, pageSize: PAGE_SIZE };
     },
 
-    async getGallerySummary(gid: number): Promise<GallerySummary> {
+    async getGalleryThumbnails(gid: number): Promise<Thumbnail[]> {
         const html = await fetchGalleryHTML(gid);
-        const { thumbs, pageCount } = parseGalleryHTML(html, gid);
-        return { pageCount, thumbs };
+        return parseGalleryHTML(html, gid).thumbs;
     },
 
     async getMeta(gid: number): Promise<GalleryMeta> {

@@ -50,7 +50,6 @@ export function populateRow(
 
     const favBtn = document.createElement('button');
     favBtn.className = 'row-action-btn';
-    favBtn.textContent = '...';
     favBtn.textContent = isFav(gid) ? '\u2764\uFE0F' : '\uD83E\uDD0D';
     favBtn.onclick = (e) => {
         e.stopPropagation();

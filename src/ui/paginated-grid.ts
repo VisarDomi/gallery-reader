@@ -1,5 +1,5 @@
 import { createSkeletonRow, populateRow } from "./gallery-row";
-import { getGallerySummary } from "../provider";
+import { getGalleryThumbnails } from "../provider";
 
 interface PageInfo {
     totalCount: string;
@@ -32,7 +32,7 @@ export function renderPaginatedGrid(
     for (const gid of galleryIds) {
         const skeleton = createSkeletonRow();
         grid.appendChild(skeleton);
-        void getGallerySummary(gid).then(summary => populateRow(skeleton, gid, summary.thumbs));
+        void getGalleryThumbnails(gid).then(thumbs => populateRow(skeleton, gid, thumbs));
     }
     renderPaginationBar(pageInfo, onPageChange, grid);
 

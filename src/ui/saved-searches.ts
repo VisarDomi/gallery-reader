@@ -26,7 +26,8 @@ export function render(): void {
         x.textContent = '\u00D7';
         x.onclick = (e) => {
             e.stopPropagation();
-            removeSearch(s.query, render);
+            removeSearch(s.query);
+            render();
         };
         chip.appendChild(x);
         chip.onclick = () => {
