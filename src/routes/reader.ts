@@ -1,4 +1,5 @@
 import {getReaderData, imageUrls, readerUrl} from '../provider';
+import {registerImage} from '../core/image-retry';
 
 export async function open(gid: number, currentIndex: number): Promise<void> {
     const wrapper = document.createElement('div');
@@ -21,6 +22,9 @@ export async function open(gid: number, currentIndex: number): Promise<void> {
     urls.forEach((src, i) => {
         const img = document.getElementById(`#${i}`) as HTMLImageElement;
         img.src = src;
+        // Register only once the source exists: the registry drops empty-src
+        // images on its first tick.
+        registerImage(img);
     });
 
     window.addEventListener('scrollend', () => {

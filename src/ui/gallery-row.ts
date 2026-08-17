@@ -1,5 +1,6 @@
 import { thumbUrl, readerUrl, type Thumbnail } from '../provider';
 import {isFav, toggleFav} from '../storage/favorites';
+import {registerImage} from '../core/image-retry';
 import {show as showInfo} from './info-modal';
 
 const SKELETON_HEIGHT = 300;
@@ -27,6 +28,7 @@ export function populateRow(
         img.className = 'hs-thumb';
         img.loading = 'lazy';
         img.src = thumbUrl(thumbs[i]);
+        registerImage(img);
         img.onclick = () => {
             window.location.href = readerUrl(gid, i);
         };
