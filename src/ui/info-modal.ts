@@ -43,21 +43,20 @@ function textRow(label: string, text: string): HTMLDivElement {
 }
 
 export async function show(gid: number): Promise<void> {
-    const overlay = document.createElement('div');
-    overlay.className = 'hs-modal-backdrop';
-    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
-
-    const content = document.createElement('div');
-    content.className = 'hs-modal-content';
-    content.innerHTML = '<div class="hs-modal-body hs-modal-body-loading">Loading...</div>';
-    overlay.appendChild(content);
-    document.body.appendChild(overlay);
+    const dialog = document.createElement('dialog');
+    dialog.className = 'hs-modal';
+    dialog.setAttribute('closedby', 'any');
+    dialog.setAttribute('aria-label', 'Gallery information');
+    dialog.onclose = () => dialog.remove();
+    dialog.innerHTML = '<div class="hs-modal-body hs-modal-body-loading">Loading...</div>';
+    document.body.appendChild(dialog);
+    dialog.showModal();
 
     let meta;
     try {
         meta = await getMeta(gid);
     } catch {
-        content.innerHTML = '<div class="hs-modal-body hs-modal-body-error">Failed to load gallery info</div>';
+        dialog.innerHTML = '<div class="hs-modal-body hs-modal-body-error">Failed to load gallery info</div>';
         return;
     }
 
@@ -103,16 +102,16 @@ export async function show(gid: number): Promise<void> {
         body.appendChild(tagsRow);
     }
 
-    const footer = document.createElement('div');
+    const footer = document.createElement('form');
+    footer.method = 'dialog';
     footer.className = 'hs-modal-footer';
     const closeBtn = document.createElement('button');
     closeBtn.className = 'hs-modal-ok-btn';
     closeBtn.textContent = 'Close';
-    closeBtn.onclick = () => overlay.remove();
     footer.appendChild(closeBtn);
 
-    content.innerHTML = '';
-    content.appendChild(header);
-    content.appendChild(body);
-    content.appendChild(footer);
+    dialog.innerHTML = '';
+    dialog.appendChild(header);
+    dialog.appendChild(body);
+    dialog.appendChild(footer);
 }
