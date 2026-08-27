@@ -48,6 +48,7 @@ export async function show(gid: number): Promise<void> {
     dialog.setAttribute('closedby', 'any');
     dialog.setAttribute('aria-label', 'Gallery information');
     dialog.onclose = () => dialog.remove();
+    dialog.onclick = (event) => { if (event.target === dialog) dialog.close(); };
     dialog.innerHTML = '<div class="hs-modal-body hs-modal-body-loading">Loading...</div>';
     document.body.appendChild(dialog);
     dialog.showModal();
