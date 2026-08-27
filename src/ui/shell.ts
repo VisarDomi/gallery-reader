@@ -70,7 +70,10 @@ function syncInputFromUrl(query?: string): void {
 
 function initAppState(query?: string) {
     syncInputFromUrl(query);
-    window.addEventListener('pagereveal', () => syncInputFromUrl(query)); // bfcache in action
+    // bfcache in action
+    window.addEventListener('pageshow', event => {
+        if (event.persisted) syncInputFromUrl(query);
+    });
     const saveScroll = () => saveScrollPosition(location.pathname + location.search, window.scrollY);
     window.addEventListener('scrollend', () => {
         setTimeout(saveScroll, 100);
