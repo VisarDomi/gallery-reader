@@ -2,6 +2,7 @@ import { thumbUrl, readerUrl, type Thumbnail } from '../provider';
 import {isFav, toggleFav} from '../storage/favorites';
 import {registerImage} from '../core/image-retry';
 import {show as showInfo} from './info-modal';
+import {scheduleFavoritesSync} from '../provider';
 
 const SKELETON_HEIGHT = 300;
 
@@ -56,6 +57,7 @@ export function populateRow(
     favBtn.onclick = (e) => {
         e.stopPropagation();
         favBtn.textContent = toggleFav(gid) ? '\u2764\uFE0F' : '\uD83E\uDD0D';
+        scheduleFavoritesSync();
     };
     actions.appendChild(favBtn);
 

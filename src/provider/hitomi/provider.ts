@@ -2,6 +2,7 @@ import {type Thumbnail, type ReaderImage, type GalleryMeta, Handler, Provider, t
 import {fetchText, intersectNozomi, parseGG, parseQuery} from "./decoder";
 import {detachJQueryFromSuggestionLinks, loadScript, setupDropdownHandler} from "./script";
 import {DOMAIN} from "./constants";
+import {scheduleFavoritesSync} from './favorites-sync';
 
 const PAGE_SIZE = 25;
 const searchCache = new Map<string, number[]>();
@@ -23,6 +24,7 @@ function parseGalleryJS(text: string) {
 }
 
 export const provider: Provider = {
+    scheduleFavoritesSync,
     async init(): Promise<void> {
         const searchWrap = document.querySelector('.hs-search-input');
         if (searchWrap) {

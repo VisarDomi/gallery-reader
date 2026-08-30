@@ -45,6 +45,7 @@ export type RouteMatch =
 export interface Provider {
     matchRoute(pathname: string, search: string, hash: string): RouteMatch | null;
     init?(): Promise<void>;
+    scheduleFavoritesSync(delayMs?: number): void;
 
     // ── core ──────────────────────────────────────────────────────────
     search(rawQuery: string, page: number): Promise<SearchResults>;

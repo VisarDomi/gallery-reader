@@ -1,6 +1,7 @@
 import {Provider, SearchResults, GalleryMeta, ReaderImage, Thumbnail, Handler} from '../types';
 import {DOMAIN, LANG_PARAM} from "./constants";
 import {buildImhentaiSearchUrl, extractAll, extractBetween, fetchText} from "./decoder";
+import {scheduleFavoritesSync} from './favorites-sync';
 
 const PAGE_SIZE = 20;
 const galleryCache = new Map<number, string>();
@@ -103,6 +104,7 @@ function extractMeta(html: string): Omit<GalleryMeta, 'pageCount'> {
 }
 
 export const provider: Provider = {
+    scheduleFavoritesSync,
     matchRoute(pathname: string, search: string, _hash: string) {
         if (pathname === '/' || pathname === '') {
             return { handler: Handler.Home };

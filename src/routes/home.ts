@@ -2,6 +2,7 @@ import { getFavs, mergeFavs } from '../storage/favorites';
 import { initShell } from '../ui/shell';
 import { renderPaginatedGrid } from "../ui/paginated-grid";
 import { getPage, savePage, applyPendingScroll } from "../storage/localstorage";
+import { scheduleFavoritesSync } from '../provider';
 
 function renderPage(page: number): void {
     const HOME_PAGE_SIZE = 25;
@@ -74,6 +75,7 @@ function buildImportSection(): void {
         mergeBtn.textContent = 'Merging...';
         try {
             const added = mergeFavs(ids);
+            if (added > 0) scheduleFavoritesSync();
             status.textContent = `Added ${added} of ${ids.length} IDs${ids.length - added > 0 ? ` (${ids.length - added} already existed)` : ''}`;
             status.style.display = 'inline';
             renderPage(getPage());
