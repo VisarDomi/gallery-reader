@@ -1,5 +1,29 @@
 ## iOS Safari regression tests
 
+### Focused IMHentai thumbnail regression
+
+```bash
+npm run test:unit
+npx tsc --noEmit && npx vite build
+node tests/ios/imhentai-thumbnails.mjs
+```
+
+Disable the installed gallery-reader userscript; leave the universal phone
+debugger enabled and Safari foregrounded. This focused test supplies a two-item
+search result (galleries 1362775 and 988447), but fetches real gallery HTML and
+CDN images. It checks 361 thumbnail URLs, successful visible-thumbnail loading,
+no original-image requests from the strips, and a full-resolution WebP page in
+the reader. It restores localStorage and returns Safari to `example.com`.
+Only visible thumbnails are downloaded; this is not a fetch of all 361 images.
+
+Passed on the user's iPhone on 2026-09-07 with build 506: 361 thumbnail URLs,
+18 loaded thumbnails, zero original-image requests in the listing, and the
+selected reader original loaded at 1254 pixels wide. A separate headful Chromium
+check confirmed the source thumbnail/original URL distinction, but its injected
+listing test timed out; it is not counted as a desktop regression pass.
+
+### Full suite
+
 The frozen behavior and target URLs are defined in [`test.txt`](test.txt). The
 automated suite exercises Hitomi Favorites, Hitomi Search, and imhentai Search,
 including gallery rendering, pagination, search state, gallery information,

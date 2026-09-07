@@ -16,13 +16,23 @@ async function fetchGalleryHTML(gid: number): Promise<string> {
     return html;
 }
 
-function parseGalleryHTML(html: string, gid: number): { thumbs: ImhentaiThumb[]; images: ImhentaiImage[]; pageCount: number } {
+export function parseGalleryHTML(html: string, gid: number): { thumbs: ImhentaiThumb[]; images: ImhentaiImage[]; pageCount: number } {
     const srcM = extractBetween(html, 'data-src="', '"');
     const base = srcM ? srcM.value.substring(0, srcM.value.lastIndexOf('/')) + '/' : '';
     const exts: Record<string, string> = {j: 'jpg', p: 'png', g: 'gif', w: 'webp', a: 'avif'};
 
     const thumbs: ImhentaiThumb[] = [];
     const images: ImhentaiImage[] = [];
+    // The page lists only the first few thumbnails. Their source URL supplies
+    // the thumbnail extension, which is independent of each original's format.
+    const thumbnailUrls = new Map<number, string>();
+    for (const match of html.matchAll(/\bdata-src\s*=\s*["']([^"']+)["']/gi)) {
+        const page = match[1].match(/\/(\d+)t\.(?:jpe?g|png|webp|avif|gif)(?:\?|$)/i);
+        if (page) thumbnailUrls.set(Number(page[1]), new URL(match[1], `https://${DOMAIN}/gallery/${gid}/`).href);
+    }
+    const template = thumbnailUrls.values().next().value;
+    const thumbnailUrl = (page: number): string => thumbnailUrls.get(page)
+        ?? template?.replace(/\/\d+t(?=\.)/, `/${page}t`) ?? '';
 
     const jsonM = extractBetween(html, "$.parseJSON('", "'");
     if (jsonM) {
@@ -33,7 +43,7 @@ function parseGalleryHTML(html: string, gid: number): { thumbs: ImhentaiThumb[];
             const parts = data[key].split(',');
             const ext = exts[parts[0]] ?? 'jpg';
             const url = `${base}${idx}.${ext}`;
-            thumbs.push({ url });
+            thumbs.push({ url: thumbnailUrl(idx) });
             images.push({ url, width: parseInt(parts[1]) || 0, height: parseInt(parts[2]) || 0 });
             idx++;
         }
@@ -48,7 +58,7 @@ function parseGalleryHTML(html: string, gid: number): { thumbs: ImhentaiThumb[];
 
     for (let i = 1; i <= imageCount; i++) {
         const url = `${base}${i}.jpg`;
-        thumbs.push({ url });
+        thumbs.push({ url: thumbnailUrl(i) });
         images.push({ url, width: 0, height: 0 });
     }
     return { thumbs, images, pageCount: imageCount };
@@ -191,7 +201,9 @@ export const provider: Provider = {
 
     async getGalleryThumbnails(gid: number): Promise<Thumbnail[]> {
         const html = await fetchGalleryHTML(gid);
-        return parseGalleryHTML(html, gid).thumbs;
+        const thumbs = parseGalleryHTML(html, gid).thumbs;
+        if (thumbs.some(thumb => !thumb.url)) throw new Error('IMHentai source thumbnail URL is missing');
+        return thumbs;
     },
 
     async getMeta(gid: number): Promise<GalleryMeta> {

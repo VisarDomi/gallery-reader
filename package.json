@@ -1,9 +1,10 @@
 {
   "name": "gallery-reader",
-  "version": "505",
+  "version": "506",
   "description": "Userscript to improve ux on supported sites",
   "type": "module",
   "scripts": {
+    "test:unit": "vitest run --config vitest.config.ts",
     "build": "node increase.js && vite build",
     "tests": "node tests/ios/run.mjs",
     "tests:smoke": "node tests/ios/run.mjs --smoke"
