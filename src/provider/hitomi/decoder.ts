@@ -1,4 +1,5 @@
 import {DOMAIN} from "./constants";
+import { pageReferrer } from '../../core/compute/context';
 
 export function parseQuery(raw: string): { positive: string[]; negative: string[] } {
     const terms = raw.split(/\s+/).filter(Boolean);
@@ -16,9 +17,7 @@ export function parseQuery(raw: string): { positive: string[]; negative: string[
 }
 
 export async function fetchText(url: string, referer?: string): Promise<string> {
-    const headers: Record<string, string> = {};
-    if (referer) headers['Referer'] = referer;
-    const resp = await fetch(url, { headers });
+    const resp = await fetch(url, { referrer: referer ?? pageReferrer() });
     if (!resp.ok) throw Error(`HTTP ${resp.status}`);
     return resp.text();
 }
@@ -84,7 +83,7 @@ async function searchGalleries(term: string): Promise<number[]> {
     }
     const url = `https://ltn.${DOMAIN}/n/${urlNs}${urlTag}-${language}.nozomi`;
     const resp = await fetch(url, {
-        headers: { 'Origin': 'https://hitomi.la', 'Referer': 'https://hitomi.la/' },
+        referrer: pageReferrer(),
     });
     if (!resp.ok) throw new Error(`Nozomi request failed: ${resp.status}`);
     return decodeNozomi(await resp.arrayBuffer());

@@ -1,89 +1,93 @@
-## iOS Safari regression tests
+# Behavior tests
 
-### Focused IMHentai thumbnail regression
+`test.txt` remains user-owned and has not been changed.
+
+## Local checks
 
 ```bash
+npx tsc --noEmit
+node scripts/build.mjs --no-increase-version
 npm run test:unit
-npx tsc --noEmit && npx vite build
-node tests/ios/imhentai-thumbnails.mjs
+npm run test:browser
 ```
 
-Disable the installed gallery-reader userscript; leave the universal phone
-debugger enabled and Safari foregrounded. This focused test supplies a two-item
-search result (galleries 1362775 and 988447), but fetches real gallery HTML and
-CDN images. It checks 361 thumbnail URLs, successful visible-thumbnail loading,
-no original-image requests from the strips, and a full-resolution WebP page in
-the reader. It restores localStorage and returns Safari to `example.com`.
-Only visible thumbnails are downloaded; this is not a fetch of all 361 images.
+The browser tests run in disposable Chromium profiles with synthetic provider
+responses and a real disposable PC backup store. They prove these outcomes:
 
-Passed on the user's iPhone on 2026-09-07 with build 506: 361 thumbnail URLs,
-18 loaded thumbnails, zero original-image requests in the listing, and the
-selected reader original loaded at 1254 pixels wide. A separate headful Chromium
-check confirmed the source thumbnail/original URL distinction, but its injected
-listing test timed out; it is not counted as a desktop regression pass.
+- 560 existing favorites, saved searches and scroll positions survive migration.
+- Repeating migration cannot overwrite committed data.
+- A waiting/unavailable backup PC does not stop home rendering or typing.
+- Initial setup confirms success; routine home backups save silently, including
+  changed data. An offline PC/timeouts cause no dialog or notification on fresh
+  or enrolled phones. Online rejection errors warn; successful retries clear them.
+- Favorite edits survive a reload, with current and previous server snapshots.
+- Source thumbnails open full-size originals in the reader, including native
+  Hitomi hash formats that may be present before takeover.
+- A fresh browser restores an independent copy without altering the source backup.
+- Worker-only IndexedDB and restored data survive a browser reload.
 
-### Full suite
+Unit tests cover validation, setup choices and explicit startup boundaries; they
+are not a substitute for the full UI and real Safari checks.
 
-The frozen behavior and target URLs are defined in [`test.txt`](test.txt). The
-automated suite exercises Hitomi Favorites, Hitomi Search, and imhentai Search,
-including gallery rendering, pagination, search state, gallery information,
-Favorites toggling, reader position, reload restoration, genuine Hitomi
-bfcache restoration, and Back navigation.
+## Real iPhone UI and bfcache
 
-The suite uses the tester's existing Hitomi Favorites as read-only test data.
-The phone must have at least 51 Favorites so the list contains at least three
-pages at 25 galleries per page. The runner temporarily changes some local UI
-state and restores it after each case.
-
-Install the repository dependencies once:
-
-```bash
-npm install
-```
-
-Phone-harness setup is documented by
-[`userscript-ios-test`](../../userscript-ios-test/README.md). Disable the normal
-gallery-reader userscript because the test runner injects the freshly built app
-itself. Keep Safari unlocked and foregrounded while a run is active.
-
-### Running the tests
-
-Before starting, show `https://example.com/` or one of the frozen target sites
-in the foreground Safari tab. The runner refuses to claim an unrelated tab. A
-normal run ends by navigating the controlled tab back to
-`https://example.com/`, including after a test failure.
-
-Run the small Favorites smoke case first when validating a new setup:
-
-```bash
-npm run tests:smoke
-```
-
-Run the complete suite with:
+Disable the installed readers, enable the universal debugger, and keep Safari
+unlocked/foregrounded. Build first, then run:
 
 ```bash
 npm run tests
 ```
 
-Select one behavior and/or site:
+This uses the existing migrated favorites, opens a decoded thumbnail, verifies
+that an original renders, then uses real Back. Hitomi requires `pageshow.persisted`,
+the original row/strip DOM objects, and unchanged vertical/horizontal positions.
+IMHentai reports its known bfcache limitation separately, without failing the
+reader test or claiming that a new document was a cache restoration.
+It never reinjects after Back, so a reload cannot falsely pass as bfcache.
+It does not toggle favorites, import data, change progress, or clear storage.
+The controlled tab returns to example.com and the bridge closes in `finally`.
+
+### Actual Safari results — 2026-09-07
+
+Both provider homes rendered source thumbnails and both readers decoded full
+originals (381 pages in the selected Hitomi gallery, 359 in IMHentai). Hitomi
+passed native bfcache, original DOM identity, and exact scroll restoration.
+
+IMHentai **failed** the bfcache assertion: Back loaded a new native home document.
+The same happened without Gallery Reader, and with a minimal document takeover
+containing no workers or storage. Safari's same-origin HTTP probe received
+`Cache-Control: no-store, no-cache, must-revalidate` from IMHentai. This matches
+[WebKit's HTTPS no-store exclusion](https://github.com/WebKit/WebKit/blob/main/Source/WebCore/history/BackForwardCache.cpp#L144).
+This is recorded as an explicit bfcache skip, not a pass, and is not hidden by
+reinjecting after Back. If IMHentai does restore from bfcache in a future browser
+or provider version, the same DOM/scroll assertions as Hitomi apply. Isolate it with:
 
 ```bash
-npm run tests -- --test favorites --site hitomi
-npm run tests -- --test search --site imhentai
+npm run tests -- --site imhentai.xxx
+node tests/ios/imhentai-back-diagnostic.mjs
 ```
 
-The test command:
+The diagnostic compares the native home and a minimal takeover without touching
+reader storage. A userscript cannot remove the main document's response header;
+no custom navigation/back UI was introduced to work around this limitation.
 
-- type-checks with `npx tsc --noEmit`;
-- builds the current bundle without incrementing the production version;
-- injects the current bundle at the start of every tested home, search, and
-  reader route, including after real navigation and reload;
-- reads the three entry URLs from `test.txt`;
-- pauses for at least one second between visible phases and sites;
-- reports each case independently and continues to later cases after a failure;
-- restores the local state it snapshots and returns Safari to `example.com`.
+## Explicitly authorized migration and PC backup
 
-If a run appears stuck, inspect the phone before stopping it. Reader and network
-operations have bounded waits, and the phase banner shows the most recent
-completed action. A stopped run may leave Safari on the current target; return
-it to `example.com` before restarting.
+```bash
+npm run phone:backup
+# Or one provider:
+npm run phone:backup -- --site imhentai
+```
+
+This is an operation, not a destructive restore test. It visits all eight
+provider homes across Gallery Reader and Manga Reader, audits counts/hashes,
+injects the builds, selects **Back up this phone** when necessary, and compares
+the persisted PC snapshot with the actual phone data. It never clears phone
+storage or chooses Restore. Its audit reads IndexedDB inside a temporary worker;
+only hashes/counts return to the controller. Names and access keys stay private.
+
+The old localStorage-mutating phone runners were retired because they could no
+longer restore the application's authoritative IndexedDB state. Their previous
+behavior remains in Git history; personal data and `test.txt` were not removed.
+
+See [backup operations and the verified phone counts](../gallery-downloader/READER-BACKUPS.md).

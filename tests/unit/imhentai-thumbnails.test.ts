@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseGalleryHTML } from '../../src/provider/imhentai/provider';
+import { parseGalleryHTML } from '../../src/provider/imhentai/data-provider';
 
 const base = 'https://m9.imhentai.xxx/028/jnwqbic1ea/';
 function fixture(thumbnail = `${base}1t.jpg`) {

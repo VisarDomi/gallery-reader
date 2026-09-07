@@ -46,6 +46,7 @@ export interface Provider {
     matchRoute(pathname: string, search: string, hash: string): RouteMatch | null;
     init?(): Promise<void>;
     scheduleFavoritesSync(delayMs?: number): void;
+    backupHome(): Promise<void>;
 
     // ── core ──────────────────────────────────────────────────────────
     search(rawQuery: string, page: number): Promise<SearchResults>;

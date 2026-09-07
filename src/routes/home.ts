@@ -1,24 +1,26 @@
-import { getFavs, mergeFavs } from '../storage/favorites';
+import { homePage, importFavs, exportFavs } from '../storage/favorites';
 import { initShell } from '../ui/shell';
 import { renderPaginatedGrid } from "../ui/paginated-grid";
-import { getPage, savePage, applyPendingScroll } from "../storage/localstorage";
-import { scheduleFavoritesSync } from '../provider';
+import { savePage, applyPendingScroll } from "../storage/preferences";
+import { render as renderSavedSearches } from '../ui/saved-searches';
+import { scheduleFavoritesSync, backupHome } from '../provider';
 
-function renderPage(page: number): void {
+let generation = 0;
+async function renderPage(requestedPage?: number): Promise<void> {
+    const current = ++generation;
     const HOME_PAGE_SIZE = 25;
-    const ids = getFavs();
-    const start = (page - 1) * HOME_PAGE_SIZE;
-    const galleryIds = ids.slice(start, start + HOME_PAGE_SIZE);
+    const { page, ids: galleryIds, total } = await homePage(requestedPage);
+    if (generation !== current) return;
     renderPaginatedGrid(
         galleryIds,
         page,
-        ids.length,
+        total,
         HOME_PAGE_SIZE,
         ' Favorites',
         (newPage) => renderPage(newPage),
     );
 
-    savePage(page);
+    await savePage(page);
 }
 
 function buildImportSection(): void {
@@ -57,28 +59,22 @@ function buildImportSection(): void {
     };
 
     btn.onclick = showImport;
-    exportBtn.onclick = () => {
-        textarea.value = getFavs().join(' ');
+    exportBtn.onclick = async () => {
+        textarea.value = await exportFavs();
         showImport();
         resizeTextarea();
     };
 
-    mergeBtn.onclick = () => {
+    mergeBtn.onclick = async () => {
         const raw = textarea.value;
-        const ids = [...raw.matchAll(/\d+/g)].map(m => parseInt(m[0], 10)).filter(n => n > 0);
-        if (ids.length === 0) {
-            status.textContent = 'No IDs found';
-            status.style.display = 'inline';
-            return;
-        }
         mergeBtn.disabled = true;
         mergeBtn.textContent = 'Merging...';
         try {
-            const added = mergeFavs(ids);
+            const { added, total } = await importFavs(raw);
             if (added > 0) scheduleFavoritesSync();
-            status.textContent = `Added ${added} of ${ids.length} IDs${ids.length - added > 0 ? ` (${ids.length - added} already existed)` : ''}`;
+            status.textContent = total ? `Added ${added} of ${total} IDs` : 'No IDs found';
             status.style.display = 'inline';
-            renderPage(getPage());
+            await renderPage();
         } catch (e) {
             status.textContent = 'Error: ' + (e as Error).message;
             status.style.display = 'inline';
@@ -98,7 +94,10 @@ function buildImportSection(): void {
 
 export async function init(): Promise<void> {
     await initShell();
-    if (getFavs().length > 0) renderPage(getPage());
+    await renderPage();
     buildImportSection();
     applyPendingScroll();
+    window.addEventListener('reader-data-restored', () => { void renderPage(); void renderSavedSearches(); });
+    // Rendering local content never waits for the backup PC or the setup choice.
+    void backupHome();
 }

@@ -1,29 +1,11 @@
-import {type Thumbnail, type ReaderImage, type GalleryMeta, Handler, Provider, type SearchResults} from "../types";
-import {fetchText, intersectNozomi, parseGG, parseQuery} from "./decoder";
-import {detachJQueryFromSuggestionLinks, loadScript, setupDropdownHandler} from "./script";
-import {DOMAIN} from "./constants";
-import {scheduleFavoritesSync} from './favorites-sync';
-
-const PAGE_SIZE = 25;
-const searchCache = new Map<string, number[]>();
-const galleryCache = new Map<number, string>();
-
-interface HitomiThumb extends Thumbnail { key: string }
-interface HitomiImage extends ReaderImage { key: string }
-
-async function fetchGalleryJS(gid: number): Promise<string> {
-    if (galleryCache.has(gid)) return galleryCache.get(gid)!;
-    const text = await fetchText(`https://ltn.${DOMAIN}/galleries/${gid}.js`, `https://hitomi.la/reader/${gid}.html`);
-    galleryCache.set(gid, text);
-    return text;
-}
-
-function parseGalleryJS(text: string) {
-    const json = text.split('=')[1].trim().replace(/;$/, '');
-    return JSON.parse(json);
-}
+import { Handler, type Provider, type Thumbnail } from '../types';
+import { computeRequest } from '../../core/compute/transport';
+import { scheduleFavoritesSync } from './favorites-sync';
+import { galleryHomeBackup } from '../../storage/backup';
+import { detachJQueryFromSuggestionLinks, loadScript, setupDropdownHandler } from './script';
 
 export const provider: Provider = {
+    backupHome: galleryHomeBackup('hitomi', () => scheduleFavoritesSync(0)),
     scheduleFavoritesSync,
     async init(): Promise<void> {
         const searchWrap = document.querySelector('.hs-search-input');
@@ -53,87 +35,22 @@ export const provider: Provider = {
 
         if (pathname.startsWith('/reader/')) {
             const gid = Number(pathname.slice('/reader/'.length, -'.html'.length));
-            const index = hash ? Number(hash.slice(1)) : 0;
+            // Native Hitomi can rewrite #0 to its one-based #1- form before takeover.
+            const native = /^#(\d+)-/.exec(hash);
+            const parsed = native ? Number(native[1]) - 1 : hash ? Number(hash.slice(1)) : 0;
+            const index = Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0;
             return { handler: Handler.Reader, gid, index };
         }
 
         return null;
     },
 
-    async search(rawQuery: string, page: number): Promise<SearchResults> {
-        const cached = searchCache.get(rawQuery);
-        let ids: number[];
-        if (cached) {
-            ids = cached;
-        } else {
-            const { positive, negative } = parseQuery(rawQuery);
-            ids = await intersectNozomi(positive, negative);
-            searchCache.set(rawQuery, ids);
-        }
-        const start = (page - 1) * PAGE_SIZE;
-        return {
-            galleryIds: ids.slice(start, start + PAGE_SIZE),
-            totalResults: ids.length,
-            pageSize: PAGE_SIZE,
-        };
-    },
 
-    async getGalleryThumbnails(gid: number): Promise<Thumbnail[]> {
-        const text = await fetchGalleryJS(gid);
-        const raw = parseGalleryJS(text);
-        return raw.files.map((f: { hash: string }) => ({ key: f.hash }));
-    },
-
-    async getMeta(gid: number): Promise<GalleryMeta> {
-        const text = await fetchGalleryJS(gid);
-        const raw = parseGalleryJS(text);
-        return {
-            title: raw.title || '',
-            title_jpn: raw.japanese_title || '',
-            type: raw.type || '',
-            language: raw.language || '',
-            date: raw.date || '',
-            artists: (raw.artists || []).map((a: { artist: string }) => a.artist),
-            groups: (raw.groups || []).map((g: { group: string }) => g.group),
-            parody: (raw.parodys || []).map((p: { parody: string }) => p.parody),
-            characters: (raw.characters || []).map((c: { character: string }) => c.character),
-            tags: (raw.tags || []).map((t: { tag: string; female?: string; male?: string }) => ({
-                tag: t.tag,
-                female: t.female,
-                male: t.male,
-            })),
-            pageCount: raw.files.length,
-        };
-    },
-
-    async getReaderData(gid: number): Promise<{ images: ReaderImage[]; meta: GalleryMeta }> {
-        const text = await fetchGalleryJS(gid);
-        const raw = parseGalleryJS(text);
-        const images: HitomiImage[] = raw.files.map((f: { hash: string; width: number; height: number }) => ({
-            key: f.hash,
-            width: f.width,
-            height: f.height,
-        }));
-        const meta: GalleryMeta = {
-            title: raw.title || '',
-            title_jpn: raw.japanese_title || '',
-            type: raw.type || '',
-            language: raw.language || '',
-            date: raw.date || '',
-            artists: (raw.artists || []).map((a: { artist: string }) => a.artist),
-            groups: (raw.groups || []).map((g: { group: string }) => g.group),
-            parody: (raw.parodys || []).map((p: { parody: string }) => p.parody),
-            characters: (raw.characters || []).map((c: { character: string }) => c.character),
-            tags: (raw.tags || []).map((t: { tag: string; female?: string; male?: string }) => ({
-                tag: t.tag,
-                female: t.female,
-                male: t.male,
-            })),
-            pageCount: raw.files.length,
-        };
-        return { images, meta };
-    },
-
+    search: (query, page) => computeRequest('provider', { provider: 'hitomi', method: 'search', args: [query, page] }),
+    getMeta: gid => computeRequest('provider', { provider: 'hitomi', method: 'getMeta', args: [gid] }),
+    getGalleryThumbnails: gid => computeRequest('provider', { provider: 'hitomi', method: 'getGalleryThumbnails', args: [gid] }),
+    getReaderData: gid => computeRequest('provider', { provider: 'hitomi', method: 'getReaderData', args: [gid] }),
+    imageUrls: images => computeRequest('provider', { provider: 'hitomi', method: 'imageUrls', args: [images] }),
     readerUrl(gid: number, index?: number): string {
         let url = `https://hitomi.la/reader/${gid}.html`;
         if (index !== undefined) url += '#' + index;
@@ -153,18 +70,6 @@ export const provider: Provider = {
         return this.searchUrl(q);
     },
 
-    thumbUrl(thumb: Thumbnail): string {
-        const k = (thumb as HitomiThumb).key;
-        return `https://tn.${DOMAIN}/webpsmalltn/${k.slice(-1)}/${k.slice(-3, -1)}/${k}.webp`;
-    },
 
-    async imageUrls(images: ReaderImage[]): Promise<string[]> {
-        const gg = await parseGG();
-        return images.map(img => {
-            const k = (img as HitomiImage).key;
-            const hashIndex = parseInt(k.slice(-1) + k.slice(-3, -1), 16);
-            const offset = (gg.multiplierMap[hashIndex] ?? gg.defaultOffset) + 1;
-            return `https://w${offset}.${DOMAIN}/${gg.basePath}/${hashIndex}/${k}.webp`;
-        });
-    },
+    thumbUrl: (thumb: Thumbnail) => (thumb as { url: string }).url,
 };

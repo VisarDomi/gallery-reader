@@ -1,14 +1,17 @@
-import {loadSearches, removeSearch} from "../storage/localstorage";
+import {loadSearches, removeSearch} from "../storage/preferences";
 import {searchUrl} from "../provider";
 
 const VISIBLE_DEFAULT = 3;
 
-export function render(): void {
+let generation = 0;
+export async function render(): Promise<void> {
+    const current = ++generation;
     const container = document.querySelector('.hs-saved-searches') as HTMLElement;
     const input = document.getElementById('query-input') as HTMLTextAreaElement;
 
+    const searches = await loadSearches();
+    if (current !== generation || !container.isConnected) return;
     container.innerHTML = '';
-    const searches = loadSearches();
     if (searches.length === 0) return;
 
     const expanded = container.dataset.expanded === 'true';
@@ -24,10 +27,10 @@ export function render(): void {
         const x = document.createElement('span');
         x.className = 'hs-saved-x';
         x.textContent = '\u00D7';
-        x.onclick = (e) => {
+        x.onclick = async (e) => {
             e.stopPropagation();
-            removeSearch(s.query);
-            render();
+            await removeSearch(s.query);
+            await render();
         };
         chip.appendChild(x);
         chip.onclick = () => {
@@ -44,7 +47,7 @@ export function render(): void {
         btn.textContent = `Show ${remaining} more`;
         btn.onclick = () => {
             container.dataset.expanded = 'true';
-            render();
+            void render();
         };
         container.appendChild(btn);
     }

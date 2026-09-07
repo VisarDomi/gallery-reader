@@ -1,7 +1,8 @@
 import {DOMAIN, LANG_PARAM} from "./constants";
+import { pageReferrer } from '../../core/compute/context';
 
 export async function fetchText(url: string): Promise<string> {
-    const resp = await fetch(url, { credentials: 'include' });
+    const resp = await fetch(url, { credentials: 'include', referrer: pageReferrer() });
     if (!resp.ok) throw Error(`HTTP ${resp.status}`);
     return resp.text();
 }
@@ -104,4 +105,3 @@ export function buildImhentaiSearchUrl(query: string, page?: number): string {
     if (page !== undefined) url += '&page=' + page;
     return url;
 }
-

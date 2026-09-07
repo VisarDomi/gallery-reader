@@ -29,7 +29,6 @@ export function initializeProviderRoute(
     selectProvider(hostname);
     const route = p.matchRoute(pathname, search, hash);
     if (!route) return null;
-    p.scheduleFavoritesSync(0);
     return {
         route,
         documentTitle: document.title,
@@ -48,4 +47,5 @@ export const readerUrl = (gid: number, index?: number) => p.readerUrl(gid, index
 export const searchUrl = (query: string, page?: number) => p.searchUrl(query, page);
 export const tagSearchUrl = (ns: string, value: string, language: string) => p.tagSearchUrl(ns, value, language);
 export const initProvider = () => p.init?.();
+export const backupHome = () => p.backupHome();
 export const scheduleFavoritesSync = (delayMs?: number) => p.scheduleFavoritesSync(delayMs);

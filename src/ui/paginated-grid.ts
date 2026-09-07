@@ -32,7 +32,9 @@ export function renderPaginatedGrid(
     for (const gid of galleryIds) {
         const skeleton = createSkeletonRow();
         grid.appendChild(skeleton);
-        void getGalleryThumbnails(gid).then(thumbs => populateRow(skeleton, gid, thumbs));
+        void getGalleryThumbnails(gid).then(thumbs => populateRow(skeleton, gid, thumbs)).catch(error => {
+            if (skeleton.isConnected) skeleton.textContent = `Gallery ${gid}: ${error instanceof Error ? error.message : 'failed to load'}`;
+        });
     }
     renderPaginationBar(pageInfo, onPageChange, grid);
 

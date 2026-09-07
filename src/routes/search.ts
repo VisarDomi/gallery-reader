@@ -1,10 +1,10 @@
 import { search, searchUrl } from '../provider';
 import { initShell } from '../ui/shell';
 import { renderPaginatedGrid } from "../ui/paginated-grid";
-import { saveSearch, applyPendingScroll } from "../storage/localstorage";
+import { saveSearch, applyPendingScroll } from "../storage/preferences";
 import { render as renderSavedSearch} from "../ui/saved-searches";
 
-function render(result: { galleryIds: number[]; totalResults: number; pageSize: number }, page: number, query: string): void {
+async function render(result: { galleryIds: number[]; totalResults: number; pageSize: number }, page: number, query: string): Promise<void> {
     const pageInfo = renderPaginatedGrid(
         result.galleryIds,
         page,
@@ -16,13 +16,13 @@ function render(result: { galleryIds: number[]; totalResults: number; pageSize: 
 
     const url = searchUrl(query, pageInfo.currentPage);
     history.replaceState(null, '', url);
-    saveSearch(query, pageInfo.currentPage);
-    renderSavedSearch();
+    await saveSearch(query, pageInfo.currentPage);
+    await renderSavedSearch();
 }
 
 async function paginate(query: string, page: number) {
     const result = await search(query, page);
-    render(result, page, query);
+    await render(result, page, query);
 }
 
 export async function init(query: string, page: number): Promise<void> {

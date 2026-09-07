@@ -1,12 +1,17 @@
 import {render as renderSavedSearch} from "./saved-searches";
 import {initProvider, searchUrl} from "../provider";
 import cssContent from '../css/style.css?inline';
-import {deferScrollRestore, loadScrollPosition, loadSearches, saveScrollPosition} from "../storage/localstorage";
+import {deferScrollRestore, loadScrollPosition, loadSearches, saveScrollPosition} from "../storage/preferences";
+import { initializeStorage } from '../storage/initialize';
 
 export function startInit(documentTitle: string): void {
     window.stop();
     document.open();
     document.close();
+    // document-start may precede creation of the parser's head/body nodes.
+    if (!document.documentElement) document.appendChild(document.createElement('html'));
+    if (!document.head) document.documentElement.appendChild(document.createElement('head'));
+    if (!document.body) document.documentElement.appendChild(document.createElement('body'));
     document.title = documentTitle;
     const style = document.createElement('style');
     style.textContent = cssContent;
@@ -36,10 +41,10 @@ function buildSearch(): void {
     header.appendChild(searchWrap);
     header.appendChild(button);
 
-    const submit = () => {
+    const submit = async () => {
         const val = input.value.trim();
         const query = val || 'language:japanese';
-        const saved = loadSearches().find(s => s.query === query);
+        const saved = (await loadSearches()).find(s => s.query === query);
         window.location.href = searchUrl(query, saved?.page);
     };
     input.addEventListener('keydown', e => {
@@ -68,26 +73,33 @@ function syncInputFromUrl(query?: string): void {
     input.value = query ? query : "";
 }
 
-function initAppState(query?: string) {
+async function initAppState(query?: string): Promise<void> {
     syncInputFromUrl(query);
     // bfcache in action
     window.addEventListener('pageshow', event => {
         if (event.persisted) syncInputFromUrl(query);
     });
-    const saveScroll = () => saveScrollPosition(location.pathname + location.search, window.scrollY);
+    const saveScroll = () => { void saveScrollPosition(location.pathname + location.search, window.scrollY).catch(console.error); };
     window.addEventListener('scrollend', () => {
         setTimeout(saveScroll, 100);
     });
     window.addEventListener('pagehide', saveScroll);
+    // Persist while visible too; pagehide alone cannot guarantee an async commit before suspension.
+    document.addEventListener('visibilitychange', () => { if (document.hidden) saveScroll(); });
     const urlKey = location.pathname + location.search;
-    const savedY = loadScrollPosition(urlKey);
+    const savedY = await loadScrollPosition(urlKey);
     if (savedY !== null) deferScrollRestore(savedY);
 }
 
 export async function initShell(query?: string): Promise<void> {
     buildSearch();
-    renderSavedSearch();
     buildGridPlaceholder();
-    await initProvider();
-    initAppState(query);
+    try { await initializeStorage(); }
+    catch (error) {
+        document.getElementById('hs-grid')!.textContent = 'Could not load local reader data. Keep website data intact and reload to retry. ' + (error instanceof Error ? error.message : String(error));
+        throw error;
+    }
+    await renderSavedSearch();
+    void initProvider()?.catch(console.error);
+    await initAppState(query);
 }

@@ -1,13 +1,14 @@
 {
   "name": "gallery-reader",
-  "version": "506",
+  "version": "512",
   "description": "Userscript to improve ux on supported sites",
   "type": "module",
   "scripts": {
     "test:unit": "vitest run --config vitest.config.ts",
-    "build": "node increase.js && vite build",
-    "tests": "node tests/ios/run.mjs",
-    "tests:smoke": "node tests/ios/run.mjs --smoke"
+    "build": "node scripts/build.mjs",
+    "test:browser": "node tests/browser/worker-backup.mjs && node tests/browser/home-backup.mjs",
+    "tests": "node tests/ios/ui-flow.mjs",
+    "phone:backup": "node tests/ios/backup-phone.mjs --backup"
   },
   "devDependencies": {
     "@types/tampermonkey": "^5.0.4",

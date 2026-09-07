@@ -13,16 +13,18 @@ export function createSkeletonRow(): HTMLDivElement {
     return wrap;
 }
 
-export function populateRow(
+export async function populateRow(
     container: HTMLDivElement,
     gid: number,
     thumbs: Thumbnail[],
-): void {
+): Promise<void> {
+    if (!container.isConnected) return;
     container.innerHTML = '';
     container.style.height = '';
 
     const strip = document.createElement('div');
     strip.className = 'hs-row';
+    container.appendChild(strip);
 
     for (let i = 0; i < thumbs.length; i++) {
         const img = document.createElement('img');
@@ -34,8 +36,11 @@ export function populateRow(
             window.location.href = readerUrl(gid, i);
         };
         strip.appendChild(img);
+        if (i % 32 === 31) {
+            await new Promise(resolve => setTimeout(resolve, 0));
+            if (!container.isConnected) return;
+        }
     }
-    container.appendChild(strip);
 
     const overlay = document.createElement('div');
     overlay.className = 'row-title-overlay';
@@ -53,14 +58,20 @@ export function populateRow(
 
     const favBtn = document.createElement('button');
     favBtn.className = 'row-action-btn';
-    favBtn.textContent = isFav(gid) ? '\u2764\uFE0F' : '\uD83E\uDD0D';
-    favBtn.onclick = (e) => {
+    favBtn.textContent = '…';
+    favBtn.disabled = true;
+    favBtn.onclick = async (e) => {
         e.stopPropagation();
-        favBtn.textContent = toggleFav(gid) ? '\u2764\uFE0F' : '\uD83E\uDD0D';
-        scheduleFavoritesSync();
+        favBtn.disabled = true;
+        try {
+            favBtn.textContent = await toggleFav(gid) ? '\u2764\uFE0F' : '\uD83E\uDD0D';
+            scheduleFavoritesSync();
+        } finally { favBtn.disabled = false; }
     };
     actions.appendChild(favBtn);
 
     overlay.appendChild(actions);
     container.appendChild(overlay);
+    favBtn.textContent = await isFav(gid) ? '\u2764\uFE0F' : '\uD83E\uDD0D';
+    favBtn.disabled = false;
 }
