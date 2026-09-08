@@ -1,10 +1,10 @@
-# Reader Extensions — Safari extension experiment
+# Gallery Reader — Safari extension
 
-This iOS containing app packages separate Gallery Reader, KM Explorer, Stream Viewer and Manga Reader Safari
-Web Extensions, **not** the offline Gallery Reader app. Each has its own Safari
-toggle, site permissions and independently built code. The host has no reader logic.
-It uses the same Gallery Reader source and page-origin IndexedDB. Do not clear
-website data or run the installed userscript alongside it.
+Gallery Reader is one of four independent extensions inside
+[Reader Extensions](https://github.com/VisarDomi/reader-extensions). The Apple
+host and suite deployment tools live there, not in this repo. This repo owns
+Gallery's runtime, manifest/rules generation and behavior tests. It uses the same
+page-origin IndexedDB as its userscript; do not clear website data or run both.
 
 ## Startup contract
 
@@ -46,71 +46,24 @@ to run their scripts. Unowned routes retain their normal behavior.
 ## Build
 
 ```sh
-npm run build:extensions
+npm run build:extension
 ```
 
-This builds Gallery Reader and the sibling `../../video/km-explorer`,
-`../../video/stream-viewer` and `../manga-reader` repositories, then stages their files under
-`dist/km-explorer-extension/`, `dist/stream-viewer-extension/` and `dist/manga-reader-extension/`. All repositories
-need their normal dependencies and private backup build configuration available.
-Use `npm run build:extension` only for the standalone Gallery web bundle; the iOS
-Xcode host requires all four staged extensions. For an individual deployment,
-stage that repo's rebuilt files only; preserve the other extensions' current builds.
+Private output is `dist/extension/{manifest.json,rules.json,content.js}`. It
+contains the PC backup access key: **do not publish artifacts**. Keep all three
+files together; their build nonce must match.
 
-Private Gallery output: `dist/extension/{manifest.json,rules.json,content.js}`. Like the
-userscript, this contains the PC backup access key: **do not publish artifacts**.
-Keep all three files together when updating; their nonce must match.
-
-Open `extension/apple/Gallery Reader Extension.xcodeproj` on the Mac. It references
-the generated files at `../../dist/extension`, so retain that folder layout.
-The Xcode wrapper was created with Apple's converter; the iOS host uses a simple
-programmatic settings instruction screen because this Hackintosh's `ibtool`
-reports its installed iOS SDK as unavailable. It contains no reader data.
-
-The current remote mirror is `/Users/visar/Developer/gallery-reader-extension`:
-
-- `xcode/Gallery Reader Extension/`: copy of `extension/apple/`.
-- `dist/extension/`: private JS/manifest/rules.
-- `dist/km-explorer-extension/`: private KM JS/manifest.
-- `dist/stream-viewer-extension/`: Stream Viewer JS/manifest.
-- `dist/manga-reader-extension/`: Manga Reader JS/manifest (six providers).
-- `build-on-mac.sh`, `mac-build.plist`: copies from this folder.
-- `build/Debug-iphoneos/Reader Extensions.app`: signed app.
-- `gui-build.log`: build result.
-
-The display and product name is **Reader Extensions**; the legacy Xcode project
-and target names are retained for the build script. The signing identity stays
-`com.visar.galleryreader.extensiontest`. Deleting the containing app can reset
-extension toggles and site access; re-enable each extension and allow its sites.
-Do not delete Safari website data: that is where reader state lives.
-
-SSH uses user `visar`, address `192.168.1.46`, and strict verification against
-`/home/visar/Documents/hackingtosh/validation/macos-known-hosts`.
-Personal signing team: `AVQL5DLWLT`. Bundle: `com.visar.galleryreader.extensiontest`.
-The display name is **Reader Extensions**, retaining the existing app identity
-for in-place installation. Gallery's extension identity remains
-`com.visar.galleryreader.extensiontest.Extension`; KM's independent extension is
-`com.visar.galleryreader.extensiontest.KMExplorer`; Stream Viewer's is
-`com.visar.galleryreader.extensiontest.StreamViewer`. All three `.appex` products are
-embedded/signed in the one iOS app. The macOS targets remain Gallery-only.
-This does not touch native app `com.visar.GalleryReader` or its data container.
-
-Use the GUI-session LaunchAgent to run `build-on-mac.sh` when SSH Keychain signing
-fails. Bootstrap `mac-build.plist` into `gui/501`, check the log/exit status, then
-boot it out after completion. It is an on-demand build, not a permanent service.
-Install the signed app using `xcrun devicectl device install app --device <UDID>`.
-Personal-team provisioning expires; rebuild/reinstall as needed.
-
-If SSH times out before authentication, check whether the Mac is asleep. During
-the version 514 build, `pmset -g custom` showed `sleep 1` on AC and battery;
-the sleep/wake log matched the unavailable period. While awake, LAN ping and SSH
-were healthy. `caffeinate -i -t 1800` can temporarily prevent idle sleep during
-a build without changing power settings. It does not make a closed-lid or
-manually sleeping Mac reachable.
+For fresh-machine setup, signing and installation, follow the
+[containing-app guide](https://github.com/VisarDomi/reader-extensions#fresh-machine-setup).
+The default sibling checkout is `../../reader-extensions`. From that repo,
+`npm run stage -- gallery-reader` stages this existing bundle, or
+`npm run build -- gallery-reader` rebuilds/stages it without changing the other
+extensions. The host identity remains `com.visar.galleryreader.extensiontest`;
+Gallery's remains `.Extension`. No provider data or signing identity was migrated.
 
 ## On-phone test
 
-Enable **Gallery Reader Extension** under Settings → Apps → Safari → Extensions.
+Enable **Gallery Reader** under Settings → Apps → Safari → Extensions.
 Allow `hitomi.la` and `imhentai.xxx`, disable AdGuard on those two sites, and
 disable the Gallery Reader userscript. Keep Gallery Reader's extension enabled.
 Reload after granting access;
@@ -123,12 +76,6 @@ The chosen solution is the per-site AdGuard exception, not a custom image loader
 Version 515 retains native image loading and removes the experiment. Home scroll
 restoration no longer waits for page persistence and is cancelled by user input,
 so a delayed startup cannot overwrite an intervening scroll. See `../test.md`.
-
-Enable **KM Explorer** separately and allow `ytboob.com`; disable its matching
-userscript. Its source and behavior documentation remain in the KM repository.
-KM does not inherit Gallery's provider rules, permissions or search libraries.
-Enable **Stream Viewer** separately for `tango.me` and `www.tango.me`, with its
-userscript disabled. Existing Tango login/session storage stays on that origin.
 
 Check home, search suggestions/search, source thumbnail strips, reader images,
 favorites persistence, and native Back. Then repeat after force-quitting Safari.
@@ -144,7 +91,7 @@ Fast UI alone is not proof that original scripts never ran.
 - September 8, 2026 suite: renamed the containing product to Reader Extensions
   without changing its bundle identity; added Manga Reader as the fourth iOS
   extension. Signed and installed successfully. Existing Gallery/KM/Stream
-  bundles preserved. See [Manga validation](../../manga-reader/extension/README.md).
+  bundles preserved. See [Manga validation](https://github.com/VisarDomi/manga-reader/blob/main/extension/README.md).
 
 - iOS app built, signed and installed on the attached iPhone.
 - Actual iOS Safari: enabled and inspected over the trusted Mac USB connection.
