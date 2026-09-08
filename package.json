@@ -7,6 +7,7 @@
     "test:unit": "vitest run --config vitest.config.ts",
     "build": "node scripts/build.mjs",
     "build:extension": "node scripts/build-extension.mjs",
+    "build:extensions": "node scripts/build-extension-suite.mjs",
     "test:extension": "node tests/browser/extension.mjs",
     "test:browser": "node tests/browser/worker-backup.mjs && node tests/browser/home-backup.mjs",
     "tests": "node tests/ios/ui-flow.mjs",

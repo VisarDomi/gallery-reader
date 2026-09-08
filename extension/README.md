@@ -1,6 +1,8 @@
-# Safari extension experiment
+# Reader Extensions — Safari extension experiment
 
-This is a separate Safari Web Extension, **not** the offline Gallery Reader app.
+This iOS containing app packages separate Gallery Reader, KM Explorer and Stream Viewer Safari
+Web Extensions, **not** the offline Gallery Reader app. Each has its own Safari
+toggle, site permissions and independently built code. The host has no reader logic.
 It uses the same Gallery Reader source and page-origin IndexedDB. Do not clear
 website data or run the installed userscript alongside it.
 
@@ -44,10 +46,17 @@ to run their scripts. Unowned routes retain their normal behavior.
 ## Build
 
 ```sh
-npm run build:extension
+npm run build:extensions
 ```
 
-Private output: `dist/extension/{manifest.json,rules.json,content.js}`. Like the
+This builds Gallery Reader and the sibling `../../video/km-explorer` and
+`../../video/stream-viewer` repositories, then stages their files under
+`dist/km-explorer-extension/` and `dist/stream-viewer-extension/`. All repositories
+need their normal dependencies and private backup build configuration available.
+Use `npm run build:extension` only for the standalone Gallery web bundle; the iOS
+Xcode host requires all three staged extensions.
+
+Private Gallery output: `dist/extension/{manifest.json,rules.json,content.js}`. Like the
 userscript, this contains the PC backup access key: **do not publish artifacts**.
 Keep all three files together when updating; their nonce must match.
 
@@ -61,6 +70,8 @@ The current remote mirror is `/Users/visar/Developer/gallery-reader-extension`:
 
 - `xcode/Gallery Reader Extension/`: copy of `extension/apple/`.
 - `dist/extension/`: private JS/manifest/rules.
+- `dist/km-explorer-extension/`: private KM JS/manifest.
+- `dist/stream-viewer-extension/`: Stream Viewer JS/manifest.
 - `build-on-mac.sh`, `mac-build.plist`: copies from this folder.
 - `build/Debug-iphoneos/Gallery Reader Extension.app`: signed app.
 - `gui-build.log`: build result.
@@ -68,6 +79,12 @@ The current remote mirror is `/Users/visar/Developer/gallery-reader-extension`:
 SSH uses user `visar`, address `192.168.1.46`, and strict verification against
 `/home/visar/Documents/hackingtosh/validation/macos-known-hosts`.
 Personal signing team: `AVQL5DLWLT`. Bundle: `com.visar.galleryreader.extensiontest`.
+The display name is **Reader Extensions**, retaining the existing app identity
+for in-place installation. Gallery's extension identity remains
+`com.visar.galleryreader.extensiontest.Extension`; KM's independent extension is
+`com.visar.galleryreader.extensiontest.KMExplorer`; Stream Viewer's is
+`com.visar.galleryreader.extensiontest.StreamViewer`. All three `.appex` products are
+embedded/signed in the one iOS app. The macOS targets remain Gallery-only.
 This does not touch native app `com.visar.GalleryReader` or its data container.
 
 Use the GUI-session LaunchAgent to run `build-on-mac.sh` when SSH Keychain signing
@@ -82,6 +99,12 @@ Enable **Gallery Reader Extension** under Settings → Apps → Safari → Exten
 Allow `hitomi.la` and `imhentai.xxx`, keep content blockers enabled for those
 sites, and disable the Gallery Reader userscript. Reload after granting access;
 first-time permission activation is not a document-start timing test.
+
+Enable **KM Explorer** separately and allow `ytboob.com`; disable its matching
+userscript. Its source and behavior documentation remain in the KM repository.
+KM does not inherit Gallery's provider rules, permissions or search libraries.
+Enable **Stream Viewer** separately for `tango.me` and `www.tango.me`, with its
+userscript disabled. Existing Tango login/session storage stays on that origin.
 
 Check home, search suggestions/search, source thumbnail strips, reader images,
 favorites persistence, and native Back. Then repeat after force-quitting Safari.
