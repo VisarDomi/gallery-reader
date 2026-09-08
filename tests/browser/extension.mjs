@@ -25,7 +25,7 @@ const server = https.createServer({ key: fs.readFileSync(`${temporary}/key.pem`)
     if (url.hostname === 'ltn.gold-usergeneratedcontent.net') {
         res.setHeader('Content-Type', 'application/javascript');
         if (scripts[url.pathname.slice(1)]) { res.end(scripts[url.pathname.slice(1)]); return; }
-        if (url.pathname.startsWith('/galleries/')) { res.end('var galleryinfo = ' + JSON.stringify({ title: 'Fixture', files: [{ hash: 'a'.repeat(64), width: 100, height: 300 }] }) + ';'); return; }
+        if (url.pathname.startsWith('/galleries/')) { res.end('var galleryinfo = ' + JSON.stringify({ title: 'Fixture', files: Array.from({length:3}, (_, i) => ({ hash: String(i + 1).padStart(64, '0'), width: 100, height: 300 })) }) + ';'); return; }
         if (url.pathname === '/gg.js') { res.end("var o = 0; var gg = {b:'fixture/'};"); return; }
     }
     if (url.pathname.endsWith('.webp') || url.pathname.endsWith('.jpg')) {
@@ -33,7 +33,7 @@ const server = https.createServer({ key: fs.readFileSync(`${temporary}/key.pem`)
         res.end('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="300"><rect width="100" height="300" fill="#456"/></svg>'); return;
     }
     if (url.hostname === 'imhentai.xxx' && url.pathname.startsWith('/gallery/')) {
-        res.end(`<h1>Fixture</h1><img data-src="https://imhentai.xxx/fixture/1t.jpg"><script>var files=$.parseJSON('{"1":"j,100,300"}');</script>`); return;
+        res.end(`<h1>Fixture</h1><img data-src="https://imhentai.xxx/fixture/1t.jpg"><script>var files=$.parseJSON('{"1":"j,100,300","2":"j,100,300","3":"j,100,300"}');</script>`); return;
     }
     if (url.pathname === '/original.js') { res.setHeader('Content-Type', 'application/javascript'); res.end('window.originalExternal=true; fetch("/external-ran");'); return; }
     res.setHeader('Content-Type', 'text/html');
@@ -48,6 +48,7 @@ try {
     const extension = path.resolve('dist/extension');
     context = await chromium.launchPersistentContext(`${temporary}/profile`, {
         executablePath: '/usr/bin/chromium', headless: !process.env.DISPLAY, ignoreHTTPSErrors: true,
+        viewport: { width: 428, height: 800 },
         args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`, `--host-resolver-rules=MAP * 127.0.0.1:${port}, EXCLUDE localhost`, '--no-proxy-server', '--ignore-certificate-errors'],
     });
     const page = await context.newPage();
@@ -71,18 +72,50 @@ try {
             assert.deepEqual(await page.evaluate(() => window.intentionalScripts), Object.keys(scripts));
             assert.equal(requests.slice(start).filter(r => r.path === '/jquery.min.js').length, 1, 'Only the intentional post-takeover library request');
         }
+        await page.evaluate(() => {
+            const spacer = document.createElement('div');
+            spacer.style.height = '4000px';
+            document.body.append(spacer);
+            addEventListener('scrollend', event => { if (event.isTrusted) event.stopImmediatePropagation(); }, true);
+            scrollTo(0, 320);
+            dispatchEvent(new Event('scrollend'));
+            scrollTo(0, 640);
+        });
+        await page.waitForFunction(async () => {
+            const db = await new Promise((resolve, reject) => {
+                const r = indexedDB.open('gallery-reader-data');
+                r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error);
+            });
+            try {
+                return await new Promise(resolve => {
+                    const r = db.transaction('state').objectStore('state').get('reader');
+                    r.onsuccess = () => resolve(r.result?.scroll['/'] === 320);
+                });
+            } finally { db.close(); }
+        });
         const reader = host === 'hitomi.la' ? '/reader/1.html' : '/view/1/1/';
         await page.goto(`https://${host}${reader}`, { waitUntil: 'commit' });
         await page.waitForFunction(() => [...document.images].some(image => image.naturalWidth === 100), null, { polling: 100 }).catch(async error => {
             console.error('Reader state:', await page.locator('body').innerHTML(), requests.slice(start));
-            console.error(await page.evaluate(() => ({ ready: document.readyState, visibility: document.visibilityState, images: [...document.images].map(i => ({ rect: i.getBoundingClientRect().toJSON(), complete: i.complete, loading: i.loading })), viewport: [innerWidth, innerHeight, scrollY] })));
+            console.error(JSON.stringify(await page.evaluate(() => ({ ready: document.readyState, visibility: document.visibilityState, images: [...document.images].map(i => ({ rect: i.getBoundingClientRect().toJSON(), complete: i.complete, loading: i.loading })), viewport: [innerWidth, innerHeight, scrollY] }))));
             throw error;
         });
         assert.equal(await page.evaluate(() => !!window.originalInline || !!window.originalExternal), false);
+        const bookmark = await page.evaluate(() => {
+            addEventListener('scrollend', event => { if (event.isTrusted) event.stopImmediatePropagation(); }, true);
+            const image = document.querySelectorAll('.hs-reader-img')[1];
+            const rect = image.getBoundingClientRect();
+            const historyBefore = history.length;
+            scrollTo(0, scrollY + rect.top + rect.height / 2 - innerHeight / 2);
+            dispatchEvent(new Event('scrollend'));
+            return { url: location.href, historyBefore, historyAfter: history.length };
+        });
+        assert.equal(bookmark.url, host === 'hitomi.la' ? 'https://hitomi.la/reader/1.html#1' : 'https://imhentai.xxx/view/1/2/', 'Reader URL updates in the scrollend event, with no timer');
+        assert.equal(bookmark.historyAfter, bookmark.historyBefore);
         await page.goto(`https://${host}/not-owned`, { waitUntil: 'domcontentloaded' });
         assert.equal(await page.locator('#original').count(), 1);
         assert.equal(await page.evaluate(() => window.originalInline && window.originalExternal), true, 'Unowned routes still run normally');
-        console.log(`${host}: takeover, blocked initial scripts, worker/IDB, reader images, and unowned route passed`);
+        console.log(`${host}: takeover, worker scroll snapshot, immediate reader bookmark, unchanged history, reader images, and unowned route passed`);
     }
     await context.close();
     context = undefined;
@@ -96,6 +129,7 @@ try {
     fs.copyFileSync(`${extension}/rules.json`, `${policyOnly}/rules.json`);
     context = await chromium.launchPersistentContext(`${temporary}/policy-profile`, {
         executablePath: '/usr/bin/chromium', headless: !process.env.DISPLAY, ignoreHTTPSErrors: true,
+        viewport: { width: 428, height: 800 },
         args: [`--disable-extensions-except=${policyOnly}`, `--load-extension=${policyOnly}`, `--host-resolver-rules=MAP * 127.0.0.1:${port}, EXCLUDE localhost`, '--no-proxy-server', '--ignore-certificate-errors'],
     });
     const policyPage = await context.newPage();

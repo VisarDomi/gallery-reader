@@ -93,12 +93,28 @@ boot it out after completion. It is an on-demand build, not a permanent service.
 Install the signed app using `xcrun devicectl device install app --device <UDID>`.
 Personal-team provisioning expires; rebuild/reinstall as needed.
 
+If SSH times out before authentication, check whether the Mac is asleep. During
+the version 514 build, `pmset -g custom` showed `sleep 1` on AC and battery;
+the sleep/wake log matched the unavailable period. While awake, LAN ping and SSH
+were healthy. `caffeinate -i -t 1800` can temporarily prevent idle sleep during
+a build without changing power settings. It does not make a closed-lid or
+manually sleeping Mac reachable.
+
 ## On-phone test
 
 Enable **Gallery Reader Extension** under Settings → Apps → Safari → Extensions.
-Allow `hitomi.la` and `imhentai.xxx`, keep content blockers enabled for those
-sites, and disable the Gallery Reader userscript. Reload after granting access;
+Allow `hitomi.la` and `imhentai.xxx`, disable AdGuard on those two sites, and
+disable the Gallery Reader userscript. Keep Gallery Reader's extension enabled.
+Reload after granting access;
 first-time permission activation is not a document-start timing test.
+
+AdGuard caused the confirmed multi-second startup slowdown on the iPhone:
+setting 100 image URLs cost about 174ms with it enabled versus 13ms without it.
+Native `loading="lazy"` does not defer that synchronous URL-assignment cost.
+The chosen solution is the per-site AdGuard exception, not a custom image loader.
+Version 515 retains native image loading and removes the experiment. Home scroll
+restoration no longer waits for page persistence and is cancelled by user input,
+so a delayed startup cannot overwrite an intervening scroll. See `../test.md`.
 
 Enable **KM Explorer** separately and allow `ytboob.com`; disable its matching
 userscript. Its source and behavior documentation remain in the KM repository.
@@ -152,7 +168,11 @@ Fast UI alone is not proof that original scripts never ran.
   both sites, worker/IDB, reader image decode, intentional suggestions, and
   unaffected routes. A separate policy-only installation verifies that initial
   inline/external scripts are blocked even without a takeover content script.
-- Existing tests plus viewport regression: 28 unit tests pass. TypeScript checks
+- Version 514 scroll audit: 29 unit tests pass. The current Chromium extension
+  fixture stalls at lazy reader image loading, also reproduced with the original
+  fixture and old delayed reader; the preliminary pass above is historical,
+  not a claim that this run passed. See `../test.md` for the current checks.
+- TypeScript checks
   include the extension entry/Hitomi adapter. Userscript build preserved.
 
 `tests/ios/native-inspector.py` attaches to the real mobile Safari tab using

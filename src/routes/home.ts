@@ -20,7 +20,9 @@ async function renderPage(requestedPage?: number): Promise<void> {
         (newPage) => renderPage(newPage),
     );
 
-    await savePage(page);
+    // Persist independently: storage completion must not gate the initial
+    // scroll restoration or leave the displayed page half-initialized.
+    void savePage(page).catch(console.error);
 }
 
 function buildImportSection(): void {

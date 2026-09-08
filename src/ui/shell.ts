@@ -1,7 +1,7 @@
 import {render as renderSavedSearch} from "./saved-searches";
 import {initProvider, searchUrl} from "../provider";
 import cssContent from '../css/style.css?inline';
-import {deferScrollRestore, loadScrollPosition, loadSearches, saveScrollPosition} from "../storage/preferences";
+import {beginScrollRestore, deferScrollRestore, loadScrollPosition, loadSearches, saveScrollPosition} from "../storage/preferences";
 import { initializeStorage } from '../storage/initialize';
 
 export function startInit(documentTitle: string): void {
@@ -86,9 +86,7 @@ async function initAppState(query?: string): Promise<void> {
         if (event.persisted) syncInputFromUrl(query);
     });
     const saveScroll = () => { void saveScrollPosition(location.pathname + location.search, window.scrollY).catch(console.error); };
-    window.addEventListener('scrollend', () => {
-        setTimeout(saveScroll, 100);
-    });
+    window.addEventListener('scrollend', saveScroll);
     window.addEventListener('pagehide', saveScroll);
     // Persist while visible too; pagehide alone cannot guarantee an async commit before suspension.
     document.addEventListener('visibilitychange', () => { if (document.hidden) saveScroll(); });
@@ -98,6 +96,7 @@ async function initAppState(query?: string): Promise<void> {
 }
 
 export async function initShell(query?: string): Promise<void> {
+    beginScrollRestore();
     buildSearch();
     buildGridPlaceholder();
     try { await initializeStorage(); }

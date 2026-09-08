@@ -31,10 +31,10 @@ export async function open(gid: number, currentIndex: number): Promise<void> {
     });
 
     window.addEventListener('scrollend', () => {
-        setTimeout(() => {
-            const saveImg = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2 + 1) as HTMLImageElement;
-            const index = parseInt(saveImg.id.split("#")[1]);
-            history.replaceState(null, '', readerUrl(gid, index));
-        }, 100);
+        const saveImg = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2 + 1);
+        if (!(saveImg instanceof HTMLImageElement) || saveImg.parentElement !== wrapper) return;
+        const index = Number(saveImg.id.split("#")[1]);
+        if (!Number.isSafeInteger(index) || index < 0 || index >= images.length) return;
+        history.replaceState(null, '', readerUrl(gid, index));
     });
 }
