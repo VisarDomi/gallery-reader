@@ -1,6 +1,10 @@
 # Gallery-reader
 A userscript used for tampermonkey on pc and userscript on ios.
 
+The separate [Safari extension experiment](extension/README.md) builds from the
+same source with preinstalled startup-script blocking. Its on-device validation
+is tracked there; the userscript remains available unchanged.
+
 ## What?
 This script changes the UI of the providers supported by this script so that's it easies to navigate the site. 3 main features: favorites, search, reader.
 

@@ -4,6 +4,7 @@ import pkg from "./package.json";
 import { readFileSync } from 'node:fs';
 
 export default defineConfig(({ mode }) => {
+    const extension = mode === 'extension';
     const env = loadEnv(mode, process.cwd(), '');
     const serverUrl = env.VITE_GALLERY_SERVER_URL ?? 'https://192.168.1.197:7777';
     const serverHost = new URL(serverUrl).hostname;
@@ -11,15 +12,49 @@ export default defineConfig(({ mode }) => {
     const backupKey = env.VITE_READER_BACKUP_KEY || readFileSync(new URL('../gallery-downloader/backups/readers/access-key', import.meta.url), 'utf8').trim();
 
     return {
-        define: { __READER_BACKUP_URL__: JSON.stringify(backupUrl), __READER_BACKUP_KEY__: JSON.stringify(backupKey) },
+        define: {
+            __READER_BACKUP_URL__: JSON.stringify(backupUrl), __READER_BACKUP_KEY__: JSON.stringify(backupKey),
+            ...(extension ? {
+                __READER_SCRIPT_NONCE__: JSON.stringify(process.env.READER_EXTENSION_NONCE),
+                __READER_TAKEOVER_MODE__: JSON.stringify(process.env.READER_TAKEOVER_MODE || 'guarded-replace'),
+                __READER_PERFORMANCE_PROBE__: JSON.stringify(process.env.READER_PERFORMANCE_PROBE === '1'),
+            } : {}),
+        },
         build: {
+            emptyOutDir: extension,
+            ...(extension ? {
+                outDir: 'dist/extension',
+                lib: { entry: 'extension/main.ts', name: 'GalleryReader', formats: ['iife' as const], fileName: () => 'content.js' },
+            } : {}),
             minify: false,
             sourcemap: false,
             target: "esnext",
             modulePreload: false,
             cssCodeSplit: false,
         },
-        plugins: [
+        plugins: extension ? [{
+            name: 'extension-controlled-page-scripts',
+            enforce: 'pre',
+            // Preserve intentional post-takeover scripts, with an explicit CSP
+            // nonce. The bundle and jQuery hooks run in the page's MAIN world.
+            resolveId(source, importer) {
+                if (source === './script' && importer?.endsWith('/provider/hitomi/provider.ts')) return new URL('./extension/hitomi-scripts.ts', import.meta.url).pathname;
+            },
+            transform(source, id) {
+                if (!id.endsWith('/src/ui/shell.ts')) return;
+                const mode = process.env.READER_TAKEOVER_MODE || 'guarded-replace';
+                if (mode === 'guarded-stop') return;
+                if (mode === 'guarded-open') return source.replace('window.stop();', '/* document.open replaces the original parser */');
+                if (mode === 'guarded-replace') return source.replace('document.open();\n    document.close();', 'document.documentElement?.replaceChildren();');
+                if (mode === 'guarded-write') return source.replace('document.open();\n    document.close();', `document.open();
+    document.write('<!doctype html><html><head></head><body></body></html>');
+    document.close();`);
+                if (mode === 'guarded-deferred-close') return source.replace('document.open();\n    document.close();', `document.open();
+    document.write('<!doctype html><html><head></head><body></body></html>');
+    setTimeout(() => document.close(), 0);`);
+                throw new Error('Unknown takeover experiment: ' + mode);
+            },
+        }] : [
             monkey({
                 entry: "src/main.ts",
                 userscript: {

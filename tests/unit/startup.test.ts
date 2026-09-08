@@ -32,3 +32,12 @@ it('takeover does only stop/open/close and UI work, without starting storage', (
     expect(calls).toEqual(['stop', 'open', 'close']);
     vi.restoreAllMocks();
 });
+
+it('supplies a mobile viewport when takeover precedes the original head', () => {
+    document.head.replaceChildren();
+    startInit('Reader');
+    expect(document.querySelector('meta[name="viewport"]')?.getAttribute('content'))
+        .toBe('width=device-width, initial-scale=1');
+    expect(document.title).toBe('Reader');
+    expect(document.body).not.toBeNull();
+});
