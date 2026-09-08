@@ -18,6 +18,7 @@ from pymobiledevice3.services.webinspector import WebinspectorService
 SNAPSHOT = """JSON.stringify({
     href: location.href, ready: document.readyState, visible: document.visibilityState, historyLength:history.length, activation:{active:navigator.userActivation?.isActive,ever:navigator.userActivation?.hasBeenActive},
     boot: window.__galleryExtensionBoot,
+    manga: {boot:window.__mangaExtensionBoot,cards:document.querySelectorAll('.hs-home-card').length,chapters:document.querySelectorAll('.hs-chapter').length,status:document.querySelector('.hs-home-catalog-status')?.textContent,errors:[...document.querySelectorAll('.hs-error')].map(e=>e.textContent),backupPrompt:!!document.querySelector('#reader-backup-setup')},
     streamViewer: {boot:window.__streamViewerExtensionBoot,rows:document.querySelectorAll('.stream-row').length,followed:document.querySelectorAll('.stream-row.following').length,stage:!!document.querySelector('.stream-stage'),loading:!!document.querySelector('.viewer-loading'),error:document.querySelector('.status-error')?.textContent,download:[...document.querySelectorAll('button.download')].map(b=>({text:b.textContent,disabled:b.disabled,error:b.classList.contains('error')})),slots:[...document.querySelectorAll('.stream-slot')].map(s=>{const v=s.querySelector('video');return {role:s.className,ready:v?.readyState,width:v?.videoWidth,height:v?.videoHeight,muted:v?.muted,paused:v?.paused,error:v?.error?.code}})},
     km: {boot:window.__kmExtensionBoot,grid:!!document.querySelector('#ke-grid'),cards:document.querySelectorAll('.ke-card').length,favorites:document.querySelectorAll('.ke-fav-toggle.active').length,loading:document.querySelector('.ke-loading')?.textContent,copy:[...document.querySelectorAll('.ke-video-copy')].map(b=>({text:b.textContent,visible:!b.hidden})),backupPrompt:!!document.querySelector('#reader-backup-setup'),video:[...document.querySelectorAll('video')].map(v=>({ready:v.readyState,width:v.videoWidth,height:v.videoHeight,paused:v.paused,error:v.error?.code}))},
     viewport: {innerWidth,innerHeight,screenWidth:screen.width,dpr:devicePixelRatio,visualWidth:visualViewport?.width,scale:visualViewport?.scale,meta:[...document.querySelectorAll('meta[name="viewport"]')].map(m=>m.content)},
@@ -40,9 +41,9 @@ async def main():
     parser.add_argument('--reload', action='store_true')
     parser.add_argument('--reader', action='store_true')
     parser.add_argument('--stream', action='store_true', help='Open the first Stream Viewer native Home link')
-    parser.add_argument('--site', choices=['gallery', 'km', 'stream'])
+    parser.add_argument('--site', choices=['gallery', 'km', 'stream', 'manga'])
     parser.add_argument('--video', action='store_true', help='Click a visible ready KM card, then pause its video')
-    parser.add_argument('--navigate', choices=['https://hitomi.la/', 'https://ytboob.com/', 'https://ytboob.com/great-try-on-haul/', 'https://ytboob.com/purple-see-through-try-on-haul-4k-017/'])
+    parser.add_argument('--navigate', choices=['https://hitomi.la/', 'https://ytboob.com/', 'https://ytboob.com/great-try-on-haul/', 'https://ytboob.com/purple-see-through-try-on-haul-4k-017/', 'https://ezmanga.org/', 'https://qimanga.com/', 'https://yakshacomics.com/', 'https://asurascans.com/', 'https://scythescans.com/', 'https://luacomic.org/'])
     parser.add_argument('--watch-copy', action='store_true', help='Observe a real Copy tap for 45 seconds; never read the clipboard')
     parser.add_argument('--policy', action='store_true')
     parser.add_argument('--screenshot', help='Save a native Web Inspector viewport PNG to this path')
@@ -63,7 +64,7 @@ async def main():
         for pair in pages:
             if pair.application.bundle != 'com.apple.mobilesafari':
                 continue
-            hosts={'gallery':('hitomi.la','imhentai.xxx'),'km':('ytboob.com',),'stream':('tango.me','www.tango.me')}
+            hosts={'gallery':('hitomi.la','imhentai.xxx'),'km':('ytboob.com',),'stream':('tango.me','www.tango.me'),'manga':('ezmanga.org','qimanga.com','yakshacomics.com','asurascans.com','scythescans.com','luacomic.org')}
             allowed=hosts[args.site] if args.site else sum(hosts.values(),())
             if urlparse(pair.page.web_url).hostname not in allowed:
                 continue
@@ -128,6 +129,8 @@ async def main():
                 await asyncio.wait_for(session.runtime_evaluate("location.href = location.origin + '/'"), 10)
             elif args.reload:
                 await asyncio.wait_for(session.send_command('Page.reload'), 10)
+            elif args.reader and args.site == 'manga':
+                print('CLICK', await asyncio.wait_for(session.runtime_evaluate("""(()=>{const link=document.querySelector('.hs-home-chapter:not(.hs-home-chapter-locked)');if(!link)throw Error('No chapter link');link.click();return 'Manga chapter clicked'})()"""), 10), flush=True)
             else:
                 print('CLICK', await asyncio.wait_for(session.runtime_evaluate("""(()=>{const img=[...document.querySelectorAll('.hs-thumb')].find(i=>i.naturalWidth>0 && i.getBoundingClientRect().top<innerHeight && i.getBoundingClientRect().bottom>0);if(!img)throw Error('No visible decoded thumbnail');const info={src:img.src,time:Date.now()};img.click();return JSON.stringify(info)})()"""), 10), flush=True)
             await asyncio.sleep(8)
