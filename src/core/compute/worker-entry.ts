@@ -3,9 +3,11 @@ import { provider as imhentai } from '../../provider/imhentai/data-provider';
 import { accessState, hasState, migrateState, captureState, restoreState, describeState } from './state';
 import { backupControl, type BackupCommand } from '../backup-engine';
 import { setPageReferrer } from './context';
+import { suggestions } from '../../provider/hitomi/suggestions';
 
 interface Request { id: number; op: string; payload: any }
 async function handle({ op, payload }: Request): Promise<unknown> {
+    if (op === 'hitomi-suggestions') return suggestions(payload);
     if (op === 'provider') {
         setPageReferrer(payload.referrer);
         const provider = payload.provider === 'hitomi' ? hitomi : imhentai;
@@ -93,5 +95,5 @@ self.onmessage = (event: MessageEvent<Request>) => {
         catch (error) { self.postMessage({ id: request.id, ok: false, error: error instanceof Error ? error.message : String(error) }); }
     };
     // Slow provider requests never hold up storage writes or backup acknowledgements.
-    if (['provider', 'backup-control', 'favorites-publish'].includes(request.op)) void task(); else writes = writes.then(task);
+    if (['provider', 'hitomi-suggestions', 'backup-control', 'favorites-publish'].includes(request.op)) void task(); else writes = writes.then(task);
 };

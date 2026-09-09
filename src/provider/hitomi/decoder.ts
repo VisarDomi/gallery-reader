@@ -90,15 +90,37 @@ async function searchGalleries(term: string): Promise<number[]> {
 }
 
 export async function intersectNozomi(positive: string[], negative: string[]): Promise<number[]> {
-    let idSet: Set<number> | null = null;
-    for (const tag of positive) {
-        const ids = await searchGalleries(tag);
-        if (idSet === null) idSet = new Set(ids);
-        else idSet = new Set(ids.filter(id => idSet!.has(id)));
+    const included = [...new Set(positive)];
+    if (!included.length) return [];
+    // Six independent requests at a time, not a serial network round trip per
+    // exclusion. Consume/release each response rather than retaining every set.
+    async function each(terms: string[], consume: (ids: number[], index: number) => void): Promise<void> {
+        let cursor = 0;
+        let failed = false;
+        await Promise.all(Array.from({ length: Math.min(6, terms.length) }, async () => {
+            while (!failed) {
+                const index = cursor++;
+                if (index >= terms.length) return;
+                try { consume(await searchGalleries(terms[index]), index); }
+                catch (error) { failed = true; throw error; }
+            }
+        }));
     }
-    for (const tag of negative) {
-        const ids = new Set(await searchGalleries(tag));
-        if (idSet) idSet = new Set([...idSet].filter(id => !ids.has(id)));
-    }
-    return idSet ? [...idSet] : [];
+    let idSet: Set<number> | undefined;
+    let order: number[] = [];
+    await each(included, (ids, index) => {
+        // Preserve the old result order (the final positive term's ordering),
+        // regardless of which network response happens to arrive first.
+        if (index === included.length - 1) order = ids;
+        if (!idSet) idSet = new Set(ids);
+        else {
+            const allowed = new Set(ids);
+            for (const id of idSet) if (!allowed.has(id)) idSet.delete(id);
+        }
+    });
+    if (!idSet?.size) return [];
+    await each([...new Set(negative)], ids => {
+        for (const id of ids) idSet!.delete(id);
+    });
+    return [...new Set(order)].filter(id => idSet!.has(id));
 }

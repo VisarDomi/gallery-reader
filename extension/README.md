@@ -14,9 +14,9 @@ page-origin IndexedDB as its userscript; do not clear website data or run both.
    that initial site scripts are guaranteed blocked (see validation below).
 2. The bundled content script runs in `MAIN` at `document_start`, matches the
    provider route, replaces the document, then creates the UI and lazy worker.
-3. Hitomi's four intentional post-takeover scripts are preserved, in the same
-   order. Only these inserted elements get the nonce generated for that build.
-   Original page script elements and inline handlers do not have it.
+3. No Hitomi JavaScript is reloaded. Autocomplete binds immediately to our input;
+   its worker fetches Hitomi's source JSON suggestion index as data. The response
+   policy requests `script-src 'none'` and permits the bundled blob worker.
 
 Metadata files ending in `.js` are still fetched and parsed as **data** in our
 worker. Thumbnails, full images, IDB, backup and favorites sync stay unchanged.
@@ -38,8 +38,8 @@ task; it did not resolve the loading-state observation. **iPhone Safari is the
 acceptance target.**
 
 This does not prevent the initial HTML request or promise zero image/CSS bytes.
-Nor is it a security sandbox against the intentionally trusted Hitomi libraries.
-The nonce is per build, not per response; this is a startup takeover experiment.
+This is still a startup takeover experiment, not a claim that Safari enforces
+every response-header rule before any original site code can execute.
 Cloudflare/challenge pages on owned routes may require disabling the extension
 to run their scripts. Unowned routes retain their normal behavior.
 
@@ -51,7 +51,7 @@ npm run build:extension
 
 Private output is `dist/extension/{manifest.json,rules.json,content.js}`. It
 contains the PC backup access key: **do not publish artifacts**. Keep all three
-files together; their build nonce must match.
+files together so the takeover code and response policy stay aligned.
 
 For fresh-machine setup, signing and installation, follow the
 [containing-app guide](https://github.com/VisarDomi/reader-extensions#fresh-machine-setup).
@@ -83,10 +83,54 @@ Do not inject the userscript to make a failed extension test pass. Existing IDB
 and PC backups should remain intact; no automatic data migration is introduced.
 
 For timing evidence, inspect the navigation response CSP, earliest site-script
-requests/execution, and the four explicitly reloaded Hitomi scripts separately.
+requests/execution, and data requests. Version 516 inserts no site script elements.
 Fast UI alone is not proof that original scripts never ran.
 
 ## Validation status
+
+- September 9, version 516: native inspection caught `jQuery.isReady === false`
+  with zero autocomplete event handlers even after the document reported complete.
+  Replaced the four site libraries with direct source-JSON suggestions in the
+  worker. This also removes common.js's unrelated ad/periodic-script startup.
+- Native inspection also caught reader transaction timeouts; independent disposable
+  workers could open the same database but not read it within five seconds.
+  The PC's last successful snapshot still contained 548 favorites and 67 searches.
+  Removed pagehide/background scroll writes; active scrollend still persists.
+  State/identity transactions now explicitly commit once requests are queued, and
+  timed-out/closed connections are discarded without replaying ambiguous writes.
+  This mitigates the suspension race; it cannot prove every Safari hang is fixed.
+  Never delete website data as recovery. A Safari restart clears the captured
+  stalled state so the new build can be tested.
+- Large queries now fetch up to six term lists concurrently, deduplicate requests,
+  and remove excluded IDs in place. Result order follows the final positive term
+  regardless of response order. Query caches remain worker-lifetime only.
+- On-phone worker comparison of the real 56-term saved query: old serial path
+  10,119ms, then new path 135ms; both returned the same 1,915 IDs in the same order.
+  The second run benefited from the first run warming Safari's HTTP cache, so
+  this is **not** a controlled 75× speedup claim. No HTTP cache policy was changed.
+- Installed the signed version 516 bundle and reloaded real Safari: no inserted
+  site scripts/jQuery remained, search UI completed 120ms after takeover, images
+  loaded, and no new database error appeared in that observed reload.
+- After the Mac/Safari restart, the installed extension passed the native
+  `tests/ios/hitomi-flow.py` smoke test: source autocomplete accepted
+  `language:japanese`, the real 56-term saved query displayed 1,915 results,
+  reader images decoded, and home still read 548 favorites/68 searches without
+  a database or backup warning. The PC snapshot matched those counts at
+  07:57 UTC. Home shell-to-ready was 17–34ms; the large query's full search
+  startup took about 3.2s and reader shell-to-ready 142ms (first image at 1.43s
+  from navigation). These are individual observed runs, not benchmark guarantees.
+- Scripted `history.back()` skipped a search entry created by synthetic clicks;
+  it is **not** counted as a bfcache pass. `hitomi-flow.py --manual-navigation`
+  observes real taps/swipes and records `pageshow.persisted` plus DOM identity.
+  The rare physical reader → search → home failure remains unverified; the
+  captured IndexedDB stall is mitigated, not proof that every history bug is gone.
+- 46 unit tests and real worker/home-backup browser tests pass. The full Chromium
+  extension fixture still stalls on lazy reader image fetching, as documented for
+  earlier builds; its new source-JSON autocomplete check passed before that stall.
+  Do not count this fixture as a complete extension pass.
+
+The observations below concern earlier builds; references to intentionally loaded
+scripts and nonces are historical, not the current autocomplete architecture.
 
 - September 8, 2026 suite: renamed the containing product to Reader Extensions
   without changing its bundle identity; added Manga Reader as the fourth iOS

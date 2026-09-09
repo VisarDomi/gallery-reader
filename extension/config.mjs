@@ -5,11 +5,9 @@ export const documentFilters = [
     '^https://imhentai[.]xxx/($|[?]|search/|tag/|language/|artist/|parody/|category/|character/|group/|view/[0-9]+(/|$|[?]))',
 ];
 
-// Original inline handlers and external scripts have no matching nonce. The
-// statically registered MAIN-world bundle deliberately authorizes only its four
-// post-takeover Hitomi libraries. Blob workers keep page-origin IndexedDB/fetch.
-// This is a takeover policy, not a sandbox against those trusted libraries.
-export const pagePolicy = nonce => `script-src 'nonce-${nonce}'; script-src-attr 'none'; worker-src blob:; object-src 'none'; frame-src 'none'`;
+// No site JavaScript is needed after takeover. The static extension supplies UI;
+// blob workers fetch/parse metadata and suggestions strictly as data.
+export const pagePolicy = () => "script-src 'none'; script-src-attr 'none'; worker-src blob:; object-src 'none'; frame-src 'none'";
 
 export function extensionManifest(version) {
     return {
@@ -30,13 +28,13 @@ export function extensionManifest(version) {
     };
 }
 
-export function extensionRules(nonce) {
+export function extensionRules() {
     return documentFilters.map((regexFilter, index) => ({
         id: index + 1,
         priority: 1,
         action: {
             type: 'modifyHeaders',
-            responseHeaders: [{ header: 'content-security-policy', operation: 'append', value: pagePolicy(nonce) }],
+            responseHeaders: [{ header: 'content-security-policy', operation: 'append', value: pagePolicy() }],
         },
         condition: { regexFilter, resourceTypes: ['main_frame'], isUrlFilterCaseSensitive: true },
     }));

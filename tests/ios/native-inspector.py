@@ -38,6 +38,9 @@ SNAPSHOT = """JSON.stringify({
 
 async def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--native', action='store_true', help='Use the paired Mac network tunnel without USB')
+    parser.add_argument('--evaluate-file', help='Evaluate a local diagnostic JavaScript file in the selected tab')
+    parser.add_argument('--observe-seconds', type=float, default=2, help='Bounded observation after the diagnostic')
     parser.add_argument('--reload', action='store_true')
     parser.add_argument('--reader', action='store_true')
     parser.add_argument('--stream', action='store_true', help='Open the first Stream Viewer native Home link')
@@ -52,7 +55,11 @@ async def main():
     parser.add_argument('--km-stats', action='store_true', help='Read only KM store counts in a disposable worker')
     args = parser.parse_args()
     logging.disable(logging.CRITICAL)  # never dump raw protocol request headers
-    lockdown = await create_using_usbmux(serial='00008101-000639912881401E')
+    if args.native:
+        from pymobiledevice3.remote.native_tunnel import establish_native_rsd
+        lockdown = await establish_native_rsd(serial='00008101-000639912881401E')
+    else:
+        lockdown = await create_using_usbmux(serial='00008101-000639912881401E')
     inspector = WebinspectorService(lockdown=lockdown)
     try:
         await asyncio.wait_for(inspector.connect(), 15)
@@ -107,6 +114,8 @@ async def main():
         await asyncio.wait_for(session.send_command('Network.enable'), 10)
         await asyncio.wait_for(session.send_command('Debugger.enable'), 10)
         print('SNAPSHOT', await asyncio.wait_for(session.runtime_evaluate(SNAPSHOT), 10), flush=True)
+        if args.evaluate_file:
+            print('DIAGNOSTIC', await asyncio.wait_for(session.runtime_evaluate(Path(args.evaluate_file).read_text()), 10), flush=True)
         if args.km_stats:
             if urlparse(pair.page.web_url).hostname != 'ytboob.com':
                 raise RuntimeError('KM stats require the KM origin')
@@ -155,7 +164,7 @@ async def main():
                 await asyncio.sleep(45)
             finally:
                 await session.runtime_evaluate('window.__kmStopCopyWatch?.()')
-        await asyncio.sleep(2)
+        await asyncio.sleep(min(45, max(0, args.observe_seconds)))
     finally:
         await inspector.close()
         await lockdown.close()

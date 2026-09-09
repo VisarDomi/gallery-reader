@@ -12,11 +12,14 @@ let dbPromise: Promise<IDBDatabase> | undefined;
 function database(): Promise<IDBDatabase> {
     return dbPromise ??= new Promise((resolve, reject) => {
         const request = indexedDB.open('reader-pc-backup-state-v1', 1);
-        const timer = setTimeout(() => reject(new Error('Backup database open timed out')), 10000);
+        let expired = false;
+        const timer = setTimeout(() => { expired = true; dbPromise = undefined; reject(new Error('Backup database open timed out')); }, 10000);
         request.onupgradeneeded = () => request.result.createObjectStore('identities');
         request.onsuccess = () => {
             clearTimeout(timer);
             const db = request.result;
+            if (expired) { db.close(); return; }
+            db.onclose = () => { dbPromise = undefined; };
             db.onversionchange = () => { db.close(); dbPromise = undefined; };
             resolve(db);
         };
@@ -30,12 +33,18 @@ async function identity(scope: string, value?: Identity | null): Promise<Identit
         const tx = db.transaction('identities', value === undefined ? 'readonly' : 'readwrite', { durability: 'strict' });
         const store = tx.objectStore('identities');
         let result: Identity | null = value ?? null;
-        const timer = setTimeout(() => { tx.abort(); reject(new Error('Backup identity transaction timed out')); }, 10000);
+        const timer = setTimeout(() => {
+            dbPromise = undefined;
+            db.close();
+            try { tx.abort(); } catch { /* The transaction may already be closed. */ }
+            reject(new Error('Backup identity transaction timed out'));
+        }, 10000);
         if (value === undefined) {
             const request = store.get(scope);
             request.onsuccess = () => { result = request.result ?? null; };
         } else if (value === null) store.delete(scope);
         else store.put(value, scope);
+        tx.commit();
         tx.oncomplete = () => { clearTimeout(timer); resolve(result); };
         tx.onabort = tx.onerror = () => { clearTimeout(timer); reject(tx.error ?? new Error('Backup identity transaction failed')); };
     });

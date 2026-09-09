@@ -11,20 +11,17 @@ import { chromium } from '../../../gallery-downloader/node_modules/playwright-co
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'gallery-extension-'));
 execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', `${temporary}/key.pem`, '-out', `${temporary}/cert.pem`, '-days', '1', '-subj', '/CN=gallery-extension-fixture'], { stdio: 'ignore' });
 const requests = [];
-const scripts = {
-    'jquery.min.js': `window.intentionalScripts=['jquery.min.js']; window.jQuery={fn:{on:function(){}}};`,
-    'common.js': `intentionalScripts.push('common.js'); window.clear_page=()=>{window.suggestionsCleared=true};`,
-    'searchlib.js': `intentionalScripts.push('searchlib.js');`,
-    'search.js': `intentionalScripts.push('search.js'); document.querySelector('.hs-search-input').classList.add('active'); document.querySelector('#search-suggestions').innerHTML='<li><a class="search-suggestion_string"><span class="search-result">test tag</span><span class="search-ns">(female)</span></a></li>';`,
-};
 const server = https.createServer({ key: fs.readFileSync(`${temporary}/key.pem`), cert: fs.readFileSync(`${temporary}/cert.pem`) }, (req, res) => {
     const url = new URL(req.url, `https://${req.headers.host}`);
     requests.push({ host: url.hostname, path: url.pathname });
     res.setHeader('Access-Control-Allow-Origin', '*');
     if (url.pathname.startsWith('/api/')) { res.writeHead(503); res.end(); return; }
+    if (url.hostname === 'tagindex.hitomi.la') {
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify([['test tag', 12, 'female']])); return;
+    }
     if (url.hostname === 'ltn.gold-usergeneratedcontent.net') {
         res.setHeader('Content-Type', 'application/javascript');
-        if (scripts[url.pathname.slice(1)]) { res.end(scripts[url.pathname.slice(1)]); return; }
         if (url.pathname.startsWith('/galleries/')) { res.end('var galleryinfo = ' + JSON.stringify({ title: 'Fixture', files: Array.from({length:3}, (_, i) => ({ hash: String(i + 1).padStart(64, '0'), width: 100, height: 300 })) }) + ';'); return; }
         if (url.pathname === '/gg.js') { res.end("var o = 0; var gg = {b:'fixture/'};"); return; }
     }
@@ -37,8 +34,7 @@ const server = https.createServer({ key: fs.readFileSync(`${temporary}/key.pem`)
     }
     if (url.pathname === '/original.js') { res.setHeader('Content-Type', 'application/javascript'); res.end('window.originalExternal=true; fetch("/external-ran");'); return; }
     res.setHeader('Content-Type', 'text/html');
-    // The very first parser token is executable. Include the same Hitomi library
-    // that the reader later explicitly authorizes, to test both phases.
+    // The very first parser token is executable. No site libraries are needed.
     res.end(`<script>window.originalInline=true;fetch('/inline-ran')</script><script src="/original.js"></script><script src="https://ltn.gold-usergeneratedcontent.net/jquery.min.js"></script><title>Original</title><h1 id="original">Original site</h1>`);
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -68,9 +64,8 @@ try {
             const suggestion = await page.locator('.search-suggestion_string').boundingBox();
             await page.mouse.click(suggestion.x + 15, suggestion.y + 10);
             assert.equal(await page.locator('#query-input').inputValue(), 'UI female:test_tag ');
-            assert.equal(await page.evaluate(() => window.suggestionsCleared), true);
-            assert.deepEqual(await page.evaluate(() => window.intentionalScripts), Object.keys(scripts));
-            assert.equal(requests.slice(start).filter(r => r.path === '/jquery.min.js').length, 1, 'Only the intentional post-takeover library request');
+            assert.equal(await page.locator('#search-suggestions').textContent(), '');
+            assert.equal(requests.slice(start).filter(r => ['/jquery.min.js', '/common.js', '/searchlib.js', '/search.js'].includes(r.path)).length, 0, 'Suggestions require no site JavaScript');
         }
         await page.evaluate(() => {
             const spacer = document.createElement('div');

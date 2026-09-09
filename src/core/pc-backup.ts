@@ -98,7 +98,11 @@ export async function backupHome(adapter: BackupAdapter): Promise<boolean> {
         else document.querySelector('#reader-backup-status')?.remove(); // Clear a recovered failure without another toast.
         return true;
     } catch (error) {
-        report('PC backup NOT completed: ' + (error instanceof Error ? error.message : String(error)) + '\nKeep the phone’s data. Revisit home to retry.', true);
+        const reason = error instanceof Error ? error.message : String(error);
+        const localDatabaseFailure = /database|transaction/i.test(reason);
+        report(localDatabaseFailure
+            ? 'Backup paused: Safari could not read or save local reader data.\n' + reason + '\nExisting PC backups were not erased. Keep website data; close and reopen Safari, then revisit home.'
+            : 'PC backup NOT completed: ' + reason + '\nKeep the phone’s data. Revisit home to retry.', true);
         return false;
     }
 }

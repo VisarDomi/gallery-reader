@@ -6,11 +6,14 @@ let opened: Promise<IDBDatabase> | undefined;
 function database(): Promise<IDBDatabase> {
     return opened ??= new Promise((resolve, reject) => {
         const request = indexedDB.open('gallery-reader-data', 1);
-        const timer = setTimeout(() => reject(new Error('Reader database open timed out')), 10000);
+        let expired = false;
+        const timer = setTimeout(() => { expired = true; opened = undefined; reject(new Error('Reader database open timed out')); }, 10000);
         request.onupgradeneeded = () => request.result.createObjectStore('state');
         request.onsuccess = () => {
             clearTimeout(timer);
             const db = request.result;
+            if (expired) { db.close(); return; }
+            db.onclose = () => { opened = undefined; };
             db.onversionchange = () => { db.close(); opened = undefined; };
             resolve(db);
         };
@@ -31,13 +34,21 @@ export async function accessState<T>(fn: (state: ReaderState | undefined) => { r
         const store = tx.objectStore('state');
         let result: T;
         let error: unknown;
-        const timer = setTimeout(() => { tx.abort(); reject(new Error('Reader database transaction timed out')); }, 10000);
+        const timer = setTimeout(() => {
+            opened = undefined;
+            db.close();
+            try { tx.abort(); } catch { /* Safari may already have closed the transaction. */ }
+            reject(new Error('Reader database transaction timed out'));
+        }, 10000);
         const request = store.get('reader');
         request.onsuccess = () => {
             try {
                 const outcome = fn(request.result);
                 result = outcome.result;
                 if (outcome.next) store.put(validateState(outcome.next), 'reader');
+                // All requests are queued. Do not leave auto-commit waiting for
+                // another worker event-loop turn that navigation may suspend.
+                tx.commit();
             } catch (caught) { error = caught; tx.abort(); }
         };
         tx.oncomplete = () => { clearTimeout(timer); resolve(result); };

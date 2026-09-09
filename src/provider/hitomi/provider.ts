@@ -2,24 +2,13 @@ import { Handler, type Provider, type Thumbnail } from '../types';
 import { computeRequest } from '../../core/compute/transport';
 import { scheduleFavoritesSync } from './favorites-sync';
 import { galleryHomeBackup } from '../../storage/backup';
-import { detachJQueryFromSuggestionLinks, loadScript, setupDropdownHandler } from './script';
+import { setupAutocomplete } from './autocomplete';
 
 export const provider: Provider = {
     backupHome: galleryHomeBackup('hitomi', () => scheduleFavoritesSync(0)),
     scheduleFavoritesSync,
     async init(): Promise<void> {
-        const searchWrap = document.querySelector('.hs-search-input');
-        if (searchWrap) {
-            const suggestions = document.createElement('ul');
-            suggestions.id = 'search-suggestions';
-            searchWrap.appendChild(suggestions);
-        }
-        await loadScript('jquery.min.js');
-        detachJQueryFromSuggestionLinks();
-        await loadScript('common.js');
-        await loadScript('searchlib.js');
-        await loadScript('search.js');
-        setupDropdownHandler();
+        setupAutocomplete();
     },
     matchRoute(pathname: string, search: string, hash: string) {
         if (pathname === '/' || pathname.startsWith('/index')) {

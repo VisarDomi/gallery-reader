@@ -110,6 +110,15 @@ it('an online server rejecting access stays visible, then successful retry clear
     expect(await backupHome(adapter)).toBe(true);
     expect(document.querySelector('#reader-backup-status')).toBeNull();
 });
+it('identifies a local database stall without claiming that existing PC backups were lost', async () => {
+    const broken: BackupAdapter = { ...adapter, call: async () => { throw new Error('Reader database transaction timed out'); } };
+    expect(await backupHome(broken)).toBe(false);
+    const message = document.querySelector('#reader-backup-status')!.textContent;
+    expect(message).toContain('Safari could not read or save local reader data');
+    expect(message).toContain('Existing PC backups were not erased');
+    expect(message).not.toContain('HTTP');
+    expect(requests).toHaveLength(0);
+});
 it('unreachable PC leaves a new phone unenrolled with no prompt or notification', async () => {
     failGet = true;
     expect(await backupHome(adapter)).toBe(false);

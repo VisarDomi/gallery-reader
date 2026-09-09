@@ -28,7 +28,6 @@ function buildSearch(): void {
     const header = document.createElement('div');
     header.id = 'hs-wrap';
 
-    // search.js toggles .active on #query-input's parent — this div
     const searchWrap = document.createElement('div');
     searchWrap.className = 'hs-search-input';
 
@@ -54,7 +53,7 @@ function buildSearch(): void {
         window.location.href = searchUrl(query, saved?.page);
     };
     input.addEventListener('keydown', e => {
-        if (e.key === 'Enter' && !e.shiftKey) {
+        if (e.key === 'Enter' && !e.shiftKey && !e.defaultPrevented && !e.isComposing) {
             e.preventDefault();
             submit();
         }
@@ -85,11 +84,12 @@ async function initAppState(query?: string): Promise<void> {
     window.addEventListener('pageshow', event => {
         if (event.persisted) syncInputFromUrl(query);
     });
-    const saveScroll = () => { void saveScrollPosition(location.pathname + location.search, window.scrollY).catch(console.error); };
+    // Never start an IDB transaction as Safari suspends this document. A
+    // suspended writer can block every same-origin page, including fresh loads.
+    const saveScroll = () => {
+        if (!document.hidden) void saveScrollPosition(location.pathname + location.search, window.scrollY).catch(console.error);
+    };
     window.addEventListener('scrollend', saveScroll);
-    window.addEventListener('pagehide', saveScroll);
-    // Persist while visible too; pagehide alone cannot guarantee an async commit before suspension.
-    document.addEventListener('visibilitychange', () => { if (document.hidden) saveScroll(); });
     const urlKey = location.pathname + location.search;
     const savedY = await loadScrollPosition(urlKey);
     if (savedY !== null) deferScrollRestore(savedY);
@@ -99,12 +99,13 @@ export async function initShell(query?: string): Promise<void> {
     beginScrollRestore();
     buildSearch();
     buildGridPlaceholder();
+    syncInputFromUrl(query);
+    void initProvider()?.catch(console.error);
     try { await initializeStorage(); }
     catch (error) {
         document.getElementById('hs-grid')!.textContent = 'Could not load local reader data. Keep website data intact and reload to retry. ' + (error instanceof Error ? error.message : String(error));
         throw error;
     }
     await renderSavedSearch();
-    void initProvider()?.catch(console.error);
     await initAppState(query);
 }

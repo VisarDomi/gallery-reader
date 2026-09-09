@@ -15,7 +15,6 @@ export default defineConfig(({ mode }) => {
         define: {
             __READER_BACKUP_URL__: JSON.stringify(backupUrl), __READER_BACKUP_KEY__: JSON.stringify(backupKey),
             ...(extension ? {
-                __READER_SCRIPT_NONCE__: JSON.stringify(process.env.READER_EXTENSION_NONCE),
                 __READER_TAKEOVER_MODE__: JSON.stringify(process.env.READER_TAKEOVER_MODE || 'guarded-replace'),
                 __READER_PERFORMANCE_PROBE__: JSON.stringify(process.env.READER_PERFORMANCE_PROBE === '1'),
             } : {}),
@@ -33,13 +32,8 @@ export default defineConfig(({ mode }) => {
             cssCodeSplit: false,
         },
         plugins: extension ? [{
-            name: 'extension-controlled-page-scripts',
+            name: 'extension-document-takeover',
             enforce: 'pre',
-            // Preserve intentional post-takeover scripts, with an explicit CSP
-            // nonce. The bundle and jQuery hooks run in the page's MAIN world.
-            resolveId(source, importer) {
-                if (source === './script' && importer?.endsWith('/provider/hitomi/provider.ts')) return new URL('./extension/hitomi-scripts.ts', import.meta.url).pathname;
-            },
             transform(source, id) {
                 if (!id.endsWith('/src/ui/shell.ts')) return;
                 const mode = process.env.READER_TAKEOVER_MODE || 'guarded-replace';
