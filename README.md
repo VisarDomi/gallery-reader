@@ -19,3 +19,6 @@ https://www.icloud.com/shortcuts/a6f8837947004d72a19a979cb559dd64
 ```
 
 Use that in the shortcuts app of ios and make the shortcut activate by going to: Settings - Accessibility - Touch - Back Tap - Double Tap - you select the japanese ocr shortcut here.
+
+## setup
+[notes.md](./notes.md)
