@@ -1,5 +1,6 @@
 import {getReaderData, imageUrls, readerUrl} from '../provider';
 import {registerImage} from '../core/image-retry';
+import {onSettledScroll} from '../core/scroll-settle';
 
 export async function open(gid: number, currentIndex: number): Promise<void> {
     const wrapper = document.createElement('div');
@@ -30,7 +31,8 @@ export async function open(gid: number, currentIndex: number): Promise<void> {
         registerImage(img);
     });
 
-    window.addEventListener('scrollend', () => {
+    onSettledScroll(() => {
+        if (!wrapper.isConnected) return;
         const saveImg = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2 + 1);
         if (!(saveImg instanceof HTMLImageElement) || saveImg.parentElement !== wrapper) return;
         const index = Number(saveImg.id.split("#")[1]);

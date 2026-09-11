@@ -3,6 +3,7 @@ import {initProvider, searchUrl} from "../provider";
 import cssContent from '../css/style.css?inline';
 import {beginScrollRestore, deferScrollRestore, loadScrollPosition, loadSearches, saveScrollPosition} from "../storage/preferences";
 import { initializeStorage } from '../storage/initialize';
+import { onSettledScroll } from '../core/scroll-settle';
 
 export function startInit(documentTitle: string): void {
     window.stop();
@@ -89,7 +90,7 @@ async function initAppState(query?: string): Promise<void> {
     const saveScroll = () => {
         if (!document.hidden) void saveScrollPosition(location.pathname + location.search, window.scrollY).catch(console.error);
     };
-    window.addEventListener('scrollend', saveScroll);
+    onSettledScroll(saveScroll);
     const urlKey = location.pathname + location.search;
     const savedY = await loadScrollPosition(urlKey);
     if (savedY !== null) deferScrollRestore(savedY);
