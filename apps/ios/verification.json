@@ -1,0 +1,45 @@
+{
+  "date": "2026-09-12",
+  "unitTests": 50,
+  "browserProviders": [
+    "hitomi",
+    "imhentai"
+  ],
+  "browserCoverage": [
+    "search",
+    "favorites",
+    "metadata",
+    "reader",
+    "back",
+    "offline cached cold restore"
+  ],
+  "phone": {
+    "hitomi": {
+      "searchRows": 25,
+      "readerPages": 4,
+      "killRestore": {
+        "page": 3,
+        "scrollY": 1300
+      }
+    },
+    "imhentai": {
+      "searchRows": 20,
+      "readerPages": 300,
+      "killRestore": {
+        "page": 5,
+        "scrollY": 1300
+      }
+    }
+  },
+  "renewal": {
+    "interval": "monthly",
+    "initialTransport": "wired",
+    "profileBefore": "2027-09-12T17:56:30Z",
+    "profileAfter": "2027-09-12T18:05:27Z",
+    "schedulerEnabled": true
+  },
+  "pending": [
+    "Physical gesture acceptance by user",
+    "Local Network permission and PC backup access"
+  ]
+}

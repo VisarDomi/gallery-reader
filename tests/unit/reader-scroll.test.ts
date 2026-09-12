@@ -26,11 +26,7 @@ it('bookmarks the settled midpoint without adding history, and ignores non-reade
         const length = history.length;
         hit.mockReturnValue(images[1]);
         dispatchEvent(new Event('scrollend'));
-        vi.advanceTimersByTime(99);
-        expect(replace).not.toHaveBeenCalled();
-        hit.mockReturnValue(images[2]);
-        vi.advanceTimersByTime(1);
-        expect(replace).toHaveBeenLastCalledWith(null, '', '/reader/7#2');
+        expect(replace).toHaveBeenLastCalledWith(null, '', '/reader/7#1');
         expect(history.length).toBe(length);
         const calls = replace.mock.calls.length;
         for (const element of [null, document.body, document.createElement('img')]) {

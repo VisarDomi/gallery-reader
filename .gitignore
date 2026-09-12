@@ -12,3 +12,11 @@ favs.txt
 tmp/
 **/xcuserdata/
 **/*.xcuserstate
+
+# Native provider build outputs contain the private PC backup key.
+apps/ios/build/
+apps/ios/Resources/Web/
+apps/ios/Resources/LocalCA.cer
+.ios-debug/
+
+__pycache__/

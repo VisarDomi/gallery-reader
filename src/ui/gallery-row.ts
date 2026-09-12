@@ -44,6 +44,12 @@ export async function populateRow(
 
     const overlay = document.createElement('div');
     overlay.className = 'row-title-overlay';
+    const actions = createGalleryActions(gid);
+    overlay.appendChild(actions);
+    container.appendChild(overlay);
+}
+
+export function createGalleryActions(gid: number): HTMLDivElement {
     const actions = document.createElement('div');
     actions.className = 'row-actions';
 
@@ -70,8 +76,9 @@ export async function populateRow(
     };
     actions.appendChild(favBtn);
 
-    overlay.appendChild(actions);
-    container.appendChild(overlay);
-    favBtn.textContent = await isFav(gid) ? '\u2764\uFE0F' : '\uD83E\uDD0D';
-    favBtn.disabled = false;
+    void isFav(gid).then(favorite => {
+        favBtn.textContent = favorite ? '\u2764\uFE0F' : '\uD83E\uDD0D';
+        favBtn.disabled = false;
+    }).catch(console.error);
+    return actions;
 }

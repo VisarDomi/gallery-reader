@@ -1,0 +1,12 @@
+{
+  "hitomi": {
+    "name": "Hitomi",
+    "bundleId": "com.visar.HitomiReader.paid",
+    "origin": "https://hitomi.la"
+  },
+  "imhentai": {
+    "name": "Imhen",
+    "bundleId": "com.visar.ImhenReader.paid",
+    "origin": "https://imhentai.xxx"
+  }
+}

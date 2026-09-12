@@ -25,7 +25,7 @@ export function startInit(documentTitle: string): void {
     document.head.appendChild(style);
 }
 
-function buildSearch(): void {
+export function buildSearch(): void {
     const header = document.createElement('div');
     header.id = 'hs-wrap';
 

@@ -14,9 +14,6 @@ it('saves active scrolling, but never starts a final database write during suspe
     const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
     await initShell();
     window.dispatchEvent(new Event('scrollend'));
-    vi.advanceTimersByTime(99);
-    expect(save).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(1);
     expect(save).toHaveBeenCalledTimes(1);
     hidden.mockReturnValue(true);
     document.dispatchEvent(new Event('visibilitychange'));

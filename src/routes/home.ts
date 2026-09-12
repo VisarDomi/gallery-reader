@@ -25,7 +25,7 @@ async function renderPage(requestedPage?: number): Promise<void> {
     void savePage(page).catch(console.error);
 }
 
-function buildImportSection(): void {
+export function buildImportSection(refresh: () => Promise<void> = renderPage): void {
     const wrap = document.createElement('div');
     wrap.style.cssText = 'text-align:center;margin:16px 0';
 
@@ -76,7 +76,7 @@ function buildImportSection(): void {
             if (added > 0) scheduleFavoritesSync();
             status.textContent = total ? `Added ${added} of ${total} IDs` : 'No IDs found';
             status.style.display = 'inline';
-            await renderPage();
+            await refresh();
         } catch (e) {
             status.textContent = 'Error: ' + (e as Error).message;
             status.style.display = 'inline';

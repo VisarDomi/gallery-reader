@@ -10,16 +10,20 @@
     "test:extension": "node tests/browser/extension.mjs",
     "test:browser": "node tests/browser/worker-backup.mjs && node tests/browser/home-backup.mjs",
     "tests": "node tests/ios/ui-flow.mjs",
-    "phone:backup": "node tests/ios/backup-phone.mjs --backup"
+    "phone:backup": "node tests/ios/backup-phone.mjs --backup",
+    "build:ios": "node apps/ios/scripts/build.mjs",
+    "test:ios": "node apps/ios/Tests/ui.mjs"
   },
   "devDependencies": {
     "@types/tampermonkey": "^5.0.4",
     "@vitest/ui": "^4.1.9",
+    "esbuild": "^0.28.2",
     "jsdom": "^29.1.1",
+    "playwright-core": "^1.63.0",
     "typescript": "^5.9.3",
+    "userscript-ios-test": "file:../../userscript-ios-test",
     "vite": "^7.1.9",
     "vite-plugin-monkey": "^7.1.4",
-    "vitest": "^4.1.9",
-    "userscript-ios-test": "file:../../userscript-ios-test"
+    "vitest": "^4.1.9"
   }
 }

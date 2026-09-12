@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => {
         define: {
             __READER_BACKUP_URL__: JSON.stringify(backupUrl), __READER_BACKUP_KEY__: JSON.stringify(backupKey),
             ...(extension ? {
-                __READER_TAKEOVER_MODE__: JSON.stringify(process.env.READER_TAKEOVER_MODE || 'guarded-replace'),
+                __READER_TAKEOVER_MODE__: JSON.stringify(process.env.READER_TAKEOVER_MODE || 'guarded-stop'),
                 __READER_PERFORMANCE_PROBE__: JSON.stringify(process.env.READER_PERFORMANCE_PROBE === '1'),
             } : {}),
         },
@@ -36,7 +36,9 @@ export default defineConfig(({ mode }) => {
             enforce: 'pre',
             transform(source, id) {
                 if (!id.endsWith('/src/ui/shell.ts')) return;
-                const mode = process.env.READER_TAKEOVER_MODE || 'guarded-replace';
+                // SOP is the production default. The Window guard handles
+                // Safari reentry; DOM-only replacement retains site listeners.
+                const mode = process.env.READER_TAKEOVER_MODE || 'guarded-stop';
                 if (mode === 'guarded-stop') return;
                 if (mode === 'guarded-open') return source.replace('window.stop();', '/* document.open replaces the original parser */');
                 if (mode === 'guarded-replace') return source.replace('document.open();\n    document.close();', 'document.documentElement?.replaceChildren();');

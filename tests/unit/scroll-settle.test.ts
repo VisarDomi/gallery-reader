@@ -18,58 +18,49 @@ afterEach(() => {
     vi.restoreAllMocks();
 });
 
-it('waits 100 ms and coalesces consecutive scrollend events', () => {
+it('saves immediately on scrollend without a settling timer', () => {
     const save = vi.fn();
     onSettledScroll(save);
     dispatchEvent(new Event('scrollend'));
-    vi.advanceTimersByTime(99);
-    expect(save).not.toHaveBeenCalled();
-    dispatchEvent(new Event('scrollend'));
-    vi.advanceTimersByTime(99);
-    expect(save).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(1);
+    expect(save).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(1000);
     expect(save).toHaveBeenCalledTimes(1);
 });
 
-it('does not save or append while scrolling resumes, including image-load requests', () => {
+it('ignores image-load requests during scrolling, then saves at scrollend', () => {
     const save = vi.fn();
     const request = onSettledScroll(save);
-    dispatchEvent(new Event('scrollend'));
-    vi.advanceTimersByTime(50);
     dispatchEvent(new Event('scroll'));
     request();
     vi.advanceTimersByTime(200);
     expect(save).not.toHaveBeenCalled();
     dispatchEvent(new Event('scrollend'));
-    vi.advanceTimersByTime(100);
     expect(save).toHaveBeenCalledTimes(1);
 });
 
-it('drops a pending update on pagehide and accepts fresh work after bfcache restoration', () => {
+it('ignores suspended work and accepts fresh work after bfcache restoration', () => {
     const save = vi.fn();
     const request = onSettledScroll(save);
-    dispatchEvent(new Event('scrollend'));
     dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }));
+    request();
+    dispatchEvent(new Event('scrollend'));
+    expect(save).not.toHaveBeenCalled();
     dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
-    vi.advanceTimersByTime(100);
     expect(save).not.toHaveBeenCalled();
     request();
-    vi.advanceTimersByTime(100);
     expect(save).toHaveBeenCalledTimes(1);
 });
 
-it('never writes while hidden or replays the pre-hide timer after becoming visible', () => {
+it('never writes while hidden or replays hidden work on visibility change', () => {
     const save = vi.fn();
     onSettledScroll(save);
-    dispatchEvent(new Event('scrollend'));
     vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
     document.dispatchEvent(new Event('visibilitychange'));
-    vi.advanceTimersByTime(100);
+    dispatchEvent(new Event('scrollend'));
     vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
     document.dispatchEvent(new Event('visibilitychange'));
-    vi.advanceTimersByTime(100);
+    vi.advanceTimersByTime(1000);
     expect(save).not.toHaveBeenCalled();
     dispatchEvent(new Event('scrollend'));
-    vi.advanceTimersByTime(100);
     expect(save).toHaveBeenCalledTimes(1);
 });
