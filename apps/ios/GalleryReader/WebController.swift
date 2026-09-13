@@ -8,6 +8,7 @@ final class WebController: UIViewController, WKNavigationDelegate, WKScriptMessa
     private var webView: WKWebView!
     private var loading: Task<Void, Error>?
     private var activeDocument = ""
+    private var requests: [String: Task<String, Error>] = [:]
     private var restoreOnLaunch = true
     private var resumeReader: String?
 
@@ -62,6 +63,21 @@ final class WebController: UIViewController, WKNavigationDelegate, WKScriptMessa
         let document = args["document"] as? String ?? ""
         let requestPath = (message.frameInfo.request.url?.path ?? "/") + (message.frameInfo.request.url?.query.map { "?" + $0 } ?? "")
         let input = try? JSONSerialization.data(withJSONObject: args)
+        if command == "fetch-cancel" {
+            if let id = args["requestID"] as? String { requests.removeValue(forKey: id)?.cancel() }
+            replyHandler("{}", nil); return
+        }
+        if command == "fetch" {
+            guard let input, let id = args["requestID"] as? String else { replyHandler(nil, "Invalid fetch request"); return }
+            let task = Task { [store] in try await store.fetch(input) }
+            requests[id] = task
+            Task {
+                defer { requests.removeValue(forKey: id) }
+                do { replyHandler(try await task.value, nil) }
+                catch { replyHandler(nil, error.localizedDescription) }
+            }
+            return
+        }
         Task {
             do {
                 try await ensureLoaded()
@@ -95,12 +111,6 @@ final class WebController: UIViewController, WKNavigationDelegate, WKScriptMessa
                     let data = try JSONSerialization.data(withJSONObject: args["position"] as? [String: Any] ?? [:])
                     try await store.saveViewPosition(data)
                     replyHandler("{}", nil)
-                case "manifest-read", "manifest-write":
-                    guard let input else { throw ReaderError.invalidRequest }
-                    replyHandler(try await store.manifest(input, write: command == "manifest-write"), nil)
-                case "fetch":
-                    guard let input else { throw ReaderError.invalidRequest }
-                    replyHandler(try await store.fetch(input), nil)
                 default: replyHandler(nil, "Unknown native request")
                 }
             } catch { replyHandler(nil, error.localizedDescription) }

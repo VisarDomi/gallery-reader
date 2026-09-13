@@ -114,3 +114,106 @@ showed the pending per-app Local Network permission prompt. Provider browsing
 works; PC backup access awaits Allow in Hitomi and Imhen. This is not a PC server
 outage (the Mac reached it). Do not bypass TLS, select a real backup, or create
 a new backup identity automatically just to test access.
+
+## Online image parity correction — build 8
+
+The initial port incorrectly persisted fully resolved provider image URLs inside
+GalleryStore manifests and reused them on future launches. Gallery Downloader's
+offline-manifest assumption does not apply to an online provider. On the physical
+phone, Hitomi gallery 556561 rendered 88 slots with zero decoded images: its saved
+routing prefix `1789239601` returned HTTP 404, while current `gg.js` returned 200
+and supplied prefix `1789282802`. No account/session dependency was involved.
+
+The native adapter now builds document-local manifests from the shared provider,
+as the userscript does on reader load. It no longer reads/writes disk manifests
+or uses the extra indefinite metadata fallback on network failure. URLSession's
+normal HTTP cache remains, as does the on-demand image byte cache. Existing
+favorites and view-position storage are unchanged. Old manifest files are ignored;
+no data reset or favorites reimport is needed.
+
+The app also imports `src/core/image-retry.ts` for loaded image elements instead
+of its copied three-retry limit. Viewport activation/release still bounds image
+work; clearing src releases a slot, and the shared registry drops released images.
+No retry, provider parsing or URL construction logic is copied into Swift.
+
+The browser fixture now decodes actual image responses via an intercepted origin
+that models WKURLSchemeHandler. It simulates a routing-prefix change between
+launches and refuses stale image URLs. The old build fails to decode after that
+change; build 8 passes. A four-failure image test verifies recovery beyond the
+old retry cap. Both providers retain search, favorites, metadata, Back and cold
+reading-position restoration. The old offline-manifest test described above is
+superseded by this online behavior, matching the userscript.
+
+Both paid provider builds were installed with their existing IDs/data. The same
+previously failing 88-page Hitomi gallery decoded all three initially activated
+images after the update. Imhen's 144-page gallery also decoded three activated
+images. Remaining pages stay viewport-driven, as in the existing app shell.
+
+Build 8 renewal completed for both providers, with input fingerprints matching
+the delivered builds. The single monthly scheduler is enabled; updated evidence
+and recovery checksums are in environment/mac-renewal.
+
+
+## Fidelity pass — build 9
+
+Home/search rows now request only the shared provider's thumbnails, matching
+`src/ui/paginated-grid.ts`; full reader image resolution no longer gates Home,
+and thumbnail resolution no longer gates the reader. In-memory preview and
+reader metadata are separate and remain document-local.
+
+The app now imports the source `onSettledScroll` instead of the inherited 150ms
+position timer. Native lifecycle checkpoints and horizontal-strip scrollend
+remain. Pagination again scrolls the grid into view after rendering.
+Both provider browser fixtures pass, including a Home-only request check that
+rejects premature Hitomi gg.js/image routing, and a no-mid-scroll-save check.
+The broader four-codebase audit is in Manga Reader's
+`investigation/port-fidelity-audit.md`. Gallery Downloader is not an audit target.
+
+## Second fidelity pass — build 10
+
+The userscript remains the behavioral specification. This pass fixes additional
+app-only deviations; it does not change Gallery Downloader or provider parsing.
+
+- Reader metadata/dimensions now create page slots and restore the requested page
+  before Hitomi image routing completes, in the same order as source reader.ts.
+  Image URL resolution remains document-local and shared between active slots.
+  Empty readers use the source message. Large readers and thumbnail strips yield
+  every 32 elements, matching the source's UI scheduling.
+- User input is recorded before asynchronous loading completes. A touch, pointer,
+  wheel or key event cancels delayed initial positioning as well as ongoing
+  anchor adjustment; it can no longer be forgotten before restore starts.
+- Removed an undefined `positionTimer` reference left in pagehide cleanup after
+  the first pass removed that timer. Suspension now finishes rejecting pending
+  work, releasing workers and retaining DOM/scroll axes for bfcache. Incomplete
+  off-DOM render batches are not retained as active image slots.
+- Favorites without an explicit page use the source's saved Home page. Catalog
+  rendering no longer waits for storage writes; stale asynchronous results cannot
+  replace a newer page. Pagination updates also consider total/page-size changes.
+- Removed copied pagination/modal/row styling that overrode source CSS. The
+  count is above the grid with the source's `~` prefix; the current page is an
+  inactive span. Only native image-slot/status styles remain in gallery.css.
+- Fetch cancellation now rejects promptly and forwards cancellation to the
+  corresponding URLSession task. Worker shutdown cancels its native requests
+  and releases its Blob URL. This restores the source's abort/timeout semantics
+  for autocomplete and optional PC requests, rather than waiting for network
+  completion before observing an already-aborted signal.
+- Removed unreachable offline download-state and fallback UI branches from the
+  online shell. The requested on-demand native image byte cache and Gallery-style
+  cold restoration/viewport activation remain.
+
+Both expanded provider browser fixtures pass delayed routing, early input,
+explicit pagehide/pageshow, saved Favorites page, original pagination styling,
+Fetch abort propagation, search/favorites/info, retry recovery, current URLs and
+cold-reader restore. All 50 shared unit tests and TypeScript checks pass.
+Physical delivery and renewal evidence: `second-pass-verification.json`.
+
+Build 10 device checks passed with 88 Hitomi slots and 144 Imhen slots, decoded
+images and no page errors. Both apps checkpointed y=1300 and returned to y=1300
+after force termination/relaunch. Native Fetch cancellation reported AbortError
+in both apps. These are actual-device functional checks, not physical scrolling
+smoothness measurements. Existing identities/favorites were retained.
+
+Both build-10 baselines completed monthly renewal; current input hashes match,
+last errors are empty, and the scheduler is enabled/idle with exit 0. Each signed
+app's app.js, style.css and index.html match the tested prepared assets. Recovery
+contains `gallery-second-pass-verification.json` with the updated evidence.

@@ -25,42 +25,16 @@ actor GalleryStore {
         if !key.hasPrefix("reader:") { state.libraryPath = position.path }
         try JSONEncoder().encode(state).write(to:root.appendingPathComponent("view.json"),options:.atomic)
     }
-    func manifest(_ input: Data, write: Bool) throws -> String {
-        let args = try JSONSerialization.jsonObject(with:input) as? [String:Any] ?? [:]
-        guard let key = args["key"] as? String,
-              key.range(of:"^(hitomi|imhentai)-[1-9][0-9]*$",options:.regularExpression) != nil else { throw ReaderError.invalidRequest }
-        let directory = root.appendingPathComponent("manifests")
-        try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true)
-        let file = directory.appendingPathComponent(key + ".json")
-        if write {
-            guard let manifest = args["manifest"] as? [String:Any] else { throw ReaderError.invalidRequest }
-            try JSONSerialization.data(withJSONObject:["manifest":manifest]).write(to:file,options:.atomic)
-            return "{}"
-        }
-        return (try? String(contentsOf:file,encoding:.utf8)) ?? "{}"
-    }
     private func cacheURL(_ raw: String) throws -> URL {
         let directory = root.appendingPathComponent("cache")
         try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true)
         return directory.appendingPathComponent(SHA256.hash(data:Data(raw.utf8)).map { String(format:"%02x",$0) }.joined())
     }
     func fetch(_ input: Data) async throws -> String {
-        let args = try JSONSerialization.jsonObject(with:input) as? [String:Any] ?? [:]
-        let raw = args["url"] as? String ?? ""
-        // Reader backup/favorites requests always reach the PC and never get a cached response.
-        let cacheable = (args["method"] as? String ?? "GET") == "GET" && URL(string:raw)?.host != "192.168.1.197"
-        let file = try cacheURL("metadata:" + raw)
-        do {
-            let (data,response) = try await api.request(input)
-            let headers = response.allHeaderFields.reduce(into:[String:String]()) { if let key = $1.key as? String { $0[key] = String(describing:$1.value) } }
-            let result = HTTPResult(status:response.statusCode,headers:headers,body:data.base64EncodedString())
-            let encoded = try JSONEncoder().encode(result)
-            if cacheable && response.statusCode == 200 { try encoded.write(to:file,options:.atomic) }
-            return String(decoding:encoded,as:UTF8.self)
-        } catch {
-            if cacheable, let data = try? Data(contentsOf:file) { return String(decoding:data,as:UTF8.self) }
-            throw error
-        }
+        let (data,response) = try await api.request(input)
+        let headers = response.allHeaderFields.reduce(into:[String:String]()) { if let key = $1.key as? String { $0[key] = String(describing:$1.value) } }
+        let result = HTTPResult(status:response.statusCode,headers:headers,body:data.base64EncodedString())
+        return String(decoding:try JSONEncoder().encode(result),as:UTF8.self)
     }
     func localResource(_ url: URL) async throws -> (data: Data, mime: String) {
         guard url.host == "app" else { throw ReaderError.invalidRequest }

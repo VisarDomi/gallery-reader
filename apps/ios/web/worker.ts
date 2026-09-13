@@ -6,7 +6,7 @@ installFetch(request => new Promise((resolve, reject) => {
     const networkId = ++next;
     pending.set(networkId, {resolve, reject});
     postMessage({ networkId, request });
-}));
+}), requestID => postMessage({cancelRequest:requestID}));
 addEventListener('message', event => {
     if (!event.data.networkId) return;
     const item = pending.get(event.data.networkId);

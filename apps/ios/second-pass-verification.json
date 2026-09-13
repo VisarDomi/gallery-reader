@@ -1,0 +1,216 @@
+{
+  "date": "2026-09-13",
+  "build": 10,
+  "scope": [
+    "hitomi",
+    "imhentai"
+  ],
+  "reference": "src/routes, src/ui, src/provider, src/storage and src/core",
+  "tests": {
+    "sharedUnit": 50,
+    "providerBrowser": 2,
+    "typescript": "passed",
+    "cases": [
+      "slow image routing leaves sized reader slots available",
+      "early input cancels delayed positioning",
+      "pagehide cleanup and worker recreation",
+      "saved Favorites page",
+      "source pagination styling and placement",
+      "Fetch abort before native completion, with cancellation forwarded",
+      "search, favorites, metadata, image retries and cold restore"
+    ],
+    "signedWebAssets": "all three files in each signed app match tested prepared assets"
+  },
+  "phone": [
+    {
+      "bundle": "com.visar.HitomiReader.paid",
+      "snapshot": {
+        "ready": "complete",
+        "origin": "gallery:",
+        "route": "reader",
+        "cards": 0,
+        "pages": 88,
+        "decodedImages": 3,
+        "brokenImages": 0,
+        "readAndPartial": 0,
+        "scrollY": 0,
+        "checkpoint": false,
+        "abortResult": null,
+        "scriptCount": 2,
+        "errors": 0
+      },
+      "check": "snapshot"
+    },
+    {
+      "bundle": "com.visar.HitomiReader.paid",
+      "snapshot": {
+        "ready": "complete",
+        "origin": "gallery:",
+        "route": "reader",
+        "cards": 0,
+        "pages": 88,
+        "decodedImages": 3,
+        "brokenImages": 0,
+        "readAndPartial": 0,
+        "scrollY": 0,
+        "checkpoint": false,
+        "abortResult": "AbortError",
+        "scriptCount": 2,
+        "errors": 0
+      },
+      "check": "abort"
+    },
+    {
+      "bundle": "com.visar.HitomiReader.paid",
+      "snapshot": {
+        "ready": "complete",
+        "origin": "gallery:",
+        "route": "reader",
+        "cards": 0,
+        "pages": 88,
+        "decodedImages": 3,
+        "brokenImages": 0,
+        "readAndPartial": 0,
+        "scrollY": 1300,
+        "checkpoint": true,
+        "abortResult": "AbortError",
+        "scriptCount": 2,
+        "errors": 0
+      },
+      "check": "position"
+    },
+    {
+      "bundle": "com.visar.HitomiReader.paid",
+      "snapshot": {
+        "ready": "complete",
+        "origin": "gallery:",
+        "route": "reader",
+        "cards": 0,
+        "pages": 88,
+        "decodedImages": 5,
+        "brokenImages": 0,
+        "readAndPartial": 0,
+        "scrollY": 1300,
+        "checkpoint": false,
+        "abortResult": null,
+        "scriptCount": 2,
+        "errors": 0
+      },
+      "check": "cold-reopen"
+    },
+    {
+      "bundle": "com.visar.ImhenReader.paid",
+      "snapshot": {
+        "ready": "complete",
+        "origin": "gallery:",
+        "route": "reader",
+        "cards": 0,
+        "pages": 144,
+        "decodedImages": 3,
+        "brokenImages": 0,
+        "readAndPartial": 0,
+        "scrollY": 0,
+        "checkpoint": false,
+        "abortResult": null,
+        "scriptCount": 2,
+        "errors": 0
+      },
+      "check": "snapshot"
+    },
+    {
+      "bundle": "com.visar.ImhenReader.paid",
+      "snapshot": {
+        "ready": "complete",
+        "origin": "gallery:",
+        "route": "reader",
+        "cards": 0,
+        "pages": 144,
+        "decodedImages": 3,
+        "brokenImages": 0,
+        "readAndPartial": 0,
+        "scrollY": 0,
+        "checkpoint": false,
+        "abortResult": "AbortError",
+        "scriptCount": 2,
+        "errors": 0
+      },
+      "check": "abort"
+    },
+    {
+      "bundle": "com.visar.ImhenReader.paid",
+      "snapshot": {
+        "ready": "complete",
+        "origin": "gallery:",
+        "route": "reader",
+        "cards": 0,
+        "pages": 144,
+        "decodedImages": 5,
+        "brokenImages": 0,
+        "readAndPartial": 0,
+        "scrollY": 1300,
+        "checkpoint": true,
+        "abortResult": "AbortError",
+        "scriptCount": 2,
+        "errors": 0
+      },
+      "check": "position"
+    },
+    {
+      "bundle": "com.visar.ImhenReader.paid",
+      "snapshot": {
+        "ready": "complete",
+        "origin": "gallery:",
+        "route": "reader",
+        "cards": 0,
+        "pages": 144,
+        "decodedImages": 5,
+        "brokenImages": 0,
+        "readAndPartial": 0,
+        "scrollY": 1300,
+        "checkpoint": false,
+        "abortResult": null,
+        "scriptCount": 2,
+        "errors": 0
+      },
+      "check": "cold-reopen"
+    }
+  ],
+  "limits": [
+    "No physical gesture smoothness measurement",
+    "Native viewport image release, on-demand byte cache and cold restoration are retained app mechanics",
+    "Provider parsing and userscript behavior were not changed"
+  ],
+  "renewal": {
+    "scheduler": "com.visar.installed-apps-refresh",
+    "active": true,
+    "lastExitStatus": 0,
+    "apps": {
+      "hitomi": {
+        "bundleId": "com.visar.HitomiReader.paid",
+        "displayName": "Hitomi",
+        "version": "10",
+        "webSHA256": "20d50fdb32b40c0cfed4a05be6f38c4a50eff3d48c62f9033485f87adb94461c",
+        "lastSuccess": 1789289171.953871,
+        "nextDue": 1791881171.953871,
+        "lastError": null,
+        "inputHash": "afea8b9b894e2d79c7a1717fb62437092865820de33b35594d22233cc66eb071",
+        "currentInputsMatch": true,
+        "profileExpires": "2027-09-13T08:46:02Z",
+        "iconDeclared": false
+      },
+      "imhentai": {
+        "bundleId": "com.visar.ImhenReader.paid",
+        "displayName": "Imhen",
+        "version": "10",
+        "webSHA256": "4446d798641eb2e5caa7e294bd7777868ff1c47c64239f2446f5f736609ab6b9",
+        "lastSuccess": 1789289186.9867258,
+        "nextDue": 1791881186.986726,
+        "lastError": null,
+        "inputHash": "96d7b1120af0fd4ba23c37b65283b1bd90ef5c7ce997d873c0790fa7516e2399",
+        "currentInputsMatch": true,
+        "profileExpires": "2027-09-13T08:46:02Z",
+        "iconDeclared": false
+      }
+    }
+  }
+}

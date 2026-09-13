@@ -1,15 +1,16 @@
 // Reader/image lifecycle ported from gallery-downloader ff4dcbf; see PORT.md.
 import * as online from './online';
+import { registerImage } from '../../../src/core/image-retry';
+import { onSettledScroll } from '../../../src/core/scroll-settle';
 online.setup();
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const readerKey = /^(hitomi|imhentai)-[1-9]\d*$/.test(params.get('read') || '') ? params.get('read') : null;
 
 const readUrl = (key, index) => `/?read=${key}&page=${index + 1}`;
-let worker, rpcId = 0, catalog = [], downloads = new Map(), active = false, supported = false, suspended = false;
+let worker, rpcId = 0, catalog = [], suspended = false;
 let gridVersion = '', renderedReader = false, openingReader = false, observer, rowObserver;
 const pending = new Map(), rows = new Map(), slots = new Set();
-const size = bytes => `${(bytes / 1024 ** 3).toFixed(2)} GB`;
 const say = text => { $('status').textContent = text; };
 const mark = (label, ms = Math.round(performance.now())) => window.bootMarks.push({ label, ms });
 mark('App module');
@@ -17,7 +18,7 @@ mark('App module');
 // Persistent positions are logical anchors; WebKit still owns live history,
 // gestures, zoom, and bfcache restoration.
 let savedPosition = null, positionReady = false, skipPositionSave = false;
-let positionTimer, heldAnchor, anchorFrame;
+let heldAnchor, anchorFrame, restoreCancelled = false;
 const focalY = () => (window.visualViewport?.offsetTop || 0) + (window.visualViewport?.height || innerHeight) / 2;
 function capturePosition() {
     const center = focalY();
@@ -40,14 +41,11 @@ function capturePosition() {
         y: Math.max(0, scrollY), strips: readerKey ? {} : strips };
 }
 function savePosition() {
-    clearTimeout(positionTimer); positionTimer = undefined;
     if (!positionReady || suspended || skipPositionSave) return Promise.resolve();
     const position = capturePosition();
     return window.nativeGallery?.savePosition(position) || Promise.resolve();
 }
-function schedulePositionSave() {
-    if (!positionTimer) positionTimer = setTimeout(savePosition, 150);
-}
+const schedulePositionSave = onSettledScroll(() => { void savePosition(); });
 function alignAnchor() {
     if (!heldAnchor?.node.isConnected) return;
     const rect = heldAnchor.node.getBoundingClientRect();
@@ -56,7 +54,7 @@ function alignAnchor() {
 }
 function restorePosition() {
     if (positionReady) return;
-    if (savedPosition) {
+    if (savedPosition && !restoreCancelled) {
         const node = readerKey ? $(`page-${(savedPosition.page ?? 0) + 1}`) : rows.get(savedPosition.anchor);
         if (node) { heldAnchor = { node, fraction: savedPosition.fraction }; alignAnchor(); }
         else scrollTo(0, savedPosition.y);
@@ -78,10 +76,10 @@ const positionResize = new ResizeObserver(() => {
 });
 positionResize.observe($('reader-pages'));
 for (const type of ['touchstart', 'pointerdown', 'wheel', 'keydown']) {
-    addEventListener(type, () => { heldAnchor = null; }, { passive: true });
+    addEventListener(type, () => { restoreCancelled = true; heldAnchor = null; cancelAnimationFrame(anchorFrame); }, { passive: true, capture: true });
 }
-addEventListener('scroll', schedulePositionSave, { passive: true, capture: true });
-addEventListener('scrollend', () => { void savePosition(); }, { passive: true, capture: true });
+// Horizontal strips do not bubble scrollend to window. Save their native checkpoint at their own end.
+addEventListener('scrollend', event => { if (event.target instanceof Element) void savePosition(); }, { passive: true, capture: true });
 addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') void savePosition(); });
 addEventListener('click', event => { if (event.target.closest?.('a[href]')) void savePosition(); }, { capture: true });
 
@@ -93,7 +91,7 @@ function call(command, args) {
     });
 }
 function totals() {
-    $('count').textContent = `${online.pageState.total}${online.query === null ? ' Favorites' : ' Results'}`;
+    $('count').textContent = `~${online.pageState.total}${online.query === null ? ' Favorites' : ' Results'}`;
 }
 function release(slot) {
     slot.token = (slot.token || 0) + 1; slot.loading = false;
@@ -136,22 +134,12 @@ async function loadImage(slot) {
     slot.loading = true;
     const img = slot.querySelector('img');
     try {
-        let blob, localUrl;
-        if (readerKey) ({ blob, url: localUrl } = await call('page', { key: readerKey, index: slot.index }));
-        else {
-            try { ({ blob, url: localUrl } = await call('thumbnail', { key: slot.key, index: slot.index })); }
-            catch {
-                if (window.nativeGallery) throw new Error('Thumbnail not saved');
-                if (!slot.source || navigator.onLine === false) throw new Error('Thumbnail not saved');
-                const response = await fetch(slot.source, { cache: 'no-store', signal: AbortSignal.timeout(15000) });
-                if (!response.ok || !response.headers.get('content-type')?.startsWith('image/')) throw new Error('Thumbnail unavailable');
-                blob = await response.blob();
-            }
-        }
+        const {url} = await call(readerKey ? 'page' : 'thumbnail', {
+            key: readerKey || slot.key, index: slot.index
+        });
         if (token !== slot.token || suspended || !slot.isConnected) return;
-        slot.url = localUrl || URL.createObjectURL(blob);
+        slot.url = url;
         img.onload = () => {
-            slot.retries = 0;
             if (!window.bootMarks.some(mark => mark.label === 'First image loaded')) {
                 mark('First image loaded');
                 window.nativeGallery?.reportStartup(window.bootMarks);
@@ -163,16 +151,10 @@ async function loadImage(slot) {
         };
         img.onerror = () => {
             if (token !== slot.token) return;
-            if (readerKey) pageError(slot, 'Saved image could not be decoded.');
-            if (window.nativeGallery) {
-                slot.url = undefined;
-                slot.retries = (slot.retries || 0) + 1;
-                if (slot.retries <= 3) setTimeout(() => {
-                    if (!suspended && slot.visible && slot.isConnected && token === slot.token) enqueue(() => loadImage(slot));
-                }, 1000 * 2 ** (slot.retries - 1));
-            }
+            if (readerKey) pageError(slot, 'Image could not be loaded.');
         };
         img.src = slot.url;
+        registerImage(img);
     } catch (error) {
         if (token === slot.token && !suspended) {
             if (readerKey) pageError(slot, error.message);
@@ -203,28 +185,31 @@ async function populateRow(row, item) {
     try {
         const data = await call('describe', { key: item.key });
         if (!row.isConnected || suspended) return;
-        row.details = data;
         const strip = document.createElement('div'); strip.className = 'hs-row';
-        data.manifest.pages.forEach((_page, index) => {
+        for (let index = 0; index < data.manifest.pages.length; index++) {
             const link = document.createElement('a'), img = new Image();
             link.className = 'thumb-link'; link.href = readUrl(item.key, index);
             link.setAttribute('aria-label', `${item.title} · page ${index + 1}`);
             img.className = 'hs-thumb'; img.alt = ''; img.decoding = 'async';
             link.key = item.key; link.index = index;
             link.source = data.manifest.thumbnails?.pages[index]?.url;
-            link.append(img); strip.append(link); slots.add(link);
-        });
-        row.querySelector('.row-message')?.remove(); row.prepend(strip);
+            link.append(img); strip.append(link);
+            if (index % 32 === 31) {
+                await new Promise(resolve => setTimeout(resolve, 0));
+                if (!row.isConnected || suspended) return;
+            }
+        }
+        row.details = data; row.querySelector('.row-message')?.remove(); row.prepend(strip);
         if (savedPosition?.strips?.[item.key]) strip.scrollLeft = savedPosition.strips[item.key];
-        for (const slot of strip.children) observer.observe(slot);
+        for (const slot of strip.children) { slots.add(slot); observer.observe(slot); }
     } catch (error) {
-        if (!suspended && row.isConnected) row.querySelector('.row-message').textContent = `${item.title} · ${error.message}`;
+        if (!suspended && row.isConnected) row.querySelector('.row-message').textContent = `Gallery ${item.id}: ${error.message}`;
     } finally { row.populating = false; }
 }
 function renderCatalog() {
     totals();
     if (readerKey) return;
-    const signature = JSON.stringify([online.pageState.current, catalog.map(i => [i.key, i.title, i.ready])]);
+    const signature = JSON.stringify([online.pageState.current, online.pageState.total, online.pageState.size, catalog.map(i => [i.key, i.title, i.ready])]);
     if (signature === gridVersion) return; // Keep DOM/strip scroll when returning through bfcache.
     gridVersion = signature; say(''); observer?.disconnect();
     for (const slot of slots) release(slot);
@@ -244,7 +229,8 @@ function renderCatalog() {
     const pagination = document.createDocumentFragment(), favs = document.createElement('a');
     favs.href = '/'; favs.className = 'hs-page-favs'; favs.textContent = 'Favs'; pagination.append(favs);
     for (let page = 1; page <= totalPages; page++) {
-        const link = document.createElement('a'); link.href = online.pageURL(page); link.onclick = event => { event.preventDefault(); void online.paginate(page).catch(error => say(error.message)); }; link.textContent = page;
+        const link = document.createElement('span'); link.textContent = page;
+        if (page !== current) link.onclick = () => { void online.paginate(page).then(() => $('hs-grid').scrollIntoView()).catch(error => say(error.message)); };
         link.className = page === current ? 'hs-page-active' : 'hs-page-link';
         if (page === current) link.setAttribute('aria-current', 'page'); pagination.append(link);
     }
@@ -259,23 +245,31 @@ async function openReader() {
     $('library').hidden = $('library-footer').hidden = true; $('reader').hidden = false;
     if (!renderedReader) $('reader-message').textContent = 'Loading…';
     try {
-        const { manifest, state } = await call('open', { key: readerKey }); document.title = manifest.title;
-        $('reader-message').textContent = state.complete ? '' : `${state.downloaded}/${state.total} pages saved`;
+        const { manifest } = await call('open', { key: readerKey });
+        if (suspended) return;
+        document.title = manifest.title;
+        $('reader-message').textContent = manifest.pages.length ? '' : 'This gallery has no readable images.';
         if (!renderedReader) {
             const fragment = document.createDocumentFragment();
-            const available = window.nativeGallery ? manifest.pages.length : state.downloaded;
-            manifest.pages.slice(0, available).forEach((page, index) => {
+            const available = manifest.pages.length;
+            for (let index = 0; index < available; index++) {
+                const page = manifest.pages[index];
                 const slot = document.createElement('div'), img = new Image();
                 slot.className = 'page'; slot.index = index; slot.id = `page-${index + 1}`;
                 slot.style.aspectRatio = page.width > 0 && page.height > 0 ? `${page.width}/${page.height}` : '2/3';
                 img.className = 'hs-reader-img'; img.alt = ''; img.decoding = 'async';
-                slot.append(img); slots.add(slot); fragment.append(slot);
-            });
-            $('reader-pages').replaceChildren(fragment); renderedReader = true;
+                slot.append(img); fragment.append(slot);
+                if (index % 32 === 31) {
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                    if (suspended) return;
+                }
+            }
+            $('reader-pages').replaceChildren(fragment);
+            for (const slot of $('reader-pages').children) slots.add(slot);
+            renderedReader = true;
             const selected = Math.max(0, Math.min(available - 1, Math.floor(Number(params.get('page')) || 1) - 1));
-            if (!window.nativeGallery && Number(params.get('page')) > state.downloaded) $('reader-message').textContent = `Page ${params.get('page')} is not saved. Only the first ${state.downloaded} pages are available.`;
             const target = $(`page-${selected + 1}`);
-            if (target && !savedPosition) window.scrollTo(0, Math.max(0, target.offsetTop - window.innerHeight / 2));
+            if (target && !savedPosition && !restoreCancelled) window.scrollTo(0, Math.max(0, target.offsetTop - window.innerHeight / 2));
             restorePosition();
         }
         observeImages();
@@ -284,10 +278,10 @@ async function openReader() {
 }
 async function start(restoring = false) {
     suspended = false; mark(restoring ? 'bfcache resumed' : 'UI yielded a paint');
-    worker = window.nativeGallery ? window.nativeGallery.createWorker() : new Worker('/worker.js', { type: 'module' });
+    worker = window.nativeGallery.createWorker();
     worker.onerror = error => {
         for (const request of pending.values()) request.reject(new Error(error.message)); pending.clear();
-        active = false; supported = false; totals(); say(`Storage error: ${error.message}`);
+        totals(); say(`Storage error: ${error.message}`);
     };
     worker.onmessage = ({ data }) => {
         if ('id' in data) {
@@ -298,26 +292,12 @@ async function start(restoring = false) {
         if (data.type === 'notice') say(data.message);
         if (data.type === 'catalog') {
             catalog = data.catalog.items;
-            if (data.downloads) downloads = new Map(data.downloads.map(s => [s.key, s])); renderCatalog();
+            renderCatalog();
         }
-        if (data.type === 'native-progress') {
-            for (const state of data.states) downloads.set(state.key, state);
-            if (readerKey && renderedReader && (downloads.get(readerKey)?.downloaded || 0) > slots.size) void openReader();
-        }
-        if (data.type === 'progress') {
-            downloads.set(data.state.key, data.state); totals();
-            if (active) say(`${data.state.key.replace(':thumbs', ' thumbnails')} · ${data.state.downloaded}/${data.state.total}`);
-        }
-        if (data.type === 'previews-ready') {
-            for (const slot of slots) if (slot.key === data.key && slot.visible) {
-                if (window.nativeGallery) { if (!slot.url && !slot.loading) enqueue(() => loadImage(slot)); }
-                else { release(slot); enqueue(() => loadImage(slot)); }
-            }
-        }
-        if (data.type === 'download-status') { active = data.running; totals(); say(data.message); }
+
     };
     try {
-        supported = (await call('init')).supported; totals();
+        await call('init'); totals();
         if (readerKey) await openReader();
         else if (restoring) {
             observeImages();
@@ -329,8 +309,8 @@ async function start(restoring = false) {
 }
 window.addEventListener('pagehide', () => {
     void savePosition();
-    suspended = true; worker?.terminate(); worker = undefined; active = false;
-    observer?.disconnect(); rowObserver?.disconnect(); clearTimeout(positionTimer); positionTimer = undefined; work.length = 0; backgroundWork.length = 0;
+    suspended = true; worker?.terminate(); worker = undefined;
+    observer?.disconnect(); rowObserver?.disconnect(); work.length = 0; backgroundWork.length = 0;
     // Keep DOM, dimensions, blob URLs and both scroll axes for bfcache. Release
     // IDB/write handles by terminating the worker, without blocking navigation.
     for (const slot of slots) { slot.token = (slot.token || 0) + 1; slot.loading = false; }

@@ -1,0 +1,73 @@
+{
+  "date": "2026-09-13",
+  "build": 9,
+  "providers": {
+    "hitomi": {
+      "bundleId": "com.visar.HitomiReader.paid",
+      "displayName": "Hitomi",
+      "version": "9",
+      "webSHA256": "b98ac9578b976f5ad6557b96afb12347b14b3c54b530dcb0779f7879b77647f1",
+      "lastSuccess": 1789286518.361703,
+      "nextDue": 1791878518.361703,
+      "lastError": null,
+      "inputHash": "ed82b9ce2109fcdf4004c06897a86ce15a3d5b32dda7f9f8411d4a5b57bca61c",
+      "currentInputsMatch": true,
+      "profileExpires": "2027-09-13T08:00:52Z",
+      "iconDeclared": false
+    },
+    "imhentai": {
+      "bundleId": "com.visar.ImhenReader.paid",
+      "displayName": "Imhen",
+      "version": "9",
+      "webSHA256": "1294f454151edab5d7e7f15bbe525eb52f147b749dc11b74f0853b176a25a254",
+      "lastSuccess": 1789286533.112088,
+      "nextDue": 1791878533.112088,
+      "lastError": null,
+      "inputHash": "9acb8422029b54abfe0f8ab7c4b0b2325f5086fb45d0ed8f52c9ea1125966c9e",
+      "currentInputsMatch": true,
+      "profileExpires": "2027-09-13T08:00:52Z",
+      "iconDeclared": false
+    }
+  },
+  "phone": [
+    {
+      "bundle": "com.visar.HitomiReader.paid",
+      "snapshot": {
+        "ready": "complete",
+        "origin": "gallery:",
+        "route": "reader",
+        "cards": 0,
+        "pages": 88,
+        "decodedImages": 3,
+        "brokenImages": 0,
+        "readAndPartial": 0,
+        "sharedHistory": false,
+        "scriptCount": 2,
+        "errors": 0
+      }
+    },
+    {
+      "bundle": "com.visar.ImhenReader.paid",
+      "snapshot": {
+        "ready": "complete",
+        "origin": "gallery:",
+        "route": "home",
+        "cards": 15,
+        "pages": 0,
+        "decodedImages": 20,
+        "brokenImages": 0,
+        "readAndPartial": 0,
+        "sharedHistory": false,
+        "scriptCount": 2,
+        "errors": 0
+      }
+    }
+  ],
+  "tests": [
+    "Both provider browser fixtures passed",
+    "Home thumbnails do not request reader routing",
+    "No periodic checkpoint while scrolling; scrollend saves",
+    "TypeScript check passed"
+  ],
+  "fullAudit": "/home/visar/Documents/work/manga/manga-reader/investigation/port-fidelity-audit.md"
+}

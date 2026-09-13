@@ -1,5 +1,14 @@
 # more info
 
+For the Hitomi/Imhen native apps, read `apps/ios/PORT.md`. Keep provider and feature
+logic shared with the userscript; build exactly one provider from `apps/ios/providers.json`.
+
+For shared app changes, build and verify every registered provider, then deploy
+both Hitomi and Imhen. Keep online behavior faithful to the userscript: resolve
+image URLs through the shared provider on each new reader document, and reuse
+`src/core/image-retry.ts`. Do not persist resolved URLs as offline manifests or
+carry gallery-downloader's offline-only assumptions into these online apps.
+
 ## basic
 A userscript used for tampermonkey on pc and userscript on ios.
 

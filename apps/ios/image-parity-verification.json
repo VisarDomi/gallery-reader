@@ -1,0 +1,41 @@
+{
+  "build": 8,
+  "providers": [
+    "hitomi",
+    "imhentai"
+  ],
+  "cause": "Persistent resolved image URLs bypassed the userscript provider on later reader loads",
+  "physicalBefore": {
+    "provider": "hitomi",
+    "gallery": 556561,
+    "pages": 88,
+    "decoded": 0,
+    "savedRoutingPrefix": "1789239601",
+    "currentRoutingPrefix": "1789282802",
+    "oldImageHTTP": 404,
+    "routingHTTP": 200
+  },
+  "physicalAfter": {
+    "hitomi": {
+      "gallery": 556561,
+      "pages": 88,
+      "decodedActiveImages": 3
+    },
+    "imhentai": {
+      "gallery": 1362775,
+      "pages": 144,
+      "decodedActiveImages": 3
+    }
+  },
+  "browserTests": [
+    "both providers search/favorites/metadata/Back/cold restore",
+    "real image decode",
+    "routing prefix change across cold launch",
+    "recover after four image failures",
+    "no persistent manifest writes"
+  ],
+  "webSHA256": {
+    "hitomi": "3b42bd5c7618c2d53b801ef3e43b0106996ffa444a88cab58561a1c150fe3ae3",
+    "imhentai": "9be95ce7eeb9bc10b31c0db99c3a6b04697af49d609638231782edab76301927"
+  }
+}
