@@ -217,3 +217,18 @@ Both build-10 baselines completed monthly renewal; current input hashes match,
 last errors are empty, and the scheduler is enabled/idle with exit 0. Each signed
 app's app.js, style.css and index.html match the tested prepared assets. Recovery
 contains `gallery-second-pass-verification.json` with the updated evidence.
+
+
+## September 13: disable image selection and long-press menus
+
+All `img` elements and image-containing links use `-webkit-touch-callout: none`,
+`user-select: none` (including WebKit's prefix), and `-webkit-user-drag: none`.
+This includes covers, thumbnails, previews and reader pages. Taps and native
+scroll gestures remain enabled; no touch listener or gesture interception was
+added. Apple's [Safari CSS reference](https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/SafariCSSRef/Articles/StandardCSSProperties.html)
+documents the callout property.
+
+The rule lives in `src/css/style.css`, shared by the userscript, extension and
+both native provider builds. Userscript/extension version 518 was rebuilt; Hitomi
+and Imhen use build 11. Browser checks verified both prepared provider styles,
+image selection/drag, link taps, editable inputs and scrolling.
