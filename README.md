@@ -1,5 +1,5 @@
 # Gallery-reader
-A Safari extension and Safari userscript used to rework the UI of the providers supported by this repo
+An iOS app, a Safari extension and a Safari userscript used to rework the UI of the providers supported by this repo
 
 ## What?
 This script changes the UI of the providers supported by this script so that's it easies to navigate the site. 3 main features: favorites, search, reader.
