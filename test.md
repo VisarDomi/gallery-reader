@@ -8,26 +8,22 @@
 npx tsc --noEmit
 node scripts/build.mjs --no-increase-version
 npm run test:unit
-npm run test:browser
+npx tsc --noEmit -p apps/ios/tsconfig.json
 ```
 
-The browser tests run in disposable Chromium profiles with synthetic provider
-responses and a real disposable PC backup store. They prove these outcomes:
+Runtime testing targets the physical iPhone and Safari/WebKit:
 
-- 560 existing favorites, saved searches and scroll positions survive migration.
-- Repeating migration cannot overwrite committed data.
-- A waiting/unavailable backup PC does not stop home rendering or typing.
-- Initial setup confirms success; routine home backups save silently, including
-  changed data. An offline PC/timeouts cause no dialog or notification on fresh
-  or enrolled phones. Online rejection errors warn; successful retries clear them.
-- Favorite edits survive a reload, with current and previous server snapshots.
-- Source thumbnails open full-size originals in the reader, including native
-  Hitomi hash formats that may be present before takeover.
-- A fresh browser restores an independent copy without altering the source backup.
-- Worker-only IndexedDB and restored data survive a browser reload.
+```bash
+npm run tests
+```
 
-Unit tests cover validation, setup choices and explicit startup boundaries; they
-are not a substitute for the full UI and real Safari checks.
+The four Chromium-only tests and their npm commands were removed at the user's
+request. Unit tests remain for source behavior and data validation. Native app
+checks use `apps/ios/scripts/app-inspector.py` on the documented Mac, with each
+installed provider app. Verify image decoding, navigation/Back, data retention
+and WebKit session restoration on the phone; actual gesture smoothness requires
+physical testing. `phone:backup` is an explicit backup operation, not a default
+test command.
 
 ## Scroll-end delay audit — version 514
 
@@ -39,13 +35,8 @@ hits leave the reader URL unchanged; image IDs remain `#<index>`.
 The separate 100ms favorites-publish debounce remains: it batches network sync,
 not scroll handling. Image lazy loading, rendering and native Back are unchanged.
 
-TypeScript and all 29 unit tests pass. The installed-Chromium extension fixture
-also verifies the home position reaches real IndexedDB as captured at the event,
-not the later viewport position. Its reader-image check currently stalls before
-any image request, including with the original fixture and old delayed reader.
-That is an unresolved Chromium test limitation, not a passing image check or
-evidence to change production lazy loading. The userscript browser fixtures pass
-reader image decoding and the backup/migration behaviors above.
+TypeScript and all 29 unit tests passed in this historical audit. The associated
+Chromium-only fixture has since been removed; runtime acceptance targets iOS.
 
 On iPhone, reload after installing, scroll home, open a thumbnail, scroll the
 reader, and swipe Back. Check the reader bookmark and restored home position;

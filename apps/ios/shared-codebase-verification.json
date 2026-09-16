@@ -19,9 +19,7 @@
   "tests": {
     "unit": 50,
     "typeScript": "source and native passed",
-    "nativeBrowser": "both providers passed, including pending Home requests across bfcache, shared lazy DOM/CSS, retry and fresh routing",
-    "sourceBrowser": "worker backup and both Home backup fixtures passed",
-    "extensionBrowser": "Existing Chromium SOC/lazy image timeout reproduced on unmodified baseline 6edf00b as well. No workaround added."
+    "runtimeTarget": "Physical iPhone and Safari/WebKit; all four Chromium-only fixtures and commands removed at user request after delivery."
   },
   "apps": {
     "hitomi": {

@@ -63,7 +63,8 @@ On Linux, from gallery-reader:
 npm ci
 npm run build:ios -- hitomi --prepare-only
 npm run build:ios -- imhentai --prepare-only
-npm run test:ios
+npm run test:unit
+npx tsc --noEmit -p apps/ios/tsconfig.json
 ```
 
 The builder requires exactly one registered provider. Private PC backup credentials
@@ -103,10 +104,14 @@ Only one inspector connection at a time. Navigation may replace the inspected
 WebContent target: reconnect after navigating. The app intentionally enables
 Web Inspector. Diagnostic evaluation is not a physical swipe/scroll test.
 
-Browser tests execute the real compiled provider workers and UI with deterministic
-network/native fixtures. They cover both providers, search, favorites, metadata,
-reader navigation, back, and persisted cold restoration. Device signing and real
-provider/image checks must also pass; Xcode success alone is not runtime acceptance.
+Validation targets the physical iPhone and Safari/WebKit. Chromium-only fixtures
+and their commands, including the misleading `test:ios` browser fixture, were
+removed at the user's request. Keep the source unit tests and TypeScript checks.
+Use the native inspector for installed Hitomi/Imhen checks and `npm run tests`
+for the real Safari userscript flow. `npm run phone:backup` is a state-changing
+backup operation, not a routine test. Physical swipe/scroll acceptance remains
+on the phone. The historical verification records below describe earlier work;
+they do not require resurrecting the removed Chromium fixtures.
 
 ## Verified delivery — September 12, 2026
 
@@ -270,19 +275,12 @@ evidence: `image-error-removal-verification.json`.
 
 ## Shared-codebase verification — September 16, 2026
 
-Build 13 compiles the source routes directly. The provider browser checks cover
-search, favorite actions, metadata, shared DOM/CSS, all lazy reader images,
-current image routing after cold launch, retry recovery without image-error text,
-source reader bookmarks on scrollend, Back, and WebKit-owned history restoration.
-A retained-Home fixture also verifies that unfinished thumbnail requests survive
-bfcache suspension; the old adapter killed that worker and left
-empty rows after Back. Shared storage remains unchanged; phone favorites/search counts
-and hashes were recorded before and after installation.
+Build 13 compiles the source routes directly. Fifty shared unit tests and source
+and native TypeScript checks pass. Physical-device checks verified decoded
+Hitomi/Imhen reader images, local image URLs, lazy image elements, WebKit session
+restoration and Back, with favorites/search counts and hashes preserved.
+See `shared-codebase-verification.json` for delivered assets and renewal evidence.
 
-50 shared unit tests, source and native TypeScript, both native browser fixtures,
-and both worker/Home backup browser fixtures pass. The installed Chromium
-extension fixture times out awaiting lazy image requests after SOC; the same
-failure was reproduced from the unmodified prior commit. Its takeover and
-worker assertions pass before that failure. No extension loading workaround was
-introduced into the shared reader. See `shared-codebase-verification.json` for
-final device delivery and renewal evidence.
+All four Chromium-only fixtures were subsequently removed at the user's request,
+along with their npm commands and the direct Playwright dependency. Target iOS
+and Safari/WebKit for runtime validation; do not reinstate Chromium-only checks.
