@@ -123,11 +123,6 @@ function pump() {
     }
     continueBackground();
 }
-function pageError(slot, text) {
-    let error = slot.querySelector('.page-error');
-    if (!error) { error = document.createElement('span'); error.className = 'page-error'; slot.append(error); }
-    error.textContent = `Page ${slot.index + 1}: ${text}`;
-}
 async function loadImage(slot) {
     if (!slot.visible || slot.loading || slot.url || suspended) return;
     const token = slot.token = (slot.token || 0) + 1;
@@ -146,20 +141,12 @@ async function loadImage(slot) {
             }
             if (readerKey && token === slot.token) {
                 slot.style.aspectRatio = `${img.naturalWidth}/${img.naturalHeight}`;
-                slot.querySelector('.page-error')?.remove();
             }
-        };
-        img.onerror = () => {
-            if (token !== slot.token) return;
-            if (readerKey) pageError(slot, 'Image could not be loaded.');
         };
         img.src = slot.url;
         registerImage(img);
     } catch (error) {
-        if (token === slot.token && !suspended) {
-            if (readerKey) pageError(slot, error.message);
-            else img.alt = `${slot.index + 1} · ${error.message}`;
-        }
+        if (token === slot.token && !suspended) console.error(error);
     } finally { if (token === slot.token) slot.loading = false; }
 }
 function observeImages() {

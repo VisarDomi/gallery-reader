@@ -1,0 +1,53 @@
+{
+  "apps": [
+    {
+      "provider": "hitomi",
+      "bundleId": "com.visar.HitomiReader.paid",
+      "build": "12",
+      "assets": {
+        "app.js": "604945369b1f2ae381b43eb341f9014d7173a8a8a7ca56ddc1ad8ed075e7e73f",
+        "style.css": "838f9828ba079b9b4b9454d3e667c63995a967f921b32bd0bd6c5b1c098d6ebf",
+        "index.html": "48f19c0c98d4c76bebedb0ff2b4697397b1f30aec5fd38bb1d26f27cec722306"
+      },
+      "renewalInputHash": "3fb23bc9defbea3d5623912a642d7566784d7375c19f9654763dc558633cb0f9",
+      "renewalLastSuccess": 1789585509.5281248,
+      "nextDue": 1792177509.528125,
+      "installedInPlace": true
+    },
+    {
+      "provider": "imhentai",
+      "bundleId": "com.visar.ImhenReader.paid",
+      "build": "12",
+      "assets": {
+        "app.js": "b12a367aaf06869b84466c4d3debb749bc3ac423cedadff392dd16ed2b5e57fd",
+        "style.css": "838f9828ba079b9b4b9454d3e667c63995a967f921b32bd0bd6c5b1c098d6ebf",
+        "index.html": "48f19c0c98d4c76bebedb0ff2b4697397b1f30aec5fd38bb1d26f27cec722306"
+      },
+      "renewalInputHash": "01f03b4878844e9be52093aa91205c0a4ff4c5ce2011d837882b400da39a23f3",
+      "renewalLastSuccess": 1789585535.556778,
+      "nextDue": 1792177535.556778,
+      "installedInPlace": true
+    }
+  ],
+  "cleanup": {
+    "customBackgroundItems": [
+      "8.com.visar.installed-apps-refresh"
+    ],
+    "renewalIdle": true,
+    "renewalLastExitCode": 0,
+    "caffeinateRunning": false,
+    "newBackgroundJobsCreated": false
+  },
+  "date": "2026-09-16",
+  "change": "Remove app-only image-error overlays and thumbnail exception alt text; retain source retry logic.",
+  "browserFixtures": {
+    "hitomi": "passed",
+    "imhentai": "passed",
+    "failedImages": "HTTP failures produce no custom reader text or alt text, then recover through existing retry registry"
+  },
+  "physicalInspection": {
+    "hitomi": "Home/search rendered 20 rows and 30 decoded images; empty status; no mutation of saved favorites/history",
+    "imhentai": "Resumed reader rendered 144 image slots and 3 decoded active images; reader message empty. Existing image activation window remains unchanged."
+  },
+  "limits": "No lazy-loading scheduling change. Lua not investigated on phone in this step."
+}

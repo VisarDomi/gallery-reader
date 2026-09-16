@@ -58,12 +58,14 @@ For each provider, sequentially:
 python apps/ios/scripts/deploy.py sync hitomi
 python apps/ios/scripts/deploy.py build hitomi
 python apps/ios/scripts/deploy.py status hitomi
-# Wait for no PID, LastExitStatus 0 and BUILD SUCCEEDED.
+# The attached build must exit 0 and report BUILD SUCCEEDED.
 python apps/ios/scripts/deploy.py install hitomi
-python apps/ios/scripts/deploy.py finish hitomi
 ```
 
-Use `imhentai` for Imhen. The GUI LaunchAgent makes the logged-in Keychain available.
+Use `imhentai` for Imhen. The build stays attached to SSH and uses
+`sudo launchctl asuser 501 sudo -u visar` for the logged-in Keychain, without
+registering a LaunchAgent or Allow in Background entry. `status` only reads the
+log; `finish` is a compatibility no-op.
 Install preflight verifies the actual signed entitlement, provider, product name,
 no icon keys, paid team, profile validity and inclusion of the physical phone.
 A paid wildcard provisioning profile is valid; the app's signed entitlement must
@@ -232,3 +234,17 @@ The rule lives in `src/css/style.css`, shared by the userscript, extension and
 both native provider builds. Userscript/extension version 518 was rebuilt; Hitomi
 and Imhen use build 11. Browser checks verified both prepared provider styles,
 image selection/drag, link taps, editable inputs and scrolling.
+
+## Image error text — build 12
+
+Removed the copied `Page N: ...` image-error overlay and exception-bearing
+thumbnail alt text. The userscript adds neither. The shared image retry registry
+remains; failed images get no replacement error UI. No image scheduling or
+loading behavior was changed in this small first fix. Both provider browser
+fixtures now exercise failed HTTP image responses, absence of added error text
+and recovery, alongside the existing functional checks.
+
+The cross-app text audit and remaining lazy-loading differences are recorded in
+`manga-reader/investigation/app-visible-text-audit.md`. They are not declared
+fixed by removing these messages. Gallery Downloader is unchanged. Delivery
+evidence: `image-error-removal-verification.json`.

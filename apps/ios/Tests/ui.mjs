@@ -50,10 +50,11 @@ try {
    Object.defineProperty(HTMLImageElement.prototype,'src',{...src,set(value){src.set.call(this,String(value).replace('gallery://app/image?','https://images.test/image?'));}});
   });
   const imageRequests=[];
-  let retryAttempts=0;
+  let retryAttempts=0, failReaderImages=false;
   await context.route('https://images.test/**',route=>{
    const source=new URL(new URL(route.request().url()).searchParams.get('url'));
    imageRequests.push(source.href);
+   if(failReaderImages)return route.fulfill({status:429,body:'Image temporarily unavailable'});
    if(source.host.startsWith('w')&&!source.pathname.startsWith('/'+ggBase+'/'))return route.fulfill({status:404,body:'Expired image routing'});
    if(source.host.startsWith('w')&&ggBase==='123'&&source.pathname.endsWith('/'+String(1).padStart(64,'0')+'.webp')) {
     if(++retryAttempts<=4)return route.fulfill({status:429,body:'Transient image failure'});
@@ -88,6 +89,7 @@ try {
   assert.deepEqual(await page.locator('.hs-page-active').evaluate(el=>({tag:el.tagName,padding:getComputedStyle(el).padding})),{tag:'SPAN',padding:'2px 6px'},'Source pagination appearance and inactive current-page control');
   assert.equal(await page.locator('#count').evaluate(el=>!!(el.compareDocumentPosition(document.getElementById('hs-grid')) & Node.DOCUMENT_POSITION_FOLLOWING)),true,'Count belongs above grid, like the userscript');
   readerOpened=true;
+  failReaderImages=provider==='imhentai';
   if(provider==='hitomi') {const gate=deferred();routingGate=gate.promise;releaseRouting=gate.resolve;}
   await page.locator('.thumb-link').first().click();
   await page.waitForFunction(()=>document.querySelectorAll('.page').length===40);
@@ -95,6 +97,10 @@ try {
    assert.equal(await page.locator('.page img').first().evaluate(i=>i.naturalWidth),0,'Slots and dimensions render before blocked image URL resolution');
    releaseRouting();routingGate=undefined;
   }
+  await page.waitForFunction(()=>[...document.querySelectorAll('.page img')].some(i=>i.getAttribute('src')&&i.complete&&!i.naturalWidth));
+  assert.equal(await page.locator('#reader-pages').innerText(),'','Failed images must not add text that the userscript does not render');
+  assert.equal(await page.locator('.page img').evaluateAll(images=>images.some(i=>i.alt)),false,'Image failures must not inject exception text as alt labels');
+  failReaderImages=false;
   await page.waitForFunction(()=>document.querySelector('.page img')?.naturalWidth>0);
   if(provider==='hitomi')assert.equal(retryAttempts,5,'Shared image retry must recover beyond the old three-retry cap');
   assert.equal(await page.locator('#hs-wrap').count(),0);

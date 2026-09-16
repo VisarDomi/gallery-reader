@@ -7,4 +7,3 @@
 .row-message { margin: 0; padding: 12px 60px 12px 8px; color: #888; overflow-wrap: anywhere; }
 .page { position: relative; width: 100%; }
 .page .hs-reader-img { height: 100%; object-fit: contain; }
-.page-error { position: absolute; inset: 0; padding: 8px; color: #bbb; font-size: 14px; }
