@@ -4,7 +4,7 @@ import argparse, asyncio, base64, json, logging
 from pathlib import Path
 from pymobiledevice3.remote.native_tunnel import establish_native_rsd
 from pymobiledevice3.services.webinspector import WebinspectorService
-SNAPSHOT = """JSON.stringify({url:location.href,visible:document.visibilityState,width:innerWidth,scrollY,rows:document.querySelectorAll('.hs-row').length,pages:document.querySelectorAll('.page').length,loadedImages:[...document.images].filter(i=>i.naturalWidth>0).length,status:document.getElementById('status')?.textContent,count:document.getElementById('count')?.textContent,readerMessage:document.getElementById('reader-message')?.textContent,backupPrompt:!!document.querySelector('#reader-backup-setup'),scripts:[...document.scripts].map(s=>s.src)})"""
+SNAPSHOT = """JSON.stringify({url:location.href,visible:document.visibilityState,width:innerWidth,scrollY,rows:document.querySelectorAll('.hs-row').length,pages:document.querySelectorAll('.hs-reader-img').length,loadedImages:[...document.images].filter(i=>i.naturalWidth>0).length,status:document.getElementById('reader-backup-status')?.textContent,count:document.querySelector('.hs-page-bar')?.textContent,readerMessage:document.querySelector('.hs-reader-body')?.textContent,backupPrompt:!!document.querySelector('#reader-backup-setup'),scripts:[...document.scripts].map(s=>s.src)})"""
 async def main():
     parser=argparse.ArgumentParser();parser.add_argument('--evaluate-file');parser.add_argument('--screenshot');parser.add_argument('--seconds',type=float,default=1);parser.add_argument('--host-bundle',action='append',required=True);args=parser.parse_args()
     logging.disable(logging.CRITICAL)
@@ -18,8 +18,8 @@ async def main():
         if len(candidates)!=1: raise RuntimeError('Open/unlock Gallery Reader; expected one bundled reader page')
         pair=candidates[0];session=await asyncio.wait_for(inspector.inspector_session(pair.application,pair.page),15)
         await asyncio.wait_for(session.runtime_enable(),10)
-        await asyncio.wait_for(session.console_enable(),10)
         session.response_methods['Console.messageAdded']=lambda e:print('CONSOLE',json.dumps({k:e['params'].get('message',{}).get(k) for k in ['level','text']}),flush=True)
+        await asyncio.wait_for(session.console_enable(),10)
         print('SNAPSHOT',await asyncio.wait_for(session.runtime_evaluate(SNAPSHOT),10),flush=True)
         if args.evaluate_file:
             result=await asyncio.wait_for(session.send_command('Runtime.evaluate',expression=Path(args.evaluate_file).read_text(),returnByValue=True,userGesture=False),10)

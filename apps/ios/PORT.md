@@ -5,31 +5,50 @@ One codebase and one Xcode target build **Hitomi** (`hitomi`) and **Imhen**
 paid-team installations with no custom icons; they do not require LiveContainer.
 Do not change the user's readme.md or test.txt.
 
-## Reused behavior
+## Shared implementation — build 13
 
-- `web/gallery-app.js` and `gallery.css` originate from gallery-downloader's
-  committed `gallery-server/downloader/public/offline` implementation at
-  `a417a54513a9340fec75d3cc22a21c347d58be26` (reader restore commit `ff4dcbf`).
-  Preserve its viewport image activation/release, work queues, stable image slots,
-  horizontal strip positions, input cancellation of restore, bfcache handling,
-  and native cold-launch library-to-reader history construction.
-- AppDelegate, WebController's WebKit setup/restore, LocalFiles, ViewPosition,
-  LocalTrust and TransferGate are ported from the same committed app. The paused
-  APNs/background draft in gallery-downloader's working tree is NOT included.
-- Provider parsing, search, metadata, dimensions, image and thumbnail URLs come
-  directly from `src/provider`. No Swift provider copies or PC image manifests.
-- Search controls, saved searches, info modal, favorite actions, import/export,
-  storage, backup and favorites publication import the existing TypeScript.
-  Small exports in the shared UI allow reuse without executing document takeover.
-- The native adapter uses URLSession for Fetch requests and caches requested
-  images in the app container. WebKit renders files through `gallery://app/image`.
-  No upfront file-size requirement, full-favorites download, site script execution,
-  SOC, custom swipe gesture or APNs was added.
+The userscript, extension and native apps compile the actual `src/routes`,
+`src/ui`, `src/storage`, `src/provider`, CSS and compute worker. There is no
+copied Gallery Downloader UI. `gallery-app.js`, `gallery.css` and `online.ts`
+have been removed. Gallery Downloader itself is unchanged.
 
-Both products have separate iOS containers (including WebKit storage). PC backup
-uses the existing provider scopes `gallery-reader:hitomi` and
-`gallery-reader:imhentai`. Initial enrollment/restore is the existing gallery UI;
-no real backup is selected automatically by deployment. The PC is optional.
+The required provider builder selects Hitomi or Imhentai for both the UI and
+worker. Build-time adapters in `web/` replace only document takeover, provider
+navigation/image URLs, worker construction/networking and a flag identifying WebKit history restoration.
+The compute request queue itself is shared too.
+Swift hosts WebKit, performs URLSession requests, caches requested image bytes
+and persists WebKit’s opaque `interactionState` at navigation completion and app
+lifecycle checkpoints. It does not parse galleries or render rows.
+
+Shared routes create the same image elements with `loading="lazy"`, dimensions,
+URL resolution and retry registration as the userscript. The former additional
+IntersectionObservers, image release/reload queue, placeholder wrappers, copied
+pagination and status messages are gone. Native `GalleryStore` is the sole
+image-byte owner: a WebKit image request reads its file or joins the existing
+URL download. Provider image routing remains document-local; no resolved-URL
+manifest is persisted. Gallery retains its existing on-demand cache policy;
+Manga's previous/current/next download policy does not apply to these galleries.
+
+WebKit owns Back/Forward gestures, history, bfcache and cold session restoration.
+The user explicitly accepted cold-launch position resets on September 16. There
+is no custom native view-position JSON, anchor math, strip-scroll restoration,
+resize observer or reconstructed Home-to-reader navigation stack. Shared routes
+still perform their ordinary initial positioning when opening a new reader;
+they leave restored history positioning to WebKit. Native app documents do not
+run SOC; the userscript/extension retain their own takeover.
+
+The `interactionState` experiment on the physical iPhone restored the reader URL
+and Back history, but reader y=1300 became 0 after both a foreground termination
+and a background/termination cycle. Home’s horizontal strip x=600 became 0.
+Those are accepted platform behaviours, not remaining custom-restore work.
+Apple’s [API declaration](https://github.com/WebKit/WebKit/blob/main/Source/WebKit/UIProcess/API/Cocoa/WKWebView.h)
+describes the serialized session. We persist its opaque Data without parsing it.
+
+Both products retain their IDs, separate WebKit databases, favorites, saved
+searches, image caches. Old `view.json` is unused; no conversion or migration was added. No migration or reimport was
+added. Backup/enrollment/favorites publication are the existing shared source
+behavior and provider scopes, `gallery-reader:hitomi` and
+`gallery-reader:imhentai`; there is no additional native sync implementation.
 
 ## Build and deploy
 
@@ -248,3 +267,22 @@ The cross-app text audit and remaining lazy-loading differences are recorded in
 `manga-reader/investigation/app-visible-text-audit.md`. They are not declared
 fixed by removing these messages. Gallery Downloader is unchanged. Delivery
 evidence: `image-error-removal-verification.json`.
+
+## Shared-codebase verification — September 16, 2026
+
+Build 13 compiles the source routes directly. The provider browser checks cover
+search, favorite actions, metadata, shared DOM/CSS, all lazy reader images,
+current image routing after cold launch, retry recovery without image-error text,
+source reader bookmarks on scrollend, Back, and WebKit-owned history restoration.
+A retained-Home fixture also verifies that unfinished thumbnail requests survive
+bfcache suspension; the old adapter killed that worker and left
+empty rows after Back. Shared storage remains unchanged; phone favorites/search counts
+and hashes were recorded before and after installation.
+
+50 shared unit tests, source and native TypeScript, both native browser fixtures,
+and both worker/Home backup browser fixtures pass. The installed Chromium
+extension fixture times out awaiting lazy image requests after SOC; the same
+failure was reproduced from the unmodified prior commit. Its takeover and
+worker assertions pass before that failure. No extension loading workaround was
+introduced into the shared reader. See `shared-codebase-verification.json` for
+final device delivery and renewal evidence.

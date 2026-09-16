@@ -1,12 +1,13 @@
 // Build-selected implementation; all decoding stays in the userscript provider.
 import { provider as source } from '@selected-provider';
+import { localImage } from './native';
 export * from '../../../src/provider/types';
 export const providerId = __IOS_PROVIDER__;
 export const getMeta = source.getMeta;
 export const getGalleryThumbnails = source.getGalleryThumbnails;
 export const getReaderData = source.getReaderData;
-export const imageUrls = source.imageUrls;
-export const thumbUrl = source.thumbUrl;
+export const imageUrls: typeof source.imageUrls = async images => (await source.imageUrls(images)).map(localImage);
+export const thumbUrl: typeof source.thumbUrl = thumb => localImage(source.thumbUrl(thumb));
 export const search = source.search;
 export const initProvider = () => source.init?.();
 export const backupHome = source.backupHome;

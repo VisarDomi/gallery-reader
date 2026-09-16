@@ -1,3 +1,4 @@
+import { takeOverDocument } from '../core/takeover';
 import {render as renderSavedSearch} from "./saved-searches";
 import {initProvider, searchUrl} from "../provider";
 import cssContent from '../css/style.css?inline';
@@ -6,9 +7,7 @@ import { initializeStorage } from '../storage/initialize';
 import { onSettledScroll } from '../core/scroll-settle';
 
 export function startInit(documentTitle: string): void {
-    window.stop();
-    document.open();
-    document.close();
+    takeOverDocument();
     // document-start may precede creation of the parser's head/body nodes.
     if (!document.documentElement) document.appendChild(document.createElement('html'));
     if (!document.head) document.documentElement.appendChild(document.createElement('head'));

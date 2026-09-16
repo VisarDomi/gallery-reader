@@ -4,6 +4,5 @@ declare module '@worker-code' { const source: string; export default source; }
 declare module '@selected-provider' { export const provider: import('../../../src/provider/types').Provider; }
 interface Window {
     webkit: {messageHandlers:{gallery:{postMessage(request: unknown): Promise<string>}}};
-    nativeGallery: any;
-    galleryViewState: any;
 }
+declare module '@selected-data-provider' { export const provider: typeof import('../../../src/provider/hitomi/data-provider').provider; }

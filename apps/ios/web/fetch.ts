@@ -14,7 +14,7 @@ export function installFetch(send: (request: unknown) => Promise<any>, cancel: (
         try {
             request.signal.throwIfAborted();
             const result = await Promise.race([send({ requestID, url: request.url, method: request.method,
-                headers: Object.fromEntries(request.headers), referrer: request.referrer, body }), interrupted]);
+                headers: Object.fromEntries(request.headers), referrer: init?.referrer?.startsWith("https://") ? init.referrer : request.referrer, body }), interrupted]);
             request.signal.throwIfAborted();
             const bytes = Uint8Array.from(atob(result.body), c => c.charCodeAt(0));
             return new Response([204,205,304].includes(result.status) ? null : bytes, { status: result.status, headers: result.headers });

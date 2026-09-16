@@ -1,9 +1,0 @@
-:root { color-scheme: dark; color: #eee; }
-[hidden] { display: none !important; }
-#status, #reader-message { color: #aaa; margin: 4px 0; padding: 8px; overflow-wrap: anywhere; }
-#status:empty, #sw-status:empty, #reader-message:empty { display: none; }
-.hs-row-wrap { min-height: 300px; }
-.thumb-link { display: block; flex: 0 0 100px; width: 100px; height: 300px; text-decoration: none; }
-.row-message { margin: 0; padding: 12px 60px 12px 8px; color: #888; overflow-wrap: anywhere; }
-.page { position: relative; width: 100%; }
-.page .hs-reader-img { height: 100%; object-fit: contain; }

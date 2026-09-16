@@ -1,3 +1,4 @@
+import { positionReader } from '../core/platform';
 import {getReaderData, imageUrls, readerUrl} from '../provider';
 import {registerImage} from '../core/image-retry';
 import {onSettledScroll} from '../core/scroll-settle';
@@ -20,7 +21,7 @@ export async function open(gid: number, currentIndex: number): Promise<void> {
 
     const safeIndex = Math.max(0, Math.min(Number.isSafeInteger(currentIndex) ? currentIndex : 0, images.length - 1));
     const restoreImg = document.getElementById(`#${safeIndex}`) as HTMLImageElement;
-    window.scrollTo(0, restoreImg.offsetTop - window.innerHeight / 2);
+    positionReader(restoreImg);
 
     const urls = await imageUrls(images);
     urls.forEach((src, i) => {

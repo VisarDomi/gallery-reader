@@ -35,7 +35,7 @@ export default defineConfig(({ mode }) => {
             name: 'extension-document-takeover',
             enforce: 'pre',
             transform(source, id) {
-                if (!id.endsWith('/src/ui/shell.ts')) return;
+                if (!id.endsWith('/src/core/takeover.ts')) return;
                 // SOP is the production default. The Window guard handles
                 // Safari reentry; DOM-only replacement retains site listeners.
                 const mode = process.env.READER_TAKEOVER_MODE || 'guarded-stop';

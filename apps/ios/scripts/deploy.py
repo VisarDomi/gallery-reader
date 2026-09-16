@@ -16,6 +16,8 @@ if a.action=='sync':
     # No --delete: never remove another provider's prepared product or evidence.
     subprocess.run(SSH+['mkdir -p '+shlex.quote(MAC)],check=True)
     subprocess.run(['rsync','-az','--exclude=build/','--exclude=Resources/Web/','-e',shlex.join(SSH[:-1]),str(APP)+'/',SSH[-1]+':'+MAC+'/'],check=True)
+    # This owned source directory must not retain removed copies of the UI.
+    subprocess.run(['rsync','-az','--delete','-e',shlex.join(SSH[:-1]),str(APP/'web')+'/',SSH[-1]+':'+MAC+'/web/'],check=True)
     subprocess.run(SSH+['mkdir -p '+shlex.quote(MAC+'/build/'+a.provider)],check=True)
     subprocess.run(['rsync','-az','--exclude=native/','-e',shlex.join(SSH[:-1]),str(APP/'build'/a.provider)+'/',SSH[-1]+':'+MAC+'/build/'+a.provider+'/'],check=True)
 elif a.action=='build':

@@ -1,0 +1,82 @@
+{
+  "date": "2026-09-16",
+  "build": 13,
+  "userscriptVersion": 519,
+  "architecture": "Actual shared routes/UI/CSS/storage/compute/provider code, with native WebKit hosting, network and on-demand image cache only.",
+  "restoration": "WebKit interactionState; custom position records, fractional anchors, strip restoration and Home-to-reader history reconstruction removed at user request. Cold position resets explicitly accepted.",
+  "dataPreservation": {
+    "hitomi": {
+      "favorites": 548,
+      "searches": 70,
+      "favoritesSearchHash": "8888112404750e864a01bec057ddba709346962c36217921c2bb20975133d9e7"
+    },
+    "imhentai": {
+      "favorites": 15,
+      "searches": 8,
+      "favoritesSearchHash": "345ad58df6c9c0b18f7d9e8128d7a2f8f23e3de3f0ab40678d59ba2cbf3e490b"
+    }
+  },
+  "tests": {
+    "unit": 50,
+    "typeScript": "source and native passed",
+    "nativeBrowser": "both providers passed, including pending Home requests across bfcache, shared lazy DOM/CSS, retry and fresh routing",
+    "sourceBrowser": "worker backup and both Home backup fixtures passed",
+    "extensionBrowser": "Existing Chromium SOC/lazy image timeout reproduced on unmodified baseline 6edf00b as well. No workaround added."
+  },
+  "apps": {
+    "hitomi": {
+      "bundle": "com.visar.HitomiReader.paid",
+      "build": "13",
+      "profileExpires": "2027-09-16T20:47:06",
+      "assets": {
+        "index.html": "1b6c5f0c722a474dfc32bec1a008a1daeac85c0842550cab4d4dc2d85953eafb",
+        "app.js": "1a9365c991cf5d4af3bb61ef45b534dde3879f5234e1cf084bf5bb5dec5b4b94",
+        "style.css": "544f392ab22839e40ae73dc31bf7135dd01bc13c557f6d21cf8c03f56882d59f"
+      },
+      "renewal": {
+        "inputHash": "d931e4eddf9d8864c3899b337a17e1d82e5ca7b65866007230e53a2597b1a8cf",
+        "lastSuccess": 1789591633.68022,
+        "nextDue": 1792183633.68022,
+        "transport": "wired",
+        "lastError": null
+      }
+    },
+    "imhentai": {
+      "bundle": "com.visar.ImhenReader.paid",
+      "build": "13",
+      "profileExpires": "2027-09-16T20:47:06",
+      "assets": {
+        "index.html": "1b6c5f0c722a474dfc32bec1a008a1daeac85c0842550cab4d4dc2d85953eafb",
+        "app.js": "690d0b4acaebbfdc1b95708b8ea3535af6629143e9d3015b93f37980f4218f51",
+        "style.css": "544f392ab22839e40ae73dc31bf7135dd01bc13c557f6d21cf8c03f56882d59f"
+      },
+      "renewal": {
+        "inputHash": "fe38cc65710f6bede75bb0b800eddf440122e19fea46d34775e3d83382de2401",
+        "lastSuccess": 1789591645.7839081,
+        "nextDue": 1792183645.783908,
+        "transport": "wired",
+        "lastError": null
+      }
+    }
+  },
+  "device": {
+    "hitomi": {
+      "readerImages": 21,
+      "decodedAtCheck": 3,
+      "allNativeImageURLs": true,
+      "allLazyImages": true,
+      "coldSessionAndBack": "passed",
+      "favoritesAfterBack": 548
+    },
+    "imhentai": {
+      "readerImages": 144,
+      "decodedAtCheck": 3,
+      "allNativeImageURLs": true,
+      "allLazyImages": true,
+      "coldSessionAndBack": "passed",
+      "favoritesAfterBack": 15
+    },
+    "limitations": "Functional device checks; no claim of measured physical scroll smoothness. Cold-launch vertical/horizontal position resets are explicitly accepted."
+  },
+  "cleanup": "Existing monthly scheduler restored; no new background item. Temporary probes removed."
+}

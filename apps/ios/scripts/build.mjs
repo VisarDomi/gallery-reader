@@ -19,23 +19,21 @@ const providerFile = resolve(root,`src/provider/${provider}/provider.ts`);
 const plugin = { name:'native-provider', setup(b) {
     b.onResolve({filter:/./},args => {
         if (args.path === '@selected-provider') return {path:providerFile};
+        if (args.path === '@selected-data-provider') return {path:resolve(root, `src/provider/${provider}/data-provider.ts`)};
         const path = resolve(args.resolveDir,args.path);
         if ([resolve(root,'src/provider'),resolve(root,'src/provider/index')].includes(path)) return {path:resolve(app,'web/provider.ts')};
-        if (path === resolve(root,'src/core/compute/transport')) return {path:resolve(app,'web/transport.ts')};
+        for (const name of ['core/takeover','core/platform','provider/data-provider']) {
+            if (path === resolve(root,'src',name)) return {path:resolve(app,'web',name.split('/').at(-1)+'.ts')};
+        }
+        if (path === resolve(root,'src/core/compute/worker')) return {path:resolve(app,'web/worker-factory.ts')};
         if (args.path.endsWith('?inline')) return {path:resolve(args.resolveDir,args.path.slice(0,-7)),namespace:'inline'};
     });
     b.onLoad({filter:/.*/,namespace:'inline'},async args => ({contents:'export default '+JSON.stringify(await readFile(args.path,'utf8')),loader:'js'}));
-    b.onLoad({filter:/worker-entry\.ts$/},async args => {
-        let source = await readFile(args.path,'utf8');
-        source = source.replace(/import \{ provider as hitomi \}[^\n]+\nimport \{ provider as imhentai \}[^\n]+/,`import { provider as selected } from '../../provider/${provider}/data-provider';`)
-            .replace("payload.provider === 'hitomi' ? hitomi : imhentai",'selected')
-            .replace('const request = event.data;','const request = event.data; if (!("op" in request)) return;');
-        return {contents:source,loader:'ts',resolveDir:dirname(args.path)};
-    });
+
 }};
 const worker = await build({entryPoints:[resolve(app,'web/worker.ts')],bundle:true,write:false,format:'iife',target:'safari17',define,plugins:[plugin]});
-await build({entryPoints:[resolve(app,'web/gallery-app.js')],outfile:resolve(out,'app.js'),bundle:true,format:'iife',target:'safari17',define,plugins:[plugin,{name:'worker-source',setup(b){b.onResolve({filter:/^@worker-code$/},()=>({path:'code',namespace:'worker'}));b.onLoad({filter:/.*/,namespace:'worker'},()=>({contents:'export default '+JSON.stringify(worker.outputFiles[0].text),loader:'js'}));}}]});
-await writeFile(resolve(out,'style.css'),await readFile(resolve(root,'src/css/style.css'),'utf8')+'\n'+await readFile(resolve(app,'web/gallery.css'),'utf8'));
+await build({entryPoints:[resolve(app,'web/app.ts')],outfile:resolve(out,'app.js'),bundle:true,format:'iife',target:'safari17',define,plugins:[plugin,{name:'worker-source',setup(b){b.onResolve({filter:/^@worker-code$/},()=>({path:'code',namespace:'worker'}));b.onLoad({filter:/.*/,namespace:'worker'},()=>({contents:'export default '+JSON.stringify(worker.outputFiles[0].text),loader:'js'}));}}]});
+await writeFile(resolve(out,'style.css'),await readFile(resolve(root,'src/css/style.css'),'utf8'));
 await copyFile(resolve(app,'web/index.html'),resolve(out,'index.html'));
 await writeFile(resolve(app,'build',provider,'provider.xcconfig'),`READER_DISPLAY_NAME = ${config.name}\nREADER_PROVIDER = ${provider}\nPRODUCT_BUNDLE_IDENTIFIER = ${config.bundleId}\nPRODUCT_NAME = ${config.name}\n`);
 console.log(`Prepared ${config.name} (${provider})`);

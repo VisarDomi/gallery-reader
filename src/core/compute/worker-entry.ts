@@ -1,5 +1,4 @@
-import { provider as hitomi } from '../../provider/hitomi/data-provider';
-import { provider as imhentai } from '../../provider/imhentai/data-provider';
+import { dataProvider } from '../../provider/data-provider';
 import { accessState, hasState, migrateState, captureState, restoreState, describeState } from './state';
 import { backupControl, type BackupCommand } from '../backup-engine';
 import { setPageReferrer } from './context';
@@ -10,7 +9,7 @@ async function handle({ op, payload }: Request): Promise<unknown> {
     if (op === 'hitomi-suggestions') return suggestions(payload);
     if (op === 'provider') {
         setPageReferrer(payload.referrer);
-        const provider = payload.provider === 'hitomi' ? hitomi : imhentai;
+        const provider = dataProvider(payload.provider);
         if (payload.method === 'getGalleryThumbnails') {
             return (await provider.getGalleryThumbnails(payload.args[0])).map(thumb => ({ url: provider.thumbUrl(thumb) }));
         }
@@ -90,6 +89,7 @@ async function handle({ op, payload }: Request): Promise<unknown> {
 let writes = Promise.resolve();
 self.onmessage = (event: MessageEvent<Request>) => {
     const request = event.data;
+    if (!request || !("op" in request)) return; // Native worker bridge replies are not compute requests.
     const task = async () => {
         try { self.postMessage({ id: request.id, ok: true, value: await handle(request) }); }
         catch (error) { self.postMessage({ id: request.id, ok: false, error: error instanceof Error ? error.message : String(error) }); }

@@ -1,4 +1,4 @@
-import WorkerConstructor from './worker-entry?worker&inline';
+import { createWorker } from './worker';
 let worker: Worker | undefined;
 let nextId = 0;
 const pending = new Map<number, { resolve(value: unknown): void; reject(error: Error): void }>();
@@ -8,7 +8,7 @@ export function computeRequest<T = unknown>(op: string, payload?: unknown): Prom
     if (op === 'provider') payload = { ...(payload as object), referrer: location.href };
     return new Promise((resolve, reject) => {
         if (!worker) {
-            worker = new WorkerConstructor();
+            worker = createWorker();
             worker.onmessage = event => {
                 const { id, ok, value, error } = event.data;
                 const task = pending.get(id);

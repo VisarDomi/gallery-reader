@@ -1,20 +1,18 @@
 import UIKit
 import WebKit
-import Network
 
 @MainActor
 final class WebController: UIViewController, WKNavigationDelegate, WKScriptMessageHandlerWithReply {
     let store: GalleryStore
     private var webView: WKWebView!
-    private var loading: Task<Void, Error>?
-    private var activeDocument = ""
+    private let sessionURL: URL
     private var requests: [String: Task<String, Error>] = [:]
-    private var restoreOnLaunch = true
-    private var resumeReader: String?
+    private var restoring = false
 
 
     init() {
         let root = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support/GalleryReader")
+        sessionURL = root.appendingPathComponent("interaction-state")
         let base = URL(string: Bundle.main.object(forInfoDictionaryKey: "GalleryServerURL") as? String ?? "https://192.168.1.197:7777")!
         let provider = Bundle.main.object(forInfoDictionaryKey: "ReaderProvider") as? String ?? "hitomi"
         let origin = provider == "hitomi" ? "https://hitomi.la" : "https://imhentai.xxx"
@@ -40,18 +38,21 @@ final class WebController: UIViewController, WKNavigationDelegate, WKScriptMessa
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         view.backgroundColor = .black
         view.addSubview(webView)
-        webView.load(URLRequest(url: URL(string: "gallery://app/")!))
+        if let state = try? Data(contentsOf: sessionURL) {
+            restoring = true
+            webView.interactionState = state
+        } else {
+            webView.load(URLRequest(url: URL(string: "gallery://app/")!))
+        }
     }
     override func viewDidLayoutSubviews() { super.viewDidLayoutSubviews(); webView.frame = view.bounds }
-    private func ensureLoaded() async throws {
-        if loading == nil { loading = Task { [store] in try await store.load() } }
-        try await loading?.value
+    func saveSession() {
+        guard let state = webView?.interactionState as? Data else { return }
+        do {
+            try FileManager.default.createDirectory(at: sessionURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try state.write(to: sessionURL, options: .atomic)
+        } catch { print("WebKit session checkpoint:", error) }
     }
-    func capturePosition() {
-        webView?.evaluateJavaScript("window.galleryViewState?.save()", completionHandler: nil)
-    }
-    func pause() { capturePosition() }
-    func resume() {}
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage,
                                replyHandler: @escaping @MainActor @Sendable (Any?, String?) -> Void) {
         guard message.frameInfo.isMainFrame, message.frameInfo.request.url?.scheme == "gallery",
@@ -60,8 +61,6 @@ final class WebController: UIViewController, WKNavigationDelegate, WKScriptMessa
             replyHandler(nil, "Invalid native request"); return
         }
         let args = body["args"] as? [String: Any] ?? [:]
-        let document = args["document"] as? String ?? ""
-        let requestPath = (message.frameInfo.request.url?.path ?? "/") + (message.frameInfo.request.url?.query.map { "?" + $0 } ?? "")
         let input = try? JSONSerialization.data(withJSONObject: args)
         if command == "fetch-cancel" {
             if let id = args["requestID"] as? String { requests.removeValue(forKey: id)?.cancel() }
@@ -78,49 +77,19 @@ final class WebController: UIViewController, WKNavigationDelegate, WKScriptMessa
             }
             return
         }
-        Task {
-            do {
-                try await ensureLoaded()
-                switch command {
-                case "init":
-                    activeDocument = document
-                    var payload: [String: Any] = [:]
-                    let state = await store.viewState()
-                    if let route = ViewPosition.route(requestPath), let position = state.positions[route] {
-                        payload["position"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(position))
-                    }
-                    if restoreOnLaunch {
-                        restoreOnLaunch = false
-                        if ViewPosition.route(state.lastPath)?.hasPrefix("reader:") == true {
-                            if ViewPosition.route(requestPath) == ViewPosition.route(state.libraryPath) {
-                                payload["resumeReader"] = state.lastPath
-                            } else {
-                                payload["redirect"] = state.libraryPath
-                                resumeReader = state.lastPath
-                            }
-                        } else if ViewPosition.route(requestPath) != ViewPosition.route(state.lastPath) {
-                            payload["redirect"] = state.lastPath
-                        }
-                    } else if let resumeReader {
-                        payload["resumeReader"] = resumeReader
-                        self.resumeReader = nil
-                    }
-                    replyHandler(String(decoding: try JSONSerialization.data(withJSONObject: payload), as: UTF8.self), nil)
-                case "view-save":
-                    guard document == activeDocument else { replyHandler("{}", nil); return }
-                    let data = try JSONSerialization.data(withJSONObject: args["position"] as? [String: Any] ?? [:])
-                    try await store.saveViewPosition(data)
-                    replyHandler("{}", nil)
-                default: replyHandler(nil, "Unknown native request")
-                }
-            } catch { replyHandler(nil, error.localizedDescription) }
+        switch command {
+        case "init": replyHandler(restoring ? "{\"restoring\":true}" : "{}", nil)
+        default: replyHandler(nil, "Unknown native request")
         }
     }
+
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void) {
         let url = navigationAction.request.url
+        restoring = navigationAction.navigationType == .backForward
         decisionHandler(url?.scheme == "gallery" && url?.host == "app" ? .allow : .cancel)
     }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { saveSession() }
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) { webView.reload() }
 }
 

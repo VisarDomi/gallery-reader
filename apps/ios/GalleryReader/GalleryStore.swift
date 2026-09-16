@@ -6,25 +6,8 @@ import CryptoKit
 actor GalleryStore {
     let root: URL
     let api: GalleryAPI
-    private var state = ViewState()
-    private var loaded = false
     private var images: [String:Task<(Data,String),Error>] = [:]
     init(root: URL, api: GalleryAPI) { self.root = root; self.api = api }
-    func load() throws {
-        guard !loaded else { return }
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        if let data = try? Data(contentsOf: root.appendingPathComponent("view.json")) { state = try JSONDecoder().decode(ViewState.self, from:data) }
-        loaded = true
-    }
-    func viewState() -> ViewState { state }
-    func saveViewPosition(_ data: Data) throws {
-        let position = try JSONDecoder().decode(ViewPosition.self,from:data)
-        try position.validate()
-        guard let key = ViewPosition.route(position.path) else { return }
-        state.positions[key] = position; state.lastPath = position.path
-        if !key.hasPrefix("reader:") { state.libraryPath = position.path }
-        try JSONEncoder().encode(state).write(to:root.appendingPathComponent("view.json"),options:.atomic)
-    }
     private func cacheURL(_ raw: String) throws -> URL {
         let directory = root.appendingPathComponent("cache")
         try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true)
