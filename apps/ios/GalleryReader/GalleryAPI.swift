@@ -36,13 +36,24 @@ actor TransferGate {
     private let limit: Int
     private var active = 0
     private var peak = 0
-    private var waiting: [(path: String, urgent: Bool, continuation: CheckedContinuation<Void, Never>)] = []
+    private var waiting: [(id: UUID, path: String, urgent: Bool, continuation: CheckedContinuation<Void, Error>)] = []
     init(limit: Int) { self.limit = max(1, limit) }
     func acquire(_ path: String, urgent: Bool) async throws {
-        if active < limit { active += 1; peak = max(peak, active) }
-        else { await withCheckedContinuation { waiting.append((path, urgent, $0)) } }
+        try Task.checkCancellation()
+        if active < limit { active += 1; peak = max(peak, active); return }
+        let id = UUID()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                if Task.isCancelled { continuation.resume(throwing: CancellationError()) }
+                else { waiting.append((id, path, urgent, continuation)) }
+            }
+        } onCancel: { Task { await self.cancel(id) } }
         do { try Task.checkCancellation() }
         catch { release(); throw error }
+    }
+    private func cancel(_ id: UUID) {
+        guard let index = waiting.firstIndex(where: { $0.id == id }) else { return }
+        waiting.remove(at: index).continuation.resume(throwing: CancellationError())
     }
     func prioritize(_ path: String) {
         for index in waiting.indices where waiting[index].path == path { waiting[index].urgent = true }
@@ -67,14 +78,19 @@ actor GalleryAPI {
     private let session: URLSession
     private let gate = TransferGate(limit: 12)
     private let origin: String
-    init(origin: String, pc: URL, certificateURL: URL?) {
+    private let pcHost: String
+    private let pcSession: URLSession
+    init(origin: String, pc: URL, certificateURL: URL?, configuration: URLSessionConfiguration = .default) {
         self.origin = origin
-        let config = URLSessionConfiguration.default
+        self.pcHost = pc.host ?? ""
+        let config = configuration
         config.timeoutIntervalForRequest = 25
         config.timeoutIntervalForResource = 90
         config.httpMaximumConnectionsPerHost = 12
         config.urlCache = URLCache(memoryCapacity: 8 * 1024 * 1024, diskCapacity: 64 * 1024 * 1024)
         let queue = OperationQueue(); queue.name = "GalleryReader.Network"; queue.maxConcurrentOperationCount = 1
+        pcSession = URLSession(configuration: config, delegate: LocalTrust(host: pc.host ?? "", certificateURL: certificateURL), delegateQueue: queue)
+        config.waitsForConnectivity = true
         session = URLSession(configuration: config, delegate: LocalTrust(host: pc.host ?? "", certificateURL: certificateURL), delegateQueue: queue)
     }
     func request(_ input: Data, image: Bool = false) async throws -> (Data, HTTPURLResponse) {
@@ -89,7 +105,13 @@ actor GalleryAPI {
         await gate.prioritize(url.absoluteString)
         try await gate.acquire(url.absoluteString, urgent: image)
         do {
-            let (data,response) = try await session.data(for: request)
+            let retry = url.host != pcHost && ["GET", "HEAD"].contains(request.httpMethod ?? "GET")
+            let client = url.host == pcHost ? pcSession : session
+            let (data,response) = try await recoverNetworkRead(enabled: retry) {
+                let result = try await client.data(for: request)
+                if retry { try retryableResponse(result.1) }
+                return result
+            }
             guard let http = response as? HTTPURLResponse else { throw ReaderError.invalidRequest }
             try Task.checkCancellation()
             await gate.release()

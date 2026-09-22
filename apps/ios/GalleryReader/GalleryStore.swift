@@ -6,12 +6,16 @@ import CryptoKit
 actor GalleryStore {
     let root: URL
     let api: GalleryAPI
-    private var images: [String:Task<(Data,String),Error>] = [:]
+    private var images: [String:(task: Task<(Data,String),Error>, waiters: Set<UUID>)] = [:]
     init(root: URL, api: GalleryAPI) { self.root = root; self.api = api }
     private func cacheURL(_ raw: String) throws -> URL {
         let directory = root.appendingPathComponent("cache")
         try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true)
         return directory.appendingPathComponent(SHA256.hash(data:Data(raw.utf8)).map { String(format:"%02x",$0) }.joined())
+    }
+    private func releaseImage(_ raw: String, id: UUID) {
+        guard images[raw]?.waiters.remove(id) != nil else { return }
+        if images[raw]?.waiters.isEmpty == true { images.removeValue(forKey: raw)?.task.cancel() }
     }
     func fetch(_ input: Data) async throws -> String {
         let (data,response) = try await api.request(input)
@@ -26,7 +30,8 @@ actor GalleryStore {
             let file = try cacheURL(raw), info = file.appendingPathExtension("mime")
             if let data = try? Data(contentsOf:file), let mime = try? String(contentsOf:info,encoding:.utf8) { return (data,mime) }
             let task: Task<(Data,String),Error>
-            if let running = images[raw] { task = running }
+            let id = UUID()
+            if let running = images[raw] { task = running.task; images[raw]?.waiters.insert(id) }
             else {
                 task = Task { [api] in
                     let input = try JSONSerialization.data(withJSONObject:["url":raw])
@@ -35,10 +40,13 @@ actor GalleryStore {
                     try data.write(to:file,options:.atomic); try mime.write(to:info,atomically:true,encoding:.utf8)
                     return (data,mime)
                 }
-                images[raw] = task
+                images[raw] = (task, [id])
             }
-            defer { images.removeValue(forKey:raw) }
-            return try await task.value
+            return try await withTaskCancellationHandler {
+                defer { releaseImage(raw, id: id) }
+                try Task.checkCancellation()
+                return try await task.value
+            } onCancel: { Task { await self.releaseImage(raw, id: id) } }
         }
         let name = url.path == "/" || url.path.isEmpty ? "index.html" : String(url.path.dropFirst())
         guard ["index.html","app.js","style.css"].contains(name), let file = Bundle.main.url(forResource:name,withExtension:nil,subdirectory:"Web") else { throw ReaderError.invalidRequest }

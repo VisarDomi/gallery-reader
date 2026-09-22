@@ -1,0 +1,104 @@
+{
+  "date": "2026-09-22T16:17:02.849345+00:00",
+  "scope": [
+    "hitomi",
+    "imhentai"
+  ],
+  "device": "iPhone 12 Pro Max",
+  "builds": {
+    "hitomi": 14,
+    "imhentai": 14
+  },
+  "coldLaunch": {
+    "hitomi": {
+      "ready": "complete",
+      "sameRoute": true,
+      "scrollBefore": 7927,
+      "scrollAfter": 7927,
+      "rowsBefore": 25,
+      "rowsAfter": 25,
+      "imagesAfter": 951,
+      "loadedImagesAfter": 82,
+      "errors": []
+    },
+    "imhentai": {
+      "ready": "complete",
+      "sameRoute": true,
+      "scrollBefore": 2643,
+      "scrollAfter": 2643,
+      "rowsBefore": 15,
+      "rowsAfter": 9,
+      "imagesAfter": 4462,
+      "loadedImagesAfter": 63,
+      "errors": []
+    }
+  },
+  "physicalNetworkRecovery": {
+    "hitomi": {
+      "offline": {
+        "state": "pending",
+        "start": 1790093162669,
+        "online": false
+      },
+      "afterWiFiReturned": {
+        "state": "completed",
+        "status": 200,
+        "bytes": 16751,
+        "elapsed": 505026
+      },
+      "reissued": false,
+      "reloaded": false
+    }
+  },
+  "tests": {
+    "galleryNative": [
+      "PASS: canceled gate waiters, shared image recovery, disk cache after recreation",
+      "PASS: actual URLSession loss/503 recovery, cancellation, prompt PC and no write replay"
+    ],
+    "gallerySharedUnit": "50 tests passed",
+    "nativeTypecheck": "passed for Manga, Gallery Reader, Ytb, Tango"
+  },
+  "boundaries": [
+    "Gallery Reader keeps the user-selected WebKit restoration policy, including accepted cold scroll resets.",
+    "Force-quit stops foreground transfers. Retained download work resumes when the app reopens; no execution while force-quit is claimed.",
+    "PC commands and account mutations are not automatically replayed."
+  ],
+  "renewal": {
+    "hitomi": {
+      "inputHash": "fab4eb1b3be15ed09c0414141e9506c0651bb09b93f21283ed26b4c8564cc2be",
+      "lastSuccess": 1790093971.08878,
+      "nextDue": 1792685971.08878,
+      "transport": "wired",
+      "installedProfiles": {
+        "65U58U86DD.com.visar.HitomiReader.paid": {
+          "id": "65U58U86DD.*",
+          "uuid": "1cdf8a74-2f46-43d7-aee7-25bfa6dc903a",
+          "created": 1790093916.0,
+          "expires": 1821629916.0
+        }
+      },
+      "attempts": 1
+    },
+    "imhentai": {
+      "inputHash": "388e94b657a4efe45193e9fab8e16d798a90d553fec0cb880dd86b7a27bd9dc1",
+      "lastSuccess": 1790093984.047673,
+      "nextDue": 1792685984.047673,
+      "transport": "wired",
+      "installedProfiles": {
+        "65U58U86DD.com.visar.ImhenReader.paid": {
+          "id": "65U58U86DD.*",
+          "uuid": "1cdf8a74-2f46-43d7-aee7-25bfa6dc903a",
+          "created": 1790093916.0,
+          "expires": 1821629916.0
+        }
+      },
+      "attempts": 1
+    }
+  },
+  "scheduler": {
+    "label": "com.visar.installed-apps-refresh",
+    "resumed": true,
+    "lastExitStatus": 0,
+    "newJobsCreated": false
+  }
+}
