@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
-import { createController, createSession, sleep } from 'userscript-ios-test/controller';
+import { createController, createSession, sleep } from 'ios-tools/controller';
 process.umask(0o077);
 const root = path.resolve(import.meta.dirname, '../..');
 const controller = createController({ root, name: 'gallery-worker-ui', connectionTimeoutMs: 60000, commandTimeoutMs: 30000 });

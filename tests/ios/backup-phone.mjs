@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
-import { createController, createSession, sleep } from 'userscript-ios-test/controller';
+import { createController, createSession, sleep } from 'ios-tools/controller';
 import { BackupStore } from '../../../gallery-downloader/gallery-server/downloader/dist/reader-backups.js';
 
 process.umask(0o077);

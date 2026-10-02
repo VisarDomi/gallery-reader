@@ -1,5 +1,5 @@
 // Read-only comparison: native page vs document takeover, without the reader worker.
-import { createController, createSession, sleep } from 'userscript-ios-test/controller';
+import { createController, createSession, sleep } from 'ios-tools/controller';
 const controller = createController({root: process.cwd(), name:'imhentai-back-diagnostic', connectionTimeoutMs:60000});
 const session = createSession({controller});
 const command = async (code, options) => controller.command((await controller.foregroundClient()).client, code, options);
