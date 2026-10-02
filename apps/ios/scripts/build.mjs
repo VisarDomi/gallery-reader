@@ -2,6 +2,7 @@ import { build } from 'esbuild';
 import { readFile, writeFile, mkdir, copyFile } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { homedir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const app = resolve(root,'apps/ios');
@@ -12,9 +13,11 @@ if (!registry[provider] || args.filter(arg => !arg.startsWith('--')).length !== 
 }
 const config = registry[provider];
 const out = resolve(app,'build',provider,'Web'); await mkdir(out,{recursive:true});
-const backupURL = process.env.VITE_READER_BACKUP_URL || 'https://192.168.1.197:7777';
-const key = process.env.VITE_READER_BACKUP_KEY || (await readFile(resolve(root,'../gallery-downloader/backups/readers/access-key'),'utf8')).trim();
-const define = {__IOS_PROVIDER__:JSON.stringify(provider),__IOS_ORIGIN__:JSON.stringify(config.origin),__READER_BACKUP_URL__:JSON.stringify(backupURL),__READER_BACKUP_KEY__:JSON.stringify(key),'import.meta.env.VITE_GALLERY_SERVER_URL':JSON.stringify(backupURL)};
+// Favorites sync goes to Gallery Downloader's server; backups to this repo's own server.
+const galleryURL = process.env.VITE_GALLERY_SERVER_URL || 'https://192.168.1.197:7777';
+const backupURL = process.env.VITE_READER_BACKUP_URL || 'https://192.168.1.197:7722';
+const key = process.env.VITE_READER_BACKUP_KEY || (await readFile(resolve(homedir(),'.local/share/gallery-reader/backups/access-key'),'utf8')).trim();
+const define = {__IOS_PROVIDER__:JSON.stringify(provider),__IOS_ORIGIN__:JSON.stringify(config.origin),__READER_BACKUP_URL__:JSON.stringify(backupURL),__READER_BACKUP_KEY__:JSON.stringify(key),'import.meta.env.VITE_GALLERY_SERVER_URL':JSON.stringify(galleryURL)};
 const providerFile = resolve(root,`src/provider/${provider}/provider.ts`);
 const plugin = { name:'native-provider', setup(b) {
     b.onResolve({filter:/./},args => {

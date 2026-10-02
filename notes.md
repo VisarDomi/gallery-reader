@@ -59,9 +59,9 @@ current plus one previous snapshot per ID. Favorites, saved searches, pagination
 and all reader scroll positions are included. No unrelated site storage is copied.
 
 Before formatting, install the new build and visit **both** provider homes.
-Initial setup shows a confirmation; verify later silent saves with `npm run backups:status` in the sibling
-gallery-downloader repository. See [the complete backup guide](../gallery-downloader/READER-BACKUPS.md).
-Builds read that server's private key automatically; see [.env.example](.env.example).
+Initial setup shows a confirmation; verify later silent saves with `npm run backups:status`.
+See [PC backups](server/BACKUPS.md). Builds read this repository's server key
+automatically; see [.env.example](.env.example).
 Built userscripts contain the key: do not publish them. Startup still matches the
 route first, then stop/open/close, then UI paint and asynchronous storage work.
 Home content does not wait for the PC. Backup networking never occupies the

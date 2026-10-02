@@ -2,14 +2,16 @@ import { defineConfig, loadEnv } from "vite";
 import monkey from "vite-plugin-monkey";
 import pkg from "./package.json";
 import { readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
 export default defineConfig(({ mode }) => {
     const extension = mode === 'extension';
     const env = loadEnv(mode, process.cwd(), '');
     const serverUrl = env.VITE_GALLERY_SERVER_URL ?? 'https://192.168.1.197:7777';
     const serverHost = new URL(serverUrl).hostname;
-    const backupUrl = env.VITE_READER_BACKUP_URL ?? serverUrl;
-    const backupKey = env.VITE_READER_BACKUP_KEY || readFileSync(new URL('../gallery-downloader/backups/readers/access-key', import.meta.url), 'utf8').trim();
+    const backupUrl = env.VITE_READER_BACKUP_URL ?? 'https://192.168.1.197:7722';
+    const backupKey = env.VITE_READER_BACKUP_KEY || readFileSync(join(homedir(), '.local/share/gallery-reader/backups/access-key'), 'utf8').trim();
 
     return {
         define: {

@@ -178,4 +178,4 @@ The old localStorage-mutating phone runners were retired because they could no
 longer restore the application's authoritative IndexedDB state. Their previous
 behavior remains in Git history; personal data and `test.txt` were not removed.
 
-See [backup operations and the verified phone counts](../gallery-downloader/READER-BACKUPS.md).
+See [PC backups](server/BACKUPS.md) for backup operations.

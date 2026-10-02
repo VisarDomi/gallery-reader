@@ -68,7 +68,7 @@ npx tsc --noEmit -p apps/ios/tsconfig.json
 ```
 
 The builder requires exactly one registered provider. Private PC backup credentials
-are read from the existing ignored gallery-downloader key or environment override.
+are read from this repository's server key (`server/BACKUPS.md`) or an environment override.
 Generated bundles, `.xcconfig`, build output and LocalCA.cer are ignored. Copy only
 the existing PUBLIC LAN CA to `apps/ios/Resources/LocalCA.cer` before deployment.
 

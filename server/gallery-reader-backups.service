@@ -1,0 +1,15 @@
+[Unit]
+Description=Gallery Reader PC backups (port 7722)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/home/visar/.nvm/versions/node/v22.19.0/bin/node /home/visar/Documents/work/manga/gallery-reader/server/backups.mjs
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+
+[Install]
+WantedBy=default.target

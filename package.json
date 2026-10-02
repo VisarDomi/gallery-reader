@@ -8,8 +8,9 @@
     "build": "node scripts/build.mjs",
     "build:extension": "node scripts/build-extension.mjs",
     "tests": "node tests/ios/ui-flow.mjs",
-    "phone:backup": "node tests/ios/backup-phone.mjs --backup",
-    "build:ios": "node apps/ios/scripts/build.mjs"
+    "build:ios": "node apps/ios/scripts/build.mjs",
+    "test:server": "node --test server/backups.test.mjs",
+    "backups:status": "node server/backups.mjs status"
   },
   "devDependencies": {
     "@types/tampermonkey": "^5.0.4",
