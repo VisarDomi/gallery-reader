@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Print this repo's paid apps for ios-app-renewal's configure-refresh.py (runs on the Mac mirror)."""
+"""Print this repo's paid apps for its renewal scheduler (ios-tools renewal; runs on the Mac mirror)."""
 import argparse
 import json
 from pathlib import Path
@@ -20,4 +20,4 @@ for provider, product in json.loads((root / 'providers.json').read_text()).items
                              'build/' + provider + '/provider.xcconfig', 'scripts/build.sh', 'scripts/build-provider.py'],
                      build=['/bin/bash', 'scripts/build.sh', provider],
                      environment={'DEVELOPMENT_TEAM': args.team, 'SIGNING_DEVICE': args.device}))
-print(json.dumps(apps))
+print(json.dumps(dict(repo='gallery-reader', apps=apps)))

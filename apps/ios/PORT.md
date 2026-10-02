@@ -97,9 +97,9 @@ DEVELOPMENT_TEAM and SIGNING_DEVICE. Node is required only to regenerate web ass
 
 ## Inspection and checks
 
-Use `scripts/app-inspector.py` with the Mac's existing
-`/Users/visar/Developer/gallery-reader-extension/inspector-venv/bin/python` and
-`--host-bundle com.visar.HitomiReader.paid` or `com.visar.ImhenReader.paid`.
+Use ios-tools' inspector on the Mac (`~/Developer/ios-tools/inspector`, see its README) with
+`--url-prefix gallery://app/ --snapshot-file scripts/inspector-snapshot.js` and
+`--bundle com.visar.HitomiReader.paid` or `com.visar.ImhenReader.paid`.
 Only one inspector connection at a time. Navigation may replace the inspected
 WebContent target: reconnect after navigating. The app intentionally enables
 Web Inspector. Diagnostic evaluation is not a physical swipe/scroll test.
@@ -123,10 +123,10 @@ thumbnails. Reader checks decoded images in a four-page Hitomi gallery and a
 These are functionality checks, not a claim of physical gesture smoothness.
 
 Both apps passed the existing renewal runner over USB: profiles advanced from
-2027-09-12 17:56:30 UTC to 18:05:27 UTC, preserving app data. The single monthly
-scheduler is enabled again with ten apps. Its entries (one per
-`providers.json` provider) come from this folder's `scripts/renewal.py`, read by
-ios-app-renewal's `configure-refresh.py` on the Mac mirror.
+2027-09-12 17:56:30 UTC to 18:05:27 UTC, preserving app data. Both apps renew monthly
+through this repository's scheduler, `com.visar.renewal.gallery-reader`
+([ios-tools renewal](../../../../ios-tools/renewal/PAID-REFRESH.md)); `scripts/renewal.py` lists one entry per
+`providers.json` provider.
 Recovery scripts/configs and wired verification evidence are copied into
 `/home/visar/Documents/environment/mac-renewal`.
 

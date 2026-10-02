@@ -1,6 +1,6 @@
 """Read the real iPhone Web Inspector over the Mac's trusted USB connection.
 
-Run with the Mac's inspector-venv. No userscript/debugger injection or storage
+Run with ios-tools' inspector Python on the Mac. No userscript/debugger injection or storage
 mutation. --reload is an explicit diagnostic navigation; normal app home sync
 can occur on reload. Output omits request bodies and authentication headers.
 """

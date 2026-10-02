@@ -19,7 +19,7 @@ npm run tests
 
 The four Chromium-only tests and their npm commands were removed at the user's
 request. Unit tests remain for source behavior and data validation. Native app
-checks use `apps/ios/scripts/app-inspector.py` on the documented Mac, with each
+checks use ios-tools' inspector with `apps/ios/scripts/inspector-snapshot.js`, with each
 installed provider app. Verify image decoding, navigation/Back, data retention
 and WebKit session restoration on the phone; actual gesture smoothness requires
 physical testing. `phone:backup` is an explicit backup operation, not a default
