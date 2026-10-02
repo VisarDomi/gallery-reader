@@ -124,8 +124,9 @@ These are functionality checks, not a claim of physical gesture smoothness.
 
 Both apps passed the existing renewal runner over USB: profiles advanced from
 2027-09-12 17:56:30 UTC to 18:05:27 UTC, preserving app data. The single monthly
-scheduler is enabled again with ten apps. Its generator now accepts
-`--gallery-reader-root /Users/visar/Developer/gallery-reader/apps/ios`.
+scheduler is enabled again with ten apps. Its entries (one per
+`providers.json` provider) come from this folder's `scripts/renewal.py`, read by
+ios-app-renewal's `configure-refresh.py` on the Mac mirror.
 Recovery scripts/configs and wired verification evidence are copied into
 `/home/visar/Documents/environment/mac-renewal`.
 
