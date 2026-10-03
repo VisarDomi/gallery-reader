@@ -6,7 +6,7 @@ share one transfer per URL; canceled callers release their interest, and a trans
 with no remaining callers stops, freeing capacity for the next page. An old caller
 cannot erase a newer transfer. Completed image files survive process restart.
 
-The shared userscript UI, source URL resolution and native WebKit interactionState
+The shared UI, source URL resolution and native WebKit interactionState
 restoration remain unchanged. Cold scroll resets accepted by the user remain
 accepted; no custom cold-restore or migration code was added.
 

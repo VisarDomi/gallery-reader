@@ -9,7 +9,7 @@ async function handle({ op, payload }: Request): Promise<unknown> {
     if (op === 'hitomi-suggestions') return suggestions(payload);
     if (op === 'provider') {
         setPageReferrer(payload.referrer);
-        const provider = dataProvider(payload.provider);
+        const provider = dataProvider();
         if (payload.method === 'getGalleryThumbnails') {
             return (await provider.getGalleryThumbnails(payload.args[0])).map(thumb => ({ url: provider.thumbUrl(thumb) }));
         }

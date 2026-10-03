@@ -1,71 +1,49 @@
 # more info
 
-For the Hitomi/Imhen native apps, read `apps/ios/PORT.md`. Keep provider and feature
-logic shared with the userscript; build exactly one provider from `apps/ios/providers.json`.
-
-For shared app changes, build and verify every registered provider, then deploy
-both Hitomi and Imhen. Keep online behavior faithful to the userscript: resolve
-image URLs through the shared provider on each new reader document, and reuse
-`src/core/image-retry.ts`. Do not persist resolved URLs as offline manifests or
-carry gallery-downloader's offline-only assumptions into these online apps.
-
-## basic
-A userscript used for tampermonkey on pc and userscript on ios.
-
-The separate [Safari extension experiment](extension/README.md) builds from the
-same source with preinstalled startup-script blocking. Its on-device validation
-is tracked there; the userscript remains available unchanged.
+Hitomi and Imhen are the only products: the native apps in `apps/ios` (read its
+`PORT.md`), with their PC backup server in `server/`. Build exactly one provider
+from `apps/ios/providers.json`; for shared changes, build and verify every
+registered provider, then deploy both apps. Resolve image URLs through the provider
+on each new reader document and reuse `src/core/image-retry.ts`. Do not persist
+resolved URLs as offline manifests or carry gallery-downloader's offline-only
+assumptions into these online apps.
 
 ## how
 
-The main thread owns UI and browser navigation. After route matching and
-stop/open/close, a lazy compute worker owns IndexedDB, gallery fetching/parsing,
-Nozomi intersection, favorite/search operations, backup snapshots and HTTP sync.
-Provider matching and URL constructors stay on the UI side; Hitomi's existing
-DOM-based search-suggestion integration stays there too. Long image strips are
-inserted in small batches so interaction can continue.
-
-On first home/search use, the storage bridge reads only the old reader keys from
-localStorage, yielding between batches. The worker validates and atomically
-imports them into `gallery-reader-data` IndexedDB. The old localStorage values
-remain untouched as a safety copy, but are not read or updated after migration.
-Do not switch back to an old build: it would see that now-stale safety copy.
-
-## setup
+The main thread owns UI and navigation. A lazy compute worker owns IndexedDB,
+gallery fetching/parsing, Nozomi intersection, favorite/search operations, backup
+snapshots and HTTP sync. Provider matching and URL constructors stay on the UI
+side; Hitomi's search-suggestion integration stays there too. Long image strips
+are inserted in small batches so interaction can continue.
 
 ## Gallery Downloader sync
 
-On Hitomi and IMHentai, the userscript sends the complete local favorites list to Gallery Downloader after a successful home backup and after every favorite/import change. Initial backup/restore setup must succeed before favorites are published. An unavailable PC never rolls back a local favorite action; a subsequent full snapshot repairs missed changes.
-
-The default server is `https://192.168.1.197:7777`. Override it while building with `VITE_GALLERY_SERVER_URL`:
-
-```bash
-VITE_GALLERY_SERVER_URL=https://your-lan-host:7777 npm run build
-```
+The apps send the complete local favorites list to Gallery Downloader after a
+successful home backup and after every favorite/import change. Initial
+backup/restore setup must succeed before favorites are published. An unavailable
+PC never rolls back a local favorite action; a subsequent full snapshot repairs
+missed changes. The default server is `https://192.168.1.197:7777`; override it
+with `VITE_GALLERY_SERVER_URL` when running `npm run build:ios`.
 
 ## PC backup and restore
 
-Initial Backup/Restore shows a success confirmation. Later automatic home backups
-are silent, even when data changes. An unreachable PC, connection timeout, or
-unavailable service is also silent: no setup prompt and no notification. The next
-home visit retries normally. Online access/validation/storage errors remain
-visible until dismissed or a successful retry. Check PC backup status before formatting—routine saves no
-longer display a success toast.
+Each provider home offers **Back up this phone** or **Restore from PC** on first
+use, with phone/backup counts, and confirms the initial choice. Later home visits
+back up silently. An unreachable PC is silent: no setup prompt and no
+notification; the next home visit retries. Access, validation and storage errors
+stay visible until dismissed or a successful retry. A restored phone gets a new
+independent ID; the original backup stays intact. Favorites, saved searches,
+pagination and all reader scroll positions are included. Home content does not
+wait for the PC, and backup networking never occupies the worker queue used for
+favorite/progress writes. See [PC backups](server/BACKUPS.md); check
+`npm run backups:status` before formatting the phone.
 
-Each provider home offers **Back up this phone** or **Restore from PC** on first use,
-with phone/backup counts. Subsequent home visits back up automatically. A restored
-phone gets a new independent ID; the original backup stays intact. The PC retains
-current plus one previous snapshot per ID. Favorites, saved searches, pagination
-and all reader scroll positions are included. No unrelated site storage is copied.
+## Testing
 
-Before formatting, install the new build and visit **both** provider homes.
-Initial setup shows a confirmation; verify later silent saves with `npm run backups:status`.
-See [PC backups](server/BACKUPS.md). Builds read this repository's server key
-automatically; see [.env.example](.env.example).
-Built userscripts contain the key: do not publish them. Startup still matches the
-route first, then stop/open/close, then UI paint and asynchronous storage work.
-Home content does not wait for the PC. Backup networking never occupies the
-worker queue used for favorite/progress writes.
+```bash
+npm run test:unit
+npm run test:server
+npx tsc --noEmit -p apps/ios/tsconfig.json
+```
 
-## [Testing](test.md)
-Install debug.user.js and change iphone display auto-lock to never (remember to change it back) then run npm run tests
+Physical checks run on the phone with ios-tools' inspector; see `apps/ios/PORT.md`.

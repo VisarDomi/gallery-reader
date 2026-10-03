@@ -1,63 +1,44 @@
 # Gallery provider apps
 
 One codebase and one Xcode target build **Hitomi** (`hitomi`) and **Imhen**
-(`imhentai`). `providers.json` is the product registry. Apps are ordinary native
-paid-team installations with no custom icons; they do not require LiveContainer.
-Do not change the user's readme.md or test.txt.
+(`imhentai`). `providers.json` is the product registry. Both are ordinary native
+paid-team installations with no custom icons.
 
-## Shared implementation — build 13
+## Implementation
 
-The userscript, extension and native apps compile the actual `src/routes`,
-`src/ui`, `src/storage`, `src/provider`, CSS and compute worker. There is no
-copied Gallery Downloader UI. `gallery-app.js`, `gallery.css` and `online.ts`
-have been removed. Gallery Downloader itself is unchanged.
+The web code lives in `src/`: routes, UI, storage, providers, CSS and the compute
+worker, with the app's entry points and native bridge in `src/app/`. The builder
+selects Hitomi or Imhentai for both the UI and the worker (`@selected-provider`,
+`@selected-data-provider`); nothing else is swapped. Swift hosts WebKit, performs
+URLSession requests, caches requested image bytes and persists WebKit's opaque
+`interactionState` at navigation completion and app lifecycle checkpoints. It does
+not parse galleries or render rows.
 
-The required provider builder selects Hitomi or Imhentai for both the UI and
-worker. Build-time adapters in `web/` replace only document takeover, provider
-navigation/image URLs, worker construction/networking and a flag identifying WebKit history restoration.
-The compute request queue itself is shared too.
-Swift hosts WebKit, performs URLSession requests, caches requested image bytes
-and persists WebKit’s opaque `interactionState` at navigation completion and app
-lifecycle checkpoints. It does not parse galleries or render rows.
-
-Shared routes create the same image elements with `loading="lazy"`, dimensions,
-URL resolution and retry registration as the userscript. The former additional
-IntersectionObservers, image release/reload queue, placeholder wrappers, copied
-pagination and status messages are gone. Native `GalleryStore` is the sole
-image-byte owner: a WebKit image request reads its file or joins the existing
-URL download. Provider image routing remains document-local; no resolved-URL
-manifest is persisted. Gallery retains its existing on-demand cache policy;
-Manga's previous/current/next download policy does not apply to these galleries.
+Routes create image elements with `loading="lazy"`, dimensions, URL resolution and
+retry registration (`src/core/image-retry.ts`). Native `GalleryStore` is the sole
+image-byte owner: a WebKit image request reads its file or joins the existing URL
+download. Image routing is resolved per document; no resolved-URL manifest is
+persisted. Images are cached on demand.
 
 WebKit owns Back/Forward gestures, history, bfcache and cold session restoration.
-The user explicitly accepted cold-launch position resets on September 16. There
-is no custom native view-position JSON, anchor math, strip-scroll restoration,
-resize observer or reconstructed Home-to-reader navigation stack. Shared routes
-still perform their ordinary initial positioning when opening a new reader;
-they leave restored history positioning to WebKit. Native app documents do not
-run SOC; the userscript/extension retain their own takeover.
+Cold launches restore the reader URL and Back history but reset scroll positions
+(accepted). There is no custom view-position file, anchor math, strip-scroll
+restoration or reconstructed navigation stack; routes position a newly opened
+reader and leave restored history to WebKit.
 
-The `interactionState` experiment on the physical iPhone restored the reader URL
-and Back history, but reader y=1300 became 0 after both a foreground termination
-and a background/termination cycle. Home’s horizontal strip x=600 became 0.
-Those are accepted platform behaviours, not remaining custom-restore work.
-Apple’s [API declaration](https://github.com/WebKit/WebKit/blob/main/Source/WebKit/UIProcess/API/Cocoa/WKWebView.h)
-describes the serialized session. We persist its opaque Data without parsing it.
-
-Both products retain their IDs, separate WebKit databases, favorites, saved
-searches, image caches. Old `view.json` is unused; no conversion or migration was added. No migration or reimport was
-added. Backup/enrollment/favorites publication are the existing shared source
-behavior and provider scopes, `gallery-reader:hitomi` and
-`gallery-reader:imhentai`; there is no additional native sync implementation.
+Each app keeps its own IDs, WebKit databases, favorites, saved searches and image
+cache. Backups use the `gallery-reader:hitomi` and `gallery-reader:imhentai`
+scopes on this repository's server (`server/BACKUPS.md`); favorites sync to
+Gallery Downloader on port 7777.
 
 ## Build and deploy
 
 Read `/home/visar/Documents/environment/mac-access.md` first. Mac SSH is
 `visar@192.168.1.198`, using the dedicated trusted known-hosts file. USB wireless
 stays DHCP. Phone UDID: `00008101-000639912881401E`; paid team: `65U58U86DD`.
-The new Mac mirror is `/Users/visar/Developer/gallery-reader/apps/ios`.
+The Mac mirror is `/Users/visar/Developer/gallery-reader/apps/ios`.
 
-On Linux, from gallery-reader:
+On Linux:
 
 ```sh
 npm ci
@@ -67,8 +48,8 @@ npm run test:unit
 npx tsc --noEmit -p apps/ios/tsconfig.json
 ```
 
-The builder requires exactly one registered provider. Private PC backup credentials
-are read from this repository's server key (`server/BACKUPS.md`) or an environment override.
+The builder requires exactly one registered provider. The PC backup key is read
+from this repository's server (`server/BACKUPS.md`) or an environment override.
 Generated bundles, `.xcconfig`, build output and LocalCA.cer are ignored. Copy only
 the existing PUBLIC LAN CA to `apps/ios/Resources/LocalCA.cer` before deployment.
 
@@ -77,211 +58,29 @@ For each provider, sequentially:
 ```sh
 python apps/ios/scripts/deploy.py sync hitomi
 python apps/ios/scripts/deploy.py build hitomi
-python apps/ios/scripts/deploy.py status hitomi
-# The attached build must exit 0 and report BUILD SUCCEEDED.
 python apps/ios/scripts/deploy.py install hitomi
 ```
 
 Use `imhentai` for Imhen. The build stays attached to SSH and uses
 `sudo launchctl asuser 501 sudo -u visar` for the logged-in Keychain, without
-registering a LaunchAgent or Allow in Background entry. `status` only reads the
-log; `finish` is a compatibility no-op.
-Install preflight verifies the actual signed entitlement, provider, product name,
-no icon keys, paid team, profile validity and inclusion of the physical phone.
-A paid wildcard provisioning profile is valid; the app's signed entitlement must
-still match its exact bundle ID. Installation updates the same app, retaining data.
-Never overlap builds: they share the single target's Resources/Web staging directory.
-
+registering a LaunchAgent; it must report BUILD SUCCEEDED. Install verifies the
+signed entitlement, provider, product name, no icon keys, paid team, profile
+validity and inclusion of the phone, then updates the same app, keeping its data.
+Never overlap builds: they share the target's Resources/Web staging directory.
 On the Mac the prepared build needs only `bash scripts/build.sh <provider>` with
-DEVELOPMENT_TEAM and SIGNING_DEVICE. Node is required only to regenerate web assets.
+DEVELOPMENT_TEAM and SIGNING_DEVICE; Node is needed only to regenerate web assets.
 
 ## Inspection and checks
 
-Use ios-tools' inspector on the Mac (`~/Developer/ios-tools/inspector`, see its README) with
-`--url-prefix gallery://app/ --snapshot-file scripts/inspector-snapshot.js` and
-`--bundle com.visar.HitomiReader.paid` or `com.visar.ImhenReader.paid`.
-Only one inspector connection at a time. Navigation may replace the inspected
-WebContent target: reconnect after navigating. The app intentionally enables
-Web Inspector. Diagnostic evaluation is not a physical swipe/scroll test.
+Use ios-tools' inspector on the Mac (`~/Developer/ios-tools/inspector`, see its
+README) with `--url-prefix gallery://app/ --snapshot-file scripts/inspector-snapshot.js`
+and `--bundle com.visar.HitomiReader.paid` or `com.visar.ImhenReader.paid`. Only
+one inspector connection at a time; navigation may replace the inspected target,
+so reconnect afterwards. Diagnostic evaluation is not a physical swipe/scroll
+test: gestures are checked on the phone.
 
-Validation targets the physical iPhone and Safari/WebKit. Chromium-only fixtures
-and their commands, including the misleading `test:ios` browser fixture, were
-removed at the user's request. Keep the source unit tests and TypeScript checks.
-Use the native inspector for installed Hitomi/Imhen checks and `npm run tests`
-for the real Safari userscript flow. `npm run phone:backup` is a state-changing
-backup operation, not a routine test. Physical swipe/scroll acceptance remains
-on the phone. The historical verification records below describe earlier work;
-they do not require resurrecting the removed Chromium fixtures.
+## Renewal
 
-## Verified delivery — September 12, 2026
-
-Both products built and installed with the paid team, exact signed app identities,
-no custom icon keys and the physical device in their provisioning profile. Real
-iPhone searches displayed 25 Hitomi rows and 20 Imhentai rows with decoded
-thumbnails. Reader checks decoded images in a four-page Hitomi gallery and a
-300-page Imhentai gallery. Imhen's forced-kill/relaunch restored page 5 at y=1300.
-These are functionality checks, not a claim of physical gesture smoothness.
-
-Both apps passed the existing renewal runner over USB: profiles advanced from
-2027-09-12 17:56:30 UTC to 18:05:27 UTC, preserving app data. Both apps renew monthly
-through this repository's scheduler, `com.visar.renewal.gallery-reader`
-([ios-tools renewal](../../../../ios-tools/renewal/PAID-REFRESH.md)); `scripts/renewal.py` lists one entry per
-`providers.json` provider.
-Recovery scripts/configs and wired verification evidence are copied into
-`/home/visar/Documents/environment/mac-renewal`.
-
-The 50 shared unit tests pass. Six old assertions still expected the previously
-removed 100ms scroll delay; their expectations now match the user's existing
-immediate-scrollend implementation. That runtime file was already modified
-before this app task. The existing Vite takeover changes were also preserved.
-
-Hitomi also passed the physical forced-kill/relaunch check: page 3 at y=1300
-returned with all four gallery images decoded. The actual iOS accessibility tree
-showed the pending per-app Local Network permission prompt. Provider browsing
-works; PC backup access awaits Allow in Hitomi and Imhen. This is not a PC server
-outage (the Mac reached it). Do not bypass TLS, select a real backup, or create
-a new backup identity automatically just to test access.
-
-## Online image parity correction — build 8
-
-The initial port incorrectly persisted fully resolved provider image URLs inside
-GalleryStore manifests and reused them on future launches. Gallery Downloader's
-offline-manifest assumption does not apply to an online provider. On the physical
-phone, Hitomi gallery 556561 rendered 88 slots with zero decoded images: its saved
-routing prefix `1789239601` returned HTTP 404, while current `gg.js` returned 200
-and supplied prefix `1789282802`. No account/session dependency was involved.
-
-The native adapter now builds document-local manifests from the shared provider,
-as the userscript does on reader load. It no longer reads/writes disk manifests
-or uses the extra indefinite metadata fallback on network failure. URLSession's
-normal HTTP cache remains, as does the on-demand image byte cache. Existing
-favorites and view-position storage are unchanged. Old manifest files are ignored;
-no data reset or favorites reimport is needed.
-
-The app also imports `src/core/image-retry.ts` for loaded image elements instead
-of its copied three-retry limit. Viewport activation/release still bounds image
-work; clearing src releases a slot, and the shared registry drops released images.
-No retry, provider parsing or URL construction logic is copied into Swift.
-
-The browser fixture now decodes actual image responses via an intercepted origin
-that models WKURLSchemeHandler. It simulates a routing-prefix change between
-launches and refuses stale image URLs. The old build fails to decode after that
-change; build 8 passes. A four-failure image test verifies recovery beyond the
-old retry cap. Both providers retain search, favorites, metadata, Back and cold
-reading-position restoration. The old offline-manifest test described above is
-superseded by this online behavior, matching the userscript.
-
-Both paid provider builds were installed with their existing IDs/data. The same
-previously failing 88-page Hitomi gallery decoded all three initially activated
-images after the update. Imhen's 144-page gallery also decoded three activated
-images. Remaining pages stay viewport-driven, as in the existing app shell.
-
-Build 8 renewal completed for both providers, with input fingerprints matching
-the delivered builds. The single monthly scheduler is enabled; updated evidence
-and recovery checksums are in environment/mac-renewal.
-
-
-## Fidelity pass — build 9
-
-Home/search rows now request only the shared provider's thumbnails, matching
-`src/ui/paginated-grid.ts`; full reader image resolution no longer gates Home,
-and thumbnail resolution no longer gates the reader. In-memory preview and
-reader metadata are separate and remain document-local.
-
-The app now imports the source `onSettledScroll` instead of the inherited 150ms
-position timer. Native lifecycle checkpoints and horizontal-strip scrollend
-remain. Pagination again scrolls the grid into view after rendering.
-Both provider browser fixtures pass, including a Home-only request check that
-rejects premature Hitomi gg.js/image routing, and a no-mid-scroll-save check.
-The broader four-codebase audit is in Manga Reader's
-`investigation/port-fidelity-audit.md`. Gallery Downloader is not an audit target.
-
-## Second fidelity pass — build 10
-
-The userscript remains the behavioral specification. This pass fixes additional
-app-only deviations; it does not change Gallery Downloader or provider parsing.
-
-- Reader metadata/dimensions now create page slots and restore the requested page
-  before Hitomi image routing completes, in the same order as source reader.ts.
-  Image URL resolution remains document-local and shared between active slots.
-  Empty readers use the source message. Large readers and thumbnail strips yield
-  every 32 elements, matching the source's UI scheduling.
-- User input is recorded before asynchronous loading completes. A touch, pointer,
-  wheel or key event cancels delayed initial positioning as well as ongoing
-  anchor adjustment; it can no longer be forgotten before restore starts.
-- Removed an undefined `positionTimer` reference left in pagehide cleanup after
-  the first pass removed that timer. Suspension now finishes rejecting pending
-  work, releasing workers and retaining DOM/scroll axes for bfcache. Incomplete
-  off-DOM render batches are not retained as active image slots.
-- Favorites without an explicit page use the source's saved Home page. Catalog
-  rendering no longer waits for storage writes; stale asynchronous results cannot
-  replace a newer page. Pagination updates also consider total/page-size changes.
-- Removed copied pagination/modal/row styling that overrode source CSS. The
-  count is above the grid with the source's `~` prefix; the current page is an
-  inactive span. Only native image-slot/status styles remain in gallery.css.
-- Fetch cancellation now rejects promptly and forwards cancellation to the
-  corresponding URLSession task. Worker shutdown cancels its native requests
-  and releases its Blob URL. This restores the source's abort/timeout semantics
-  for autocomplete and optional PC requests, rather than waiting for network
-  completion before observing an already-aborted signal.
-- Removed unreachable offline download-state and fallback UI branches from the
-  online shell. The requested on-demand native image byte cache and Gallery-style
-  cold restoration/viewport activation remain.
-
-Both expanded provider browser fixtures pass delayed routing, early input,
-explicit pagehide/pageshow, saved Favorites page, original pagination styling,
-Fetch abort propagation, search/favorites/info, retry recovery, current URLs and
-cold-reader restore. All 50 shared unit tests and TypeScript checks pass.
-Physical delivery and renewal evidence: `second-pass-verification.json`.
-
-Build 10 device checks passed with 88 Hitomi slots and 144 Imhen slots, decoded
-images and no page errors. Both apps checkpointed y=1300 and returned to y=1300
-after force termination/relaunch. Native Fetch cancellation reported AbortError
-in both apps. These are actual-device functional checks, not physical scrolling
-smoothness measurements. Existing identities/favorites were retained.
-
-Both build-10 baselines completed monthly renewal; current input hashes match,
-last errors are empty, and the scheduler is enabled/idle with exit 0. Each signed
-app's app.js, style.css and index.html match the tested prepared assets. Recovery
-contains `gallery-second-pass-verification.json` with the updated evidence.
-
-
-## September 13: disable image selection and long-press menus
-
-All `img` elements and image-containing links use `-webkit-touch-callout: none`,
-`user-select: none` (including WebKit's prefix), and `-webkit-user-drag: none`.
-This includes covers, thumbnails, previews and reader pages. Taps and native
-scroll gestures remain enabled; no touch listener or gesture interception was
-added. Apple's [Safari CSS reference](https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/SafariCSSRef/Articles/StandardCSSProperties.html)
-documents the callout property.
-
-The rule lives in `src/css/style.css`, shared by the userscript, extension and
-both native provider builds. Userscript/extension version 518 was rebuilt; Hitomi
-and Imhen use build 11. Browser checks verified both prepared provider styles,
-image selection/drag, link taps, editable inputs and scrolling.
-
-## Image error text — build 12
-
-Removed the copied `Page N: ...` image-error overlay and exception-bearing
-thumbnail alt text. The userscript adds neither. The shared image retry registry
-remains; failed images get no replacement error UI. No image scheduling or
-loading behavior was changed in this small first fix. Both provider browser
-fixtures now exercise failed HTTP image responses, absence of added error text
-and recovery, alongside the existing functional checks.
-
-The cross-app text audit and remaining lazy-loading differences are recorded in
-`manga-reader/investigation/app-visible-text-audit.md`. They are not declared
-fixed by removing these messages. Gallery Downloader is unchanged. Delivery
-evidence: `image-error-removal-verification.json`.
-
-## Shared-codebase verification — September 16, 2026
-
-Build 13 compiles the source routes directly. Fifty shared unit tests and source
-and native TypeScript checks pass. Physical-device checks verified decoded
-Hitomi/Imhen reader images, local image URLs, lazy image elements, WebKit session
-restoration and Back, with favorites/search counts and hashes preserved.
-See `shared-codebase-verification.json` for delivered assets and renewal evidence.
-
-All four Chromium-only fixtures were subsequently removed at the user's request,
-along with their npm commands and the direct Playwright dependency. Target iOS
-and Safari/WebKit for runtime validation; do not reinstate Chromium-only checks.
+Both apps renew monthly through this repository's scheduler,
+`com.visar.renewal.gallery-reader` ([ios-tools renewal](../../../../ios-tools/renewal/PAID-REFRESH.md));
+`scripts/renewal.py` lists one entry per `providers.json` provider.

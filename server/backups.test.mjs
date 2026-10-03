@@ -49,7 +49,7 @@ test('invalid providers, IDs and snapshots are rejected', () => {
     } finally { cleanup(); }
 });
 
-test('HTTP backups require the private key, allow only reader origins, and never cache', async t => {
+test('HTTP backups require the private key and never cache', async t => {
     const { root, cleanup } = fixture();
     const server = http.createServer(handler(root)).listen(0, '127.0.0.1');
     await new Promise(resolve => server.once('listening', resolve));
@@ -59,12 +59,7 @@ test('HTTP backups require the private key, allow only reader origins, and never
     assert.equal(denied.status, 401);
     assert.equal(denied.headers.get('cache-control'), 'no-store');
     assert.equal(denied.headers.get('access-control-allow-origin'), null);
-    const untrusted = await fetch(base, { headers: { Origin: 'https://untrusted.invalid' } });
-    assert.equal(untrusted.headers.get('access-control-allow-origin'), null);
-    const preflight = await fetch(base, { method: 'OPTIONS', headers: { Origin: 'https://hitomi.la', 'Access-Control-Request-Method': 'PUT', 'Access-Control-Request-Headers': 'X-Reader-Backup-Key, Content-Type' } });
-    assert.equal(preflight.status, 204);
-    assert.equal(preflight.headers.get('access-control-allow-origin'), 'https://hitomi.la');
-    assert.equal((await fetch(base, { headers: { Origin: 'https://hitomi.la' } })).status, 401);
+    assert.equal((await fetch(base, { headers: { Origin: 'https://hitomi.la' } })).headers.get('access-control-allow-origin'), null);
     const headers = { 'X-Reader-Backup-Key': fs.readFileSync(path.join(root, 'access-key'), 'utf8'), 'Content-Type': 'application/json' };
     const saved = await fetch(base + '/' + randomUUID(), { method: 'PUT', headers, body: JSON.stringify({ label: 'Phone', baseRevision: null, data: data([7, 8]) }) });
     assert.equal(saved.status, 200);

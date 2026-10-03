@@ -4,7 +4,6 @@
     "module": "ESNext",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "moduleResolution": "bundler",
-    "types": ["vite/client", "tampermonkey"],
     "strict": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
@@ -16,5 +15,5 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src", "extension/**/*.ts"]
+  "include": ["src"]
 }

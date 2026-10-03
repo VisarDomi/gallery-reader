@@ -1,26 +1,19 @@
 {
   "name": "gallery-reader",
   "version": "519",
-  "description": "Userscript to improve ux on supported sites",
+  "description": "Hitomi and Imhen, the native iPhone gallery readers, with their PC backup server",
   "type": "module",
   "scripts": {
     "test:unit": "vitest run --config vitest.config.ts",
-    "build": "node scripts/build.mjs",
-    "build:extension": "node scripts/build-extension.mjs",
-    "tests": "node tests/ios/ui-flow.mjs",
     "build:ios": "node apps/ios/scripts/build.mjs",
     "test:server": "node --test server/backups.test.mjs",
     "backups:status": "node server/backups.mjs status"
   },
   "devDependencies": {
-    "@types/tampermonkey": "^5.0.4",
     "@vitest/ui": "^4.1.9",
     "esbuild": "^0.28.2",
     "jsdom": "^29.1.1",
     "typescript": "^5.9.3",
-    "ios-tools": "file:../../ios-tools",
-    "vite": "^7.1.9",
-    "vite-plugin-monkey": "^7.1.4",
     "vitest": "^4.1.9"
   }
 }

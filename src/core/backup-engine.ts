@@ -54,7 +54,7 @@ const candidates = new Map<string, Map<string, Snapshot>>();
 async function pcRequest(scope: string, method: string, body?: string, id?: string): Promise<string | null> {
     const base = typeof __READER_BACKUP_URL__ === 'string' ? __READER_BACKUP_URL__.replace(/\/$/, '') : '';
     const key = typeof __READER_BACKUP_KEY__ === 'string' ? __READER_BACKUP_KEY__ : '';
-    if (!base || !key) throw new Error('Backup server/key missing; rebuild the userscript');
+    if (!base || !key) throw new Error('Backup server/key missing; rebuild the app');
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
     try {

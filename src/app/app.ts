@@ -1,10 +1,10 @@
 import { native } from './native';
 import { installFetch } from './fetch';
-import { receive } from './platform';
-import { startInit } from '../../../src/ui/shell';
-import { init as home } from '../../../src/routes/home';
-import { init as search } from '../../../src/routes/search';
-import { open } from '../../../src/routes/reader';
+import { receive } from '../core/platform';
+import { startInit } from '../ui/shell';
+import { init as home } from '../routes/home';
+import { init as search } from '../routes/search';
+import { open } from '../routes/reader';
 
 installFetch(args => native('fetch', args as any), requestID => { void native('fetch-cancel', {requestID}).catch(() => {}); });
 async function start() {

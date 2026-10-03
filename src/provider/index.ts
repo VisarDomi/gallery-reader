@@ -1,51 +1,22 @@
-export { Handler } from './types';
-export type { GalleryMeta, Provider, RouteMatch, SearchResults, Thumbnail, ReaderImage } from './types';
-
-import type { Provider, Thumbnail, ReaderImage, RouteMatch } from './types';
-import { provider as hitomi } from './hitomi/provider';
-import { provider as imhentai } from './imhentai/provider';
-
-export const providers = { hitomi, imhentai } as const;
-
-let p: Provider;
-
-export function selectProvider(hostname: string): void {
-    if (hostname.includes('hitomi.la')) p = providers.hitomi;
-    else if (hostname.includes('imhentai.xxx')) p = providers.imhentai;
-    else throw Error('Unable to select provider');
+// Build-selected implementation; all decoding stays in the provider.
+import { provider as source } from '@selected-provider';
+import { localImage } from '../app/native';
+export * from './types';
+export const providerId = __IOS_PROVIDER__;
+export const getMeta = source.getMeta;
+export const getGalleryThumbnails = source.getGalleryThumbnails;
+export const getReaderData = source.getReaderData;
+export const imageUrls: typeof source.imageUrls = async images => (await source.imageUrls(images)).map(localImage);
+export const thumbUrl: typeof source.thumbUrl = thumb => localImage(source.thumbUrl(thumb));
+export const search = source.search;
+export const initProvider = () => source.init?.();
+export const backupHome = source.backupHome;
+export const scheduleFavoritesSync = source.scheduleFavoritesSync;
+export const readerUrl = (id: number, index = 0) => `/?read=${providerId}-${id}&page=${index + 1}`;
+export const searchUrl = (query: string, page = 1) => `/?q=${encodeURIComponent(query)}&p=${page}`;
+export function tagSearchUrl(ns: string, value: string, language: string) {
+    const url = new URL(source.tagSearchUrl(ns, value, language));
+    const route = source.matchRoute(url.pathname, url.search, url.hash);
+    if (route?.handler !== 1) throw new Error('Provider returned an invalid search route');
+    return searchUrl(route.query, route.page);
 }
-
-export interface InitializedProviderRoute {
-    route: RouteMatch;
-    documentTitle: string;
-}
-
-export function initializeProviderRoute(
-    hostname: string,
-    pathname: string,
-    search: string,
-    hash: string,
-): InitializedProviderRoute | null {
-    selectProvider(hostname);
-    const route = p.matchRoute(pathname, search, hash);
-    if (!route) return null;
-    return {
-        route,
-        documentTitle: document.title,
-    };
-}
-
-// ── lazy forwarders ──────────────────────────────────────────────────
-
-export const getMeta = (gid: number) => p.getMeta(gid);
-export const getGalleryThumbnails = (gid: number) => p.getGalleryThumbnails(gid);
-export const getReaderData = (gid: number) => p.getReaderData(gid);
-export const thumbUrl = (thumb: Thumbnail) => p.thumbUrl(thumb);
-export const imageUrls = (images: ReaderImage[]) => p.imageUrls(images);
-export const search = (rawQuery: string, page: number) => p.search(rawQuery, page);
-export const readerUrl = (gid: number, index?: number) => p.readerUrl(gid, index);
-export const searchUrl = (query: string, page?: number) => p.searchUrl(query, page);
-export const tagSearchUrl = (ns: string, value: string, language: string) => p.tagSearchUrl(ns, value, language);
-export const initProvider = () => p.init?.();
-export const backupHome = () => p.backupHome();
-export const scheduleFavoritesSync = (delayMs?: number) => p.scheduleFavoritesSync(delayMs);

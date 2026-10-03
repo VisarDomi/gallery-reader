@@ -1,6 +1,7 @@
 Tester prerequisites:
 
-- Run the suite on the configured iPhone with gallery-reader-debug enabled and other scripts disabled.
+- Run on the iPhone with the Hitomi or Imhen app in the foreground; inspect it with
+  ios-tools' inspector (see `apps/ios/PORT.md`).
 - Hitomi Favorites must already contain at least 51 galleries, providing at
   least three pages at 25 galleries per page.
 - The suite uses the tester's existing Favorites as read-only test data. It
@@ -9,7 +10,7 @@ Tester prerequisites:
 Frozen critical flows:
 
 1. App takeover and gallery rendering
-- Supported home, search, and reader URLs are replaced by the gallery-reader UI.
+- Home, search, and reader routes open in the app's UI.
 - Search and Favorites render galleries in provider order as 300 px skeleton
   rows, then populate each row asynchronously with horizontally scrollable
   thumbnails.
@@ -37,7 +38,7 @@ Frozen critical flows:
 4. Search to reader and Back
 - Opening a gallery thumbnail enters the reader at the selected image.
 - Returning Back to Search restores the same search and viewport position.
-- Hitomi must restore this directly from Safari's bfcache.
+- Hitomi must restore this directly from bfcache.
 - imhentai, which prevents bfcache, reloads and restores the saved scroll
   position for that search URL.
 

@@ -1,6 +1,6 @@
 # PC backups
 
-Hitomi and Imhen (and the userscript) back up their favorites, saved searches,
+Hitomi and Imhen back up their favorites, saved searches,
 pagination and scroll positions to this repository's PC server, on HTTPS port
 7722. Favorites sync to Gallery Downloader (port 7777) is separate.
 
@@ -21,8 +21,8 @@ The service is the systemd user unit `gallery-reader-backups.service` (a copy is
 (`~/.local/share/mkcert/pwa`). Data and the access key live in
 `~/.local/share/gallery-reader/backups/` (mode 0700/0600, never in Git). The server
 creates the key on first start; builds read it from there unless
-`VITE_READER_BACKUP_KEY` is set (see `.env.example`). Built bundles contain the
-key: never publish them. Keep that folder, key included, when moving the service
+`VITE_READER_BACKUP_KEY` is set (see `.env.example`). Built app bundles contain
+the key: never publish them. Keep that folder, key included, when moving the service
 to another PC; a new key means rebuilding the apps.
 
 ```sh
@@ -31,6 +31,6 @@ npm run backups:status   # what each phone saved (counts, labels and dates only)
 npm run test:server
 ```
 
-Every response is `no-store`; requests without the key get 401, and CORS allows
-only hitomi.la and imhentai.xxx. Files are written durably: temporary file, fsync, rename,
-directory fsync. This is a local-PC backup, not protection against losing the PC.
+Every response is `no-store`, and requests without the key get 401. Files are
+written durably: temporary file, fsync, rename, directory fsync. This is a local-PC
+backup, not protection against losing the PC.

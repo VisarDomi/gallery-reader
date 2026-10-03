@@ -1,8 +1,8 @@
 # Gallery-reader
-An iOS app, a Safari extension and a Safari userscript used to rework the UI of the providers supported by this repo
+Hitomi and Imhen, iOS apps that rework the UI of the providers supported by this repo
 
 ## What?
-This script changes the UI of the providers supported by this script so that's it easies to navigate the site. 3 main features: favorites, search, reader.
+The apps change the UI of the supported providers so that it's easier to navigate the site. 3 main features: favorites, search, reader.
 
 ## Why?
 Native navigation is cumbersome.
