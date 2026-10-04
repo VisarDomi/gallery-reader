@@ -12,6 +12,8 @@ def remote(code):
 p=argparse.ArgumentParser();p.add_argument('action',choices=['sync','build','status','install','finish']);p.add_argument('provider',choices=['hitomi','imhentai']);a=p.parse_args()
 config=json.loads((APP/'providers.json').read_text())[a.provider]
 log=MAC+'/build/'+a.provider+'/xcode.log'
+# Approves the installed build as its renewal baseline only if it is exactly what was built (ios-tools renewal).
+deliver=lambda step:['/usr/bin/python3','/Users/visar/Developer/ios-tools/renewal/scripts/deliver.py',step,'--repo','gallery-reader','--app',a.provider,'--bundle',config['bundleId']]
 if a.action=='sync':
     # No --delete: never remove another provider's prepared product or evidence.
     subprocess.run(SSH+['mkdir -p '+shlex.quote(MAC)],check=True)
@@ -25,7 +27,9 @@ elif a.action=='build':
              'DEVELOPMENT_TEAM='+TEAM,'SIGNING_DEVICE='+DEVICE,'/usr/bin/caffeinate','-i',
              '/bin/bash',MAC+'/scripts/build.sh',a.provider]
     script=shlex.join(command)+' 2>&1 | tee '+shlex.quote(log)
+    subprocess.run(SSH+[shlex.join(deliver('begin'))],check=True)
     subprocess.run(SSH+['/bin/bash -o pipefail -c '+shlex.quote(script)],check=True)
+    subprocess.run(SSH+[shlex.join(deliver('built'))],check=True)
 elif a.action=='status':
     remote(f'''import pathlib
 p=pathlib.Path({log!r})
@@ -49,6 +53,7 @@ assert entitlements['application-identifier']=={(TEAM+'.'+config['bundleId'])!r}
 assert profile['ExpirationDate']>datetime.datetime.utcnow()+datetime.timedelta(days=45)
 print('Verified provider, display name, icon absence, signature, paid team, phone and expiry:',profile['ExpirationDate'],flush=True)
 subprocess.run(['xcrun','devicectl','device','install','app','--device',{DEVICE!r},str(app)],check=True)
+subprocess.run({deliver('installed')!r},check=True)
 subprocess.run(['xcrun','devicectl','device','process','launch','--device',{DEVICE!r},{config['bundleId']!r}],check=True)
 ''')
 else: print('Build runs attached; no background job to remove.')

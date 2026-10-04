@@ -83,4 +83,7 @@ test: gestures are checked on the phone.
 
 Both apps renew monthly through this repository's scheduler,
 `com.visar.renewal.gallery-reader` ([ios-tools renewal](../../../../ios-tools/renewal/PAID-REFRESH.md));
-`scripts/renewal.py` lists one entry per `providers.json` provider.
+`scripts/renewal.py` lists one entry per `providers.json` provider. `deploy.py
+install` approves the installed build as that app's renewal baseline, keeping its
+renewal date, when neither its inputs nor the app changed since `deploy.py build`;
+otherwise it prints why approval was skipped.
