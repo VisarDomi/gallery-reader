@@ -34,7 +34,8 @@ Gallery Downloader on port 7777.
 ## Build and deploy
 
 Read `/home/visar/Documents/environment/mac-access.md` first. Mac SSH is
-`visar@192.168.1.198`, using the dedicated trusted known-hosts file. USB wireless
+`visar@192.168.1.198`, using the dedicated trusted known-hosts file; when Ethernet is
+down, SSH falls back to the Mac's Wi-Fi automatically (`mac-connect --check`). USB wireless
 stays DHCP. Phone UDID: `00008101-000639912881401E`; paid team: `65U58U86DD`.
 The Mac mirror is `/Users/visar/Developer/gallery-reader/apps/ios`.
 
