@@ -21,7 +21,9 @@ export async function open(gid: number, currentIndex: number): Promise<void> {
 
     const safeIndex = Math.max(0, Math.min(Number.isSafeInteger(currentIndex) ? currentIndex : 0, images.length - 1));
     const restoreImg = document.getElementById(`#${safeIndex}`) as HTMLImageElement;
-    positionReader(restoreImg);
+    // `f`: how far down that image the screen's centre was, so a reload lands exactly there.
+    const fraction = Number(new URLSearchParams(location.search).get('f'));
+    positionReader(restoreImg, Number.isFinite(fraction) ? Math.max(0, Math.min(1, fraction)) : 0);
 
     const urls = await imageUrls(images);
     urls.forEach((src, i) => {
@@ -38,6 +40,10 @@ export async function open(gid: number, currentIndex: number): Promise<void> {
         if (!(saveImg instanceof HTMLImageElement) || saveImg.parentElement !== wrapper) return;
         const index = Number(saveImg.id.split("#")[1]);
         if (!Number.isSafeInteger(index) || index < 0 || index >= images.length) return;
-        history.replaceState(null, '', readerUrl(gid, index));
+        const rect = saveImg.getBoundingClientRect();
+        const fraction = rect.height > 0 ? Math.max(0, Math.min(1, (window.innerHeight / 2 + 1 - rect.top) / rect.height)) : 0;
+        const url = new URL(readerUrl(gid, index), location.href);
+        url.searchParams.set('f', fraction.toFixed(3));
+        history.replaceState(null, '', url.pathname + url.search + url.hash);
     });
 }

@@ -26,7 +26,7 @@ it('bookmarks the settled midpoint without adding history, and ignores non-reade
         const length = history.length;
         hit.mockReturnValue(images[1]);
         dispatchEvent(new Event('scrollend'));
-        expect(replace).toHaveBeenLastCalledWith(null, '', '/reader/7#1');
+        expect(replace).toHaveBeenLastCalledWith(null, '', '/reader/7?f=0.000#1');
         expect(history.length).toBe(length);
         const calls = replace.mock.calls.length;
         for (const element of [null, document.body, document.createElement('img')]) {
@@ -36,14 +36,32 @@ it('bookmarks the settled midpoint without adding history, and ignores non-reade
         }
         expect(replace).toHaveBeenCalledTimes(calls);
         hit.mockReturnValue(images[2]);
+        // The screen's centre is halfway down this image.
+        vi.spyOn(images[2], 'getBoundingClientRect').mockReturnValue({ top: innerHeight / 2 + 1 - 150, height: 300 } as DOMRect);
         dispatchEvent(new Event('scrollend'));
         vi.advanceTimersByTime(100);
-        expect(replace).toHaveBeenLastCalledWith(null, '', '/reader/7#2');
+        expect(replace).toHaveBeenLastCalledWith(null, '', '/reader/7?f=0.500#2');
     } finally {
         for (const [type, callback] of listen.mock.calls) window.removeEventListener(type, callback);
         for (const [type, callback] of documentListen.mock.calls) document.removeEventListener(type, callback);
         vi.clearAllTimers();
         vi.useRealTimers();
+        vi.restoreAllMocks();
+    }
+});
+
+it('a reloaded reader puts the saved point of its image at the screen centre', async () => {
+    document.body.replaceChildren();
+    const scroll = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    history.replaceState(null, '', '/?read=hitomi-7&page=2&f=0.25');
+    const top = vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockReturnValue(1000);
+    const height = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(400);
+    try {
+        await open(7, 1);
+        expect(scroll).toHaveBeenLastCalledWith(0, 1000 + 0.25 * 400 - innerHeight / 2);
+    } finally {
+        top.mockRestore(); height.mockRestore();
+        history.replaceState(null, '', '/');
         vi.restoreAllMocks();
     }
 });

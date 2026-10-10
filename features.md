@@ -24,5 +24,5 @@ Favorites and search are basically the same thing, except for the way they load 
 
 How reader looks like:
 1. show all images in a vertical strip. 
-2. restore reader position on startup based on the url which has a hash that points to the image.
+2. restore reader position on startup based on the url, which names the image at the screen's centre (`page`) and how far down that image the centre was (`f`), so a reload after iOS ended the page lands on the same point.
 3. just like search, we first create a skeleton because we know the width and height of each image. the images are then loaded asyncly as always.
