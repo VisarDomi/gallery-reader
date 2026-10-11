@@ -1,14 +1,16 @@
 import UIKit
 import KitBackup
 
-// A gallery's details over a dimmed screen: its titles (Japanese first), then artists,
+// A gallery's details over a dimmed list: its titles (Japanese first), then artists,
 // groups, series, type, characters, language, pages, date and tags. Every value is a search
-// (in the gallery's language). A tap outside or Close dismisses it.
+// (in the gallery's language); the details stay open under that search, so swiping back
+// returns to them. A tap outside or Close closes them.
 @MainActor
 final class InfoSheet: UIViewController {
     private let app: AppController
-    private let gallery: Int
+    let gallery: Int
     private let onSearch: (String) -> Void
+    var onClose: () -> Void = {}
     private let card = UIView()
     private let scroll = UIScrollView()
     private let stack = UIStackView()
@@ -19,13 +21,9 @@ final class InfoSheet: UIViewController {
         self.gallery = gallery
         self.onSearch = onSearch
         super.init(nibName: nil, bundle: nil)
-        modalPresentationStyle = .overFullScreen
-        modalTransitionStyle = .crossDissolve
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is unused") }
-
-    override var prefersStatusBarHidden: Bool { true }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -45,7 +43,7 @@ final class InfoSheet: UIViewController {
         configuration.baseBackgroundColor = UIColor(white: 0.2, alpha: 1)
         configuration.baseForegroundColor = UIColor(white: 0.93, alpha: 1)
         close.configuration = configuration
-        close.addAction(UIAction { [weak self] _ in self?.dismiss(animated: true) }, for: .touchUpInside)
+        close.addAction(UIAction { [weak self] _ in self?.onClose() }, for: .touchUpInside)
         card.addSubview(close)
         stack.addArrangedSubview(label("Loading...", size: 15, color: UIColor(white: 0.67, alpha: 1)))
         Task { [weak self, app, gallery] in
@@ -69,7 +67,7 @@ final class InfoSheet: UIViewController {
     }
 
     @objc private func outside(_ tap: UITapGestureRecognizer) {
-        if !card.frame.contains(tap.location(in: view)) { dismiss(animated: true) }
+        if !card.frame.contains(tap.location(in: view)) { onClose() }
     }
 
     private func build(_ info: GalleryInfo?) {
@@ -102,9 +100,7 @@ final class InfoSheet: UIViewController {
         app.provider.tagQuery(namespace: namespace, value: value, language: namespace == "language" ? "" : language)
     }
 
-    private func search(_ query: String) {
-        dismiss(animated: true) { [onSearch] in onSearch(query) }
-    }
+    private func search(_ query: String) { onSearch(query) }
 
     private func label(_ text: String, size: CGFloat, color: UIColor, bold: Bool = false) -> UILabel {
         let label = UILabel()

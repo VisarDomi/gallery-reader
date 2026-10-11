@@ -1,11 +1,13 @@
 # Gallery-reader
-Hitomi and Imhen, iOS apps that rework the UI of the providers supported by this repo
+Hitomi and Imhen, native iPhone apps that rework the UI of the providers supported by this repo
 
 ## What?
 The apps change the UI of the supported providers so that it's easier to navigate the site. 3 main features: favorites, search, reader.
 
 ## Why?
-Native navigation is cumbersome.
+The sites' own navigation is cumbersome. The apps keep every screen alive while you go back
+and forth, keep searches, galleries and images on the phone, and survive being killed at any
+moment.
 
 ## How?
 [features.md](features.md) explain the flows that this app handles best.

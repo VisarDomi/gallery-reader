@@ -69,7 +69,8 @@ struct Hitomi: GalleryProvider {
 
     func search(_ query: String, page: Int) async throws -> SearchPage {
         let (positive, negative) = Self.parse(query)
-        let ids = try await intersect(positive: positive, negative: negative)
+        // Only exclusions: they narrow the Japanese galleries.
+        let ids = try await intersect(positive: positive.isEmpty ? ["language:japanese"] : positive, negative: negative)
         return SearchPage(ids: ids, total: ids.count, complete: true)
     }
 

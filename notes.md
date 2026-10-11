@@ -3,47 +3,69 @@
 Hitomi and Imhen are the only products: the native apps in `apps/ios` (read its
 `PORT.md`), with their PC backup server in `server/`. Build exactly one provider
 from `apps/ios/providers.json`; for shared changes, build and verify every
-registered provider, then deploy both apps. Resolve image URLs through the provider
-on each new reader document and reuse `src/core/image-retry.ts`. Do not persist
-resolved URLs as offline manifests or carry gallery-downloader's offline-only
-assumptions into these online apps.
+registered provider, then deploy both apps. Image addresses come from the provider
+each time a reader opens (Hitomi's hosts move); only the image bytes are kept.
+Do not carry gallery-downloader's offline-only assumptions into these online apps.
+
+The web version (`src/`, `tests/`) is kept only as the reference for parity until
+the native apps pass their phone checks; it is no longer built or shipped.
 
 ## how
 
-The main thread owns UI and navigation. A lazy compute worker owns IndexedDB,
-gallery fetching/parsing, Nozomi intersection, favorite/search operations, backup
-snapshots and HTTP sync. Provider matching and URL constructors stay on the UI
-side; Hitomi's search-suggestion integration stays there too. Long image strips
-are inserted in small batches so interaction can continue.
+UIKit and Swift 6, no WebKit. The shared parts (live navigation stack, image
+pipeline, strip reader, sideways thumbnail strips, HTTP client and cookie jar,
+durable files, PC backups) come from ios-tools' NativeKit, vendored in
+`apps/ios/Kit`. The app itself:
+
+- `Providers.swift`: Hitomi (Nozomi index intersection, galleries/<id>.js, gg.js,
+  tag suggestions) and Imhentai (its HTML pages), behind one `GalleryProvider`.
+- `Library.swift`: the phone's copies: gallery details (`galleries/`), images
+  (`cache/`, trimmed to 2 GB, least recently used first; one transfer per image,
+  stopped once nobody waits for it) and searches (`search-cache/`).
+- `ReaderState.swift`: favorites, saved searches, list and reader positions
+  (`state.json`, written durably off the main thread).
+- `ListScreen.swift`, `ListParts.swift`, `ReaderScreen.swift`, `Sheets.swift`: the
+  screens.
+
+Everything the app writes goes through atomic, synced files, so a kill or power
+off leaves the previous or the new state, never a broken one.
+
+## search cache
+
+A search shows the phone's copy of its results first, then searches again in the
+background and merges: Hitomi answers with every result, which replaces the copy;
+Imhen's first page puts its new galleries in front of the kept ones (or replaces
+them when nothing overlaps). The rows on screen stay where they are.
 
 ## Gallery Downloader sync
 
 The apps send the complete local favorites list to Gallery Downloader after a
-successful home backup and after every favorite/import change. Initial
+successful favorites backup and after every favorite/import change. Initial
 backup/restore setup must succeed before favorites are published. An unavailable
 PC never rolls back a local favorite action; a subsequent full snapshot repairs
-missed changes. The default server is `https://192.168.1.197:7777`; override it
-with `VITE_GALLERY_SERVER_URL` when running `npm run build:ios`.
+missed changes. The default server is `https://192.168.1.197:7777`.
 
 ## PC backup and restore
 
-Each provider home offers **Back up this phone** or **Restore from PC** on first
-use, with phone/backup counts, and confirms the initial choice. Later home visits
-back up silently. An unreachable PC is silent: no setup prompt and no
-notification; the next home visit retries. Access, validation and storage errors
-stay visible until dismissed or a successful retry. A restored phone gets a new
-independent ID; the original backup stays intact. Favorites, saved searches,
-pagination and all reader scroll positions are included. Home content does not
-wait for the PC, and backup networking never occupies the worker queue used for
-favorite/progress writes. See [PC backups](server/BACKUPS.md); check
+On first use the favorites screen offers **Back up this phone** or **Restore from
+PC**, with phone/backup counts. Later favorites visits back up silently. An
+unreachable PC is silent: no setup prompt and no notification; the next visit
+retries. Access, validation and storage errors stay visible until a successful
+retry. A restored phone gets a new independent ID; the original backup stays
+intact. Favorites, saved searches and all list and reader positions are included.
+The lists never wait for the PC. See [PC backups](server/BACKUPS.md); check
 `npm run backups:status` before formatting the phone.
+
+The first launch of the native app moves the web version's data (favorites, saved
+searches, positions, backup identity) out of WebKit's storage, once.
 
 ## Testing
 
 ```bash
-npm run test:unit
-npm run test:server
-npx tsc --noEmit -p apps/ios/tsconfig.json
+npm run test:server                      # the backup server, on Linux
+ssh mac 'cd ~/Developer/gallery-reader/apps/ios && bash scripts/test.sh'
 ```
 
-Physical checks run on the phone with ios-tools' inspector; see `apps/ios/PORT.md`.
+`scripts/test.sh` checks the providers against saved responses (`Tests/Fixtures`)
+and the image and search caches against a stub transport. Screens are checked in
+the simulator and on the phone; see `apps/ios/PORT.md`.

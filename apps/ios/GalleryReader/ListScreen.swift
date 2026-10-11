@@ -16,13 +16,15 @@ enum ListKind: Equatable {
 // "i" and heart buttons). A search shows the phone's copy of its results at once, searches
 // again in the background and merges the new results without moving the rows on screen;
 // Imhentai's further pages load as the end comes near. The list remembers the row at the
-// screen's middle (per favorites and per search) and every strip's sideways offset.
+// screen's middle (per favorites and per search), every strip's sideways offset, and an open
+// gallery's details.
 @MainActor
 final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UITableViewDelegate,
                         UITableViewDataSourcePrefetching, ListRowDelegate, SearchHeaderDelegate {
     struct State: Codable {
         var anchor: ScrollAnchor?
         var strips: [Int: Double]
+        var info: Int?
     }
 
     private let app: AppController
@@ -38,6 +40,8 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
     private var describing = Set<Int>()
     private var strips: [Int: Double]
     private var pendingAnchor: ScrollAnchor?
+    private var info: InfoSheet?
+    private var pendingInfo: Int?
     private var restored = false
     private var loadingMore = false
     // The newest results are in (favorites at once; a search once it searched again).
@@ -53,6 +57,7 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
         header = SearchHeader(app: app, query: { if case .search(let query) = kind { return query }; return "" }())
         let saved = state.flatMap { try? JSONDecoder().decode(State.self, from: $0) }
         strips = saved?.strips ?? [:]
+        pendingInfo = saved?.info
         super.init(nibName: nil, bundle: nil)
         pendingAnchor = saved?.anchor ?? app.state.anchor(anchorKey)
     }
@@ -69,7 +74,7 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
         }
     }
 
-    func savedState() -> Data? { try? JSONEncoder().encode(State(anchor: currentAnchor, strips: strips)) }
+    func savedState() -> Data? { try? JSONEncoder().encode(State(anchor: currentAnchor, strips: strips, info: info?.gallery ?? pendingInfo)) }
 
     private var anchorKey: String {
         switch kind {
@@ -120,6 +125,8 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
         case .favorites: reloadFavorites()
         case .search(let query): loadSearch(query)
         }
+        if let gallery = pendingInfo { showInfo(gallery, animated: false) }
+        pendingInfo = nil
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -134,6 +141,7 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
         table.frame = view.bounds
         layoutHeader()
         layoutFooter()
+        info?.view.frame = view.bounds
         if widthChanged, let anchor { restore(anchor) }
         restoreIfReady()
     }
@@ -372,7 +380,41 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
 
     func rowWantsInfo(_ row: ListRowCell) {
         guard let id = row.gallery else { return }
-        present(InfoSheet(app: app, gallery: id) { [weak self] query in self?.app.open(.search(query)) }, animated: true)
+        showInfo(id, animated: true)
+        stateChanged()
+    }
+
+    // The details are part of this screen (not presented over it), so they stay open under a
+    // search started from them and come back with a swipe back or a relaunch.
+    private func showInfo(_ gallery: Int, animated: Bool) {
+        closeInfo(animated: false)
+        let sheet = InfoSheet(app: app, gallery: gallery) { [weak self] query in
+            self?.saveNow()
+            self?.app.open(.search(query))
+        }
+        sheet.onClose = { [weak self] in
+            self?.closeInfo(animated: true)
+            self?.stateChanged()
+        }
+        addChild(sheet)
+        sheet.view.frame = view.bounds
+        view.addSubview(sheet.view)
+        sheet.didMove(toParent: self)
+        info = sheet
+        header.hideSuggestions()
+        view.endEditing(true)
+        guard animated else { return }
+        sheet.view.alpha = 0
+        UIView.animate(withDuration: 0.2) { sheet.view.alpha = 1 }
+    }
+
+    private func closeInfo(animated: Bool) {
+        guard let sheet = info else { return }
+        info = nil
+        sheet.willMove(toParent: nil)
+        let remove = { sheet.view.removeFromSuperview(); sheet.removeFromParent() }
+        guard animated else { remove(); return }
+        UIView.animate(withDuration: 0.2, animations: { sheet.view.alpha = 0 }, completion: { _ in remove() })
     }
 
     func rowToggledFavorite(_ row: ListRowCell) {

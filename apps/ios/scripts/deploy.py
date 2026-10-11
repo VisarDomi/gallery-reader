@@ -15,13 +15,13 @@ log=MAC+'/build/'+a.provider+'/xcode.log'
 # Approves the installed build as its renewal baseline only if it is exactly what was built (ios-tools renewal).
 deliver=lambda step:['/usr/bin/python3','/Users/visar/Developer/ios-tools/renewal/scripts/deliver.py',step,'--repo','gallery-reader','--app',a.provider,'--bundle',config['bundleId']]
 if a.action=='sync':
-    # No --delete: never remove another provider's prepared product or evidence.
-    subprocess.run(SSH+['mkdir -p '+shlex.quote(MAC)],check=True)
-    subprocess.run(['rsync','-az','--exclude=build/','--exclude=Resources/Web/','-e',shlex.join(SSH[:-1]),str(APP)+'/',SSH[-1]+':'+MAC+'/'],check=True)
-    # This owned source directory must not retain removed copies of the UI.
-    subprocess.run(['rsync','-az','--delete','-e',shlex.join(SSH[:-1]),str(APP/'web')+'/',SSH[-1]+':'+MAC+'/web/'],check=True)
+    # The provider's settings (name, bundle ID, PC addresses and backup key) into build/<provider>.
+    subprocess.run(['node',str(APP/'scripts/build.mjs'),a.provider,'--prepare-only'],check=True)
     subprocess.run(SSH+['mkdir -p '+shlex.quote(MAC+'/build/'+a.provider)],check=True)
-    subprocess.run(['rsync','-az','--exclude=native/','-e',shlex.join(SSH[:-1]),str(APP/'build'/a.provider)+'/',SSH[-1]+':'+MAC+'/build/'+a.provider+'/'],check=True)
+    # --delete keeps the Mac's sources an exact copy; build/ (every provider's products and
+    # DerivedData) is excluded, so it is neither copied nor deleted.
+    subprocess.run(['rsync','-az','--delete','--exclude=build/','--exclude=__pycache__/','-e',shlex.join(SSH[:-1]),str(APP)+'/',SSH[-1]+':'+MAC+'/'],check=True)
+    subprocess.run(['rsync','-az','-e',shlex.join(SSH[:-1]),str(APP/'build'/a.provider/'provider.xcconfig'),SSH[-1]+':'+MAC+'/build/'+a.provider+'/'],check=True)
 elif a.action=='build':
     command=['sudo','-n','launchctl','asuser','501','sudo','-n','-H','-u','visar','/usr/bin/env',
              'DEVELOPMENT_TEAM='+TEAM,'SIGNING_DEVICE='+DEVICE,'/usr/bin/caffeinate','-i',

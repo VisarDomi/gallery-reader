@@ -45,9 +45,17 @@ actor GalleryDetails {
 // read when saved, otherwise downloaded once (requests for the same image share it). The
 // folder is kept under a size limit, least recently used first.
 actor ImageCache {
+    // One transfer per image, shared by its callers; it stops when every caller gave up (a
+    // page scrolled away), so the screen's pages get the connections.
+    private struct Transfer {
+        let id = UUID()
+        let task: Task<URL, Error>
+        var callers: Set<UUID> = []
+    }
+
     private let directory: URL
     private let http: HTTPClient
-    private var loading: [String: Task<URL, Error>] = [:]
+    private var loading: [String: Transfer] = [:]
 
     init(directory: URL, http: HTTPClient) {
         self.directory = directory.appendingPathComponent("cache")
@@ -64,26 +72,42 @@ actor ImageCache {
             touch(file)
             return file
         }
-        if let task = loading[key] { return try await task.value }
-        let task = Task { [http] in
-            var lastError: Error?
-            for attempt in 0..<2 {
-                let (url, referer) = try await source(attempt > 0)
-                do {
-                    let response = try await http.download(HTTPRequest(url, referer: referer, priority: URLSessionTask.highPriority), to: file) { response in
-                        guard response.statusCode == 200, response.mimeType?.hasPrefix("image/") == true else { throw URLError(.badServerResponse) }
-                    }
-                    try DurableFile.write(Data((response.mimeType ?? "image/jpeg").utf8), to: file.appendingPathExtension("mime"))
-                    return file
-                } catch let error as HTTPStatusError where [403, 404].contains(error.status) {
-                    lastError = error
-                } catch { throw error }
-            }
-            throw lastError ?? URLError(.badServerResponse)
+        try Task.checkCancellation()
+        if loading[key] == nil { loading[key] = Transfer(task: Task { [http] in try await Self.fetch(file, http: http, source: source) }) }
+        let caller = UUID()
+        loading[key]!.callers.insert(caller)
+        let transfer = loading[key]!
+        defer { if loading[key]?.id == transfer.id { loading[key] = nil } }
+        return try await withTaskCancellationHandler {
+            try await transfer.task.value
+        } onCancel: {
+            Task { await self.abandon(key, transfer: transfer.id, caller: caller) }
         }
-        loading[key] = task
-        defer { loading[key] = nil }
-        return try await task.value
+    }
+
+    private func abandon(_ key: String, transfer: UUID, caller: UUID) {
+        guard loading[key]?.id == transfer else { return }
+        loading[key]!.callers.remove(caller)
+        guard loading[key]!.callers.isEmpty else { return }
+        loading[key]!.task.cancel()
+        loading[key] = nil
+    }
+
+    private static func fetch(_ file: URL, http: HTTPClient, source: @Sendable (_ stale: Bool) async throws -> (url: URL, referer: String)) async throws -> URL {
+        var lastError: Error?
+        for attempt in 0..<2 {
+            let (url, referer) = try await source(attempt > 0)
+            do {
+                let response = try await http.download(HTTPRequest(url, referer: referer, priority: URLSessionTask.highPriority), to: file) { response in
+                    guard response.statusCode == 200, response.mimeType?.hasPrefix("image/") == true else { throw URLError(.badServerResponse) }
+                }
+                try DurableFile.write(Data((response.mimeType ?? "image/jpeg").utf8), to: file.appendingPathExtension("mime"))
+                return file
+            } catch let error as HTTPStatusError where [403, 404].contains(error.status) {
+                lastError = error
+            }
+        }
+        throw lastError ?? URLError(.badServerResponse)
     }
 
     private nonisolated func touch(_ file: URL) {

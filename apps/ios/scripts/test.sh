@@ -1,5 +1,6 @@
 #!/bin/bash
-# The native core's tests on the Mac: providers against saved responses (Tests/Fixtures).
+# The native core's tests on the Mac: providers against saved responses (Tests/Fixtures),
+# then the image and search caches against a stub transport.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 test_dir=$(mktemp -d "${TMPDIR:-/tmp}/gallery-reader-tests.XXXXXX")
@@ -12,3 +13,6 @@ done
 xcrun swiftc -parse-as-library -I "$test_dir" -L "$test_dir" -lKitCore -lKitNet -Xlinker -rpath -Xlinker "$test_dir" \
   GalleryReader/Providers.swift Tests/ProviderTests.swift -o "$test_dir/provider-tests"
 "$test_dir/provider-tests" Tests/Fixtures
+xcrun swiftc -parse-as-library -I "$test_dir" -L "$test_dir" -lKitCore -lKitNet -Xlinker -rpath -Xlinker "$test_dir" \
+  GalleryReader/Providers.swift GalleryReader/Library.swift Tests/CacheTests.swift -o "$test_dir/cache-tests"
+"$test_dir/cache-tests"
