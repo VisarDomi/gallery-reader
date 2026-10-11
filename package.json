@@ -4,16 +4,8 @@
   "description": "Hitomi and Imhen, the native iPhone gallery readers, with their PC backup server",
   "type": "module",
   "scripts": {
-    "test:unit": "vitest run --config vitest.config.ts",
     "build:ios": "node apps/ios/scripts/build.mjs",
     "test:server": "node --test server/backups.test.mjs",
     "backups:status": "node server/backups.mjs status"
-  },
-  "devDependencies": {
-    "@vitest/ui": "^4.1.9",
-    "esbuild": "^0.28.2",
-    "jsdom": "^29.1.1",
-    "typescript": "^5.9.3",
-    "vitest": "^4.1.9"
   }
 }

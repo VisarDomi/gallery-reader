@@ -7,8 +7,7 @@ registered provider, then deploy both apps. Image addresses come from the provid
 each time a reader opens (Hitomi's hosts move); only the image bytes are kept.
 Do not carry gallery-downloader's offline-only assumptions into these online apps.
 
-The web version (`src/`, `tests/`) is kept only as the reference for parity until
-the native apps pass their phone checks; it is no longer built or shipped.
+The web version they replaced is in Git history (before October 12, 2026).
 
 ## how
 
