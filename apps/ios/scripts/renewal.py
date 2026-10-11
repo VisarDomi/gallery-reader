@@ -10,13 +10,13 @@ parser.add_argument('--device', required=True)
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
 apps = []
-# Each provider's prepared Web bundle is an input; the shared Resources/Web staging folder is an output.
+# Each provider's prepared settings (build/<provider>/provider.xcconfig) are an input.
 for provider, product in json.loads((root / 'providers.json').read_text()).items():
     apps.append(dict(name=provider, root=str(root),
                      app='build/' + provider + '/native/Release-iphoneos/' + product['name'] + '.app',
                      bundleIds=[product['bundleId']],
-                     inputs=['GalleryReader', 'GalleryReader.xcodeproj', 'Resources/Info.plist',
-                             'Resources/LocalCA.cer', 'providers.json', 'build/' + provider + '/Web',
+                     inputs=['GalleryReader', 'GalleryReader.xcodeproj', 'Kit', 'Resources/Info.plist',
+                             'Resources/LocalCA.cer', 'providers.json',
                              'build/' + provider + '/provider.xcconfig', 'scripts/build.sh', 'scripts/build-provider.py'],
                      build=['/bin/bash', 'scripts/build.sh', provider],
                      environment={'DEVELOPMENT_TEAM': args.team, 'SIGNING_DEVICE': args.device}))

@@ -22,6 +22,10 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>ReaderProvider</key>
 	<string>$(READER_PROVIDER)</string>
+	<key>BackupKey</key>
+	<string>$(READER_BACKUP_KEY)</string>
+	<key>BackupURL</key>
+	<string>$(READER_BACKUP_URL)</string>
 	<key>GalleryServerURL</key>
 	<string>https://192.168.1.197:7777</string>
 	<key>LSRequiresIPhoneOS</key>
@@ -33,6 +37,15 @@
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Back up favorites and reading preferences to your optional PC.</string>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+	</dict>
+	<key>UIStatusBarHidden</key>
+	<true/>
+	<key>UIUserInterfaceStyle</key>
+	<string>Dark</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UIRequiredDeviceCapabilities</key>

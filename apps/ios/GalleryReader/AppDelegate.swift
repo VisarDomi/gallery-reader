@@ -1,18 +1,28 @@
 import UIKit
 
 @main
-@MainActor
 final class AppDelegate: UIResponder, UIApplicationDelegate {
-    var window: UIWindow?
-    private var browser: WebController!
-    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        browser = WebController()
-        window = UIWindow(frame: UIScreen.main.bounds)
-        window?.overrideUserInterfaceStyle = .dark
-        window?.rootViewController = browser
-        window?.makeKeyAndVisible()
-        return true
+    func application(_ application: UIApplication, configurationForConnecting session: UISceneSession,
+                     options: UIScene.ConnectionOptions) -> UISceneConfiguration {
+        let configuration = UISceneConfiguration(name: nil, sessionRole: session.role)
+        configuration.delegateClass = SceneDelegate.self
+        return configuration
     }
-    func applicationWillResignActive(_ application: UIApplication) { browser.saveSession() }
-    func applicationDidEnterBackground(_ application: UIApplication) { browser.saveSession() }
+}
+
+final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+    var window: UIWindow?
+    private var controller: AppController?
+
+    func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+        guard let scene = scene as? UIWindowScene else { return }
+        let controller = AppController()
+        self.controller = controller
+        let window = UIWindow(windowScene: scene)
+        window.overrideUserInterfaceStyle = .dark
+        window.backgroundColor = .black
+        window.rootViewController = controller.makeNavigation()
+        window.makeKeyAndVisible()
+        self.window = window
+    }
 }
