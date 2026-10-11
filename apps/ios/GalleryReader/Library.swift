@@ -98,7 +98,10 @@ actor ImageCache {
         for attempt in 0..<2 {
             let (url, referer) = try await source(attempt > 0)
             do {
-                let response = try await http.download(HTTPRequest(url, referer: referer, priority: URLSessionTask.highPriority), to: file) { response in
+                // Two attempts, then the screen says why and asks again itself (offline, a page
+                // shows "waiting for the network" instead of staying blank).
+                let response = try await http.download(HTTPRequest(url, referer: referer, retry: RetryPolicy(maxAttempts: 2), priority: URLSessionTask.highPriority),
+                                                       to: file) { response in
                     guard response.statusCode == 200, response.mimeType?.hasPrefix("image/") == true else { throw URLError(.badServerResponse) }
                 }
                 try DurableFile.write(Data((response.mimeType ?? "image/jpeg").utf8), to: file.appendingPathExtension("mime"))

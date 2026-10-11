@@ -7,11 +7,13 @@ protocol SearchHeaderDelegate: AnyObject {
     func header(_ header: SearchHeader, submit query: String)
     func headerChangedHeight(_ header: SearchHeader)
     func headerSuggestionsFrame(_ header: SearchHeader, below field: UIView) -> CGRect
+    func headerWantsFavorites(_ header: SearchHeader)
 }
 
 // The search box (it grows with its text; Return searches, an empty box searches
 // language:japanese), Hitomi's suggestions for the word at the cursor, the saved searches (the
-// three latest, "Show N more", × to forget one) and the count.
+// three latest, one line each, "Show N more", × to forget one), the count and Favs (the
+// favorites from a search; from the favorites, back to the search).
 @MainActor
 final class SearchHeader: UIView, UITextViewDelegate, UITableViewDataSource, UITableViewDelegate {
     weak var delegate: SearchHeaderDelegate?
@@ -20,6 +22,7 @@ final class SearchHeader: UIView, UITextViewDelegate, UITableViewDataSource, UIT
     private let placeholder = UILabel()
     private let searches = UIStackView()
     private let countLabel = UILabel()
+    private let favorites = UIButton(type: .system)
     let suggestions = UITableView(frame: .zero, style: .plain)
     private var results: [Suggestion] = []
     private var suggesting: Task<Void, Never>?
@@ -27,6 +30,8 @@ final class SearchHeader: UIView, UITextViewDelegate, UITableViewDataSource, UIT
     private var term: (range: NSRange, minus: String)?
 
     var count: String = "" { didSet { countLabel.text = count } }
+    // On the favorites screen the button is lit (and leads back to the search).
+    var showingFavorites = false { didSet { styleFavorites() } }
     var isEditing: Bool { field.isFirstResponder }
 
     init(app: AppController, query: String) {
@@ -59,6 +64,12 @@ final class SearchHeader: UIView, UITextViewDelegate, UITableViewDataSource, UIT
         countLabel.font = .systemFont(ofSize: 16)
         countLabel.textColor = UIColor(white: 0.53, alpha: 1)
         addSubview(countLabel)
+        favorites.addAction(UIAction { [weak self] _ in
+            guard let self else { return }
+            delegate?.headerWantsFavorites(self)
+        }, for: .touchUpInside)
+        addSubview(favorites)
+        styleFavorites()
         suggestions.backgroundColor = UIColor(white: 0.133, alpha: 1)
         suggestions.layer.borderColor = UIColor(red: 0.27, green: 0.53, blue: 0.73, alpha: 1).cgColor
         suggestions.layer.borderWidth = 1
@@ -93,8 +104,23 @@ final class SearchHeader: UIView, UITextViewDelegate, UITableViewDataSource, UIT
             withHorizontalFittingPriority: .required, verticalFittingPriority: .fittingSizeLevel).height
         if apply { searches.frame = CGRect(x: 4, y: y, width: width - 8, height: searchesHeight) }
         y += searchesHeight + (searchesHeight > 0 ? 6 : 0)
-        if apply { countLabel.frame = CGRect(x: 8, y: y, width: width - 16, height: 24) }
+        if apply {
+            let buttonWidth: CGFloat = 92
+            countLabel.frame = CGRect(x: 8, y: y, width: width - 16 - buttonWidth, height: 24)
+            favorites.frame = CGRect(x: width - 4 - buttonWidth, y: y - 4, width: buttonWidth, height: 32)
+        }
         return y + 30
+    }
+
+    private func styleFavorites() {
+        var configuration = UIButton.Configuration.plain()
+        configuration.title = "Favs"
+        configuration.image = UIImage(systemName: showingFavorites ? "heart.fill" : "heart")
+        configuration.imagePadding = 6
+        configuration.baseForegroundColor = showingFavorites ? UIColor(red: 1, green: 0.27, blue: 0.33, alpha: 1) : UIColor(red: 0.4, green: 0.67, blue: 1, alpha: 1)
+        configuration.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8)
+        favorites.configuration = configuration
+        favorites.accessibilityLabel = showingFavorites ? "Favorites (back to the search)" : "Favorites"
     }
 
     // MARK: saved searches
@@ -127,7 +153,10 @@ final class SearchHeader: UIView, UITextViewDelegate, UITableViewDataSource, UIT
         label.text = query
         label.textColor = UIColor(white: 0.53, alpha: 1)
         label.font = .systemFont(ofSize: 16)
-        label.numberOfLines = 0
+        // One line each: a long search keeps its start and end.
+        label.numberOfLines = 1
+        label.lineBreakMode = .byTruncatingMiddle
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let remove = UIButton(type: .system)
         remove.setTitle("\u{00D7}", for: .normal)
         remove.tintColor = UIColor(white: 0.33, alpha: 1)
@@ -283,6 +312,10 @@ final class ListRowCell: UITableViewCell, ThumbnailStripDelegate {
     required init?(coder: NSCoder) { fatalError("init(coder:) is unused") }
 
     var isPopulated: Bool { !(strip?.isHidden ?? true) }
+
+    // Off screen (a reader covers the list): its thumbnails stop asking; back, they ask again.
+    func pauseImages() { strip?.cancelAll() }
+    func resumeImages() { strip?.reloadMissing() }
     var stripOffset: CGFloat { strip?.offset ?? 0 }
 
     override func layoutSubviews() {

@@ -101,6 +101,7 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
         table.register(ListRowCell.self, forCellReuseIdentifier: "row")
         view.addSubview(table)
         header.delegate = self
+        header.showingFavorites = kind == .favorites
         view.addSubview(header)
         view.addSubview(header.suggestions)
         status.textColor = UIColor(white: 0.67, alpha: 1)
@@ -129,6 +130,17 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
         }
         if let gallery = pendingInfo { showInfo(gallery, animated: false) }
         pendingInfo = nil
+    }
+
+    // The screen on top gets the image connections: a covered list's thumbnails wait.
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        table.visibleCells.compactMap { $0 as? ListRowCell }.forEach { $0.resumeImages() }
+    }
+
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        table.visibleCells.compactMap { $0 as? ListRowCell }.forEach { $0.pauseImages() }
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -438,6 +450,14 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
     }
 
     func headerChangedHeight(_ header: SearchHeader) { layoutHeader() }
+
+    // Favs: from a search, back to the favorites (the searches stay for a forward swipe); from
+    // the favorites, forward to the search again.
+    func headerWantsFavorites(_ header: SearchHeader) {
+        view.endEditing(true)
+        saveNow()
+        app.toggleFavorites(from: self)
+    }
 
     func headerSuggestionsFrame(_ header: SearchHeader, below field: UIView) -> CGRect {
         let frame = field.convert(field.bounds, to: view)

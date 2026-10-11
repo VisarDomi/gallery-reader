@@ -115,6 +115,18 @@ final class AppController {
         }
     }
 
+    // The favorites are the stack's root: from a search, go back to them (what was above stays
+    // for going forward); from the favorites, go forward again, else stay.
+    func toggleFavorites(from screen: UIViewController) {
+        if (screen as? ListScreen)?.kind == .favorites {
+            if navigation.canGoForward { navigation.goForward() }
+        } else if let root = navigation.viewControllers.first as? ListScreen, root.kind == .favorites {
+            _ = navigation.popToRootViewController(animated: true)
+        } else {
+            open(.favorites)
+        }
+    }
+
     // MARK: images
 
     func thumbnail(_ page: GalleryInfo.Page) -> ImageSource {

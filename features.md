@@ -22,14 +22,17 @@ Example flows:
 
 How search looks like:
 
-1. The search box, the saved searches and the result count float on top of the list: they slide
-   away while you scroll down and come back with any scroll up, so search is always at hand
-   without returning to the top.
+1. The search box, the saved searches, the result count and **Favs** float on top of the list:
+   they slide away while you scroll down and come back with any scroll up, so search is always
+   at hand without returning to the top. Favs toggles: from a search it goes back to the
+   favorites (the search stays for a forward swipe or a tap on a saved search); on the
+   favorites it is lit, and tapping it goes forward to the search again.
 2. A multiline search box. Hitomi suggests tags for the word being typed; a suggestion replaces
    that word. Positive and negative terms; an empty query (Hitomi: or only negative terms)
    searches language:japanese. Return or tapping a saved search runs the search and saves it.
-3. Saved searches right below the search box, one per line, with an x to remove it. 3 shown by
-   default, "Show N more" expands. Most recent first.
+3. Saved searches right below the search box, one per line (a long one keeps its start and end,
+   with "…" in the middle), with an x to remove it. 3 shown by default, "Show N more" expands.
+   Most recent first.
 4. The most important part: the content. One gallery per row, full width and 300 points tall,
    scrolled sideways through its page thumbnails (100 points wide, cropped to fill). A thumbnail
    opens the reader at that page. Rows appear in the right order at once and fill in as their
@@ -50,4 +53,9 @@ How reader looks like:
 2. Opened from a thumbnail, that page's top sits at the screen's middle. Reopened (or relaunched)
    it returns to the exact point: the page at the screen's middle and how far down that page.
 3. Every page has its final height before its image arrives (the sizes are known), so nothing
-   jumps while images load; the pages nearest the screen load first.
+   jumps while images load; the pages nearest the screen load first, and a list under the
+   reader stops asking for its thumbnails meanwhile.
+4. Kill and offline robust: the exact point is saved as you read; pages already on the phone
+   show without the network; a page that cannot load says why (waiting for the network, or
+   the error) and is asked again by itself; a gallery not on the phone yet waits for the
+   network and opens when it returns.
