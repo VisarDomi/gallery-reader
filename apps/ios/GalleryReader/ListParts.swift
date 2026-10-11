@@ -20,6 +20,10 @@ final class SearchHeader: UIView, UITextViewDelegate, UITableViewDataSource, UIT
     private let app: AppController
     private let field = UITextView()
     private let placeholder = UILabel()
+    // Not typing, the search shows on one line like its saved chip (a long one keeps its start
+    // and end); a tap opens the whole of it for editing.
+    private let collapsed = UIControl()
+    private let collapsedLabel = UILabel()
     private let searches = UIStackView()
     private let countLabel = UILabel()
     private let favorites = UIButton(type: .system)
@@ -58,6 +62,18 @@ final class SearchHeader: UIView, UITextViewDelegate, UITableViewDataSource, UIT
         placeholder.font = .systemFont(ofSize: 16)
         placeholder.isHidden = !query.isEmpty
         field.addSubview(placeholder)
+        collapsed.backgroundColor = field.backgroundColor
+        collapsed.layer.borderColor = field.layer.borderColor
+        collapsed.layer.borderWidth = 1
+        collapsedLabel.font = field.font
+        collapsedLabel.numberOfLines = 1
+        collapsedLabel.lineBreakMode = .byTruncatingMiddle
+        collapsed.addSubview(collapsedLabel)
+        collapsed.addAction(UIAction { [weak self] _ in self?.beginEditing() }, for: .touchUpInside)
+        collapsed.isAccessibilityElement = true
+        collapsed.accessibilityTraits = .searchField
+        addSubview(collapsed)
+        updateCollapsed()
         searches.axis = .vertical
         searches.spacing = 4
         addSubview(searches)
@@ -93,11 +109,15 @@ final class SearchHeader: UIView, UITextViewDelegate, UITableViewDataSource, UIT
     }
 
     private func arrange(width: CGFloat, top: CGFloat, apply: Bool) -> CGFloat {
-        let fieldHeight = max(30, field.sizeThatFits(CGSize(width: width - 8, height: .greatestFiniteMagnitude)).height)
+        let fieldHeight = field.isFirstResponder ? max(30, field.sizeThatFits(CGSize(width: width - 8, height: .greatestFiniteMagnitude)).height) : 30
         var y = max(top, 4)
         if apply {
             field.frame = CGRect(x: 4, y: y, width: width - 8, height: fieldHeight)
             placeholder.frame = CGRect(x: 9, y: 5, width: width - 30, height: 20)
+            // The text where the field draws it (inset 4 plus the line's padding 5).
+            collapsed.frame = field.frame
+            collapsedLabel.frame = CGRect(x: 9, y: 0, width: max(0, width - 8 - 18), height: fieldHeight)
+            updateCollapsed()
         }
         y += fieldHeight + 6
         let searchesHeight = searches.arrangedSubviews.isEmpty ? 0 : searches.systemLayoutSizeFitting(CGSize(width: width - 8, height: 0),
@@ -181,10 +201,41 @@ final class SearchHeader: UIView, UITextViewDelegate, UITableViewDataSource, UIT
     @objc private func chipTapped(_ tap: UITapGestureRecognizer) {
         guard let query = tap.view?.accessibilityLabel else { return }
         field.text = query
+        updateCollapsed()
         delegate?.header(self, submit: query)
     }
 
     // MARK: typing
+
+    private func updateCollapsed() {
+        let text = field.text ?? ""
+        collapsedLabel.text = text.isEmpty ? placeholder.text : text
+        collapsedLabel.textColor = text.isEmpty ? placeholder.textColor : field.textColor
+        collapsed.accessibilityValue = text
+        let editing = field.isFirstResponder
+        field.isHidden = !editing
+        collapsed.isHidden = editing
+    }
+
+    private func beginEditing() {
+        field.isHidden = false
+        collapsed.isHidden = true
+        field.becomeFirstResponder()
+        field.selectedRange = NSRange(location: (field.text as NSString).length, length: 0)
+    }
+
+    func textViewDidBeginEditing(_ textView: UITextView) {
+        updateCollapsed()
+        setNeedsLayout()
+        delegate?.headerChangedHeight(self)
+    }
+
+    func textViewDidEndEditing(_ textView: UITextView) {
+        hideSuggestions()
+        updateCollapsed()
+        setNeedsLayout()
+        delegate?.headerChangedHeight(self)
+    }
 
     func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
         guard text == "\n" else { return true }

@@ -27,7 +27,9 @@ How search looks like:
    at hand without returning to the top. Favs toggles: from a search it goes back to the
    favorites (the search stays for a forward swipe or a tap on a saved search); on the
    favorites it is lit, and tapping it goes forward to the search again.
-2. A multiline search box. Hitomi suggests tags for the word being typed; a suggestion replaces
+2. The search box: one line like a saved search (a long query keeps its start and end, with "…"
+   in the middle) until tapped, then the whole query on as many lines as it needs. Hitomi
+   suggests tags for the word being typed; a suggestion replaces
    that word. Positive and negative terms; an empty query (Hitomi: or only negative terms)
    searches language:japanese. Return or tapping a saved search runs the search and saves it.
 3. Saved searches right below the search box, one per line (a long one keeps its start and end,
