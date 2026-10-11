@@ -344,7 +344,8 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
     }
 
     private func restoreIfReady() {
-        guard !restored, view.bounds.width > 0 else { return }
+        // Only once the table has its frame (a restore before layout lands too low).
+        guard !restored, table.bounds.height > 0 else { return }
         guard let anchor = pendingAnchor else { if !ids.isEmpty { restored = true }; return }
         guard let id = Int(anchor.key), ids.contains(id) else {
             // The kept results may lack the row; the newest decide.
