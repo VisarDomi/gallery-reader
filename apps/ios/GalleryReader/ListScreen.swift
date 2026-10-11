@@ -36,7 +36,9 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
     private var ids: [Int] = []
     private var cached: CachedSearch?
     private var galleries: [Int: GalleryInfo] = [:]
-    private var failures: [Int: String] = [:]
+    // Galleries whose details failed: the message and when (asked again after 5 s while on
+    // screen, or when the row shows again).
+    private var failures: [Int: (message: String, at: CFTimeInterval)] = [:]
     private var describing = Set<Int>()
     private var strips: [Int: Double]
     private var pendingAnchor: ScrollAnchor?
@@ -280,7 +282,11 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
             } catch {
                 guard let self else { return }
                 describing.remove(id)
-                failures[id] = error.localizedDescription
+                failures[id] = (error.localizedDescription, CACurrentMediaTime())
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+                    guard let self, isVisible(id) else { return }
+                    describe(id)
+                }
             }
             self?.refreshRow(id)
         }
@@ -298,9 +304,9 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
 
     private func configure(_ cell: ListRowCell, row: Int) {
         let id = ids[row]
-        cell.configure(gallery: id, info: galleries[id], failure: failures[id], offset: CGFloat(strips[id] ?? 0),
+        cell.configure(gallery: id, info: galleries[id], failure: failures[id]?.message, offset: CGFloat(strips[id] ?? 0),
                        favorite: app.state.isFavorite(id), app: app, delegate: self)
-        if galleries[id] == nil && failures[id] == nil { describe(id) }
+        if galleries[id] == nil && CACurrentMediaTime() - (failures[id]?.at ?? 0) > 5 { describe(id) }
     }
 
     // MARK: table
