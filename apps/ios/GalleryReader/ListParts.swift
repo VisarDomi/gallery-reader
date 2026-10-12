@@ -426,6 +426,11 @@ final class ListRowCell: UITableViewCell, ThumbnailStripDelegate {
         return app.thumbnail(info.pages[index])
     }
 
+    func strip(_ strip: ThumbnailStripView, localFileFor index: Int) -> URL? {
+        guard let info, info.pages.indices.contains(index), let app else { return nil }
+        return app.thumbnailFile(info.pages[index])
+    }
+
     func strip(_ strip: ThumbnailStripView, didSelect index: Int) { delegate?.row(self, didSelectPage: index) }
     func stripDidSettle(_ strip: ThumbnailStripView) { delegate?.rowStripSettled(self) }
 }

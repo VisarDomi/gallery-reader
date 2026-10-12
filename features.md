@@ -2,7 +2,11 @@ The apps are built around a stack of live screens: swiping back from the left ed
 the previous screen exactly as it was (the same rows, positions, sideways strip offsets and open
 details), and swiping in from the right edge goes forward again. The stack and every screen's
 position are saved on the phone, so a relaunch after iOS ended the app (or a kill, or a power
-off) opens the same screen at the same point, with the same Back history.
+off) opens the same screen at the same point, with the same Back history. Its first frame is
+already that screen as it was left: the kept results, gallery details, thumbnails and pages on
+the phone are read before it (nothing fills in afterwards), and the screens below are built
+while it shows, so going back finds them complete. The newest results then join without moving
+the rows on screen.
 
 3 modes:
 1. reader - biggest reason for this app

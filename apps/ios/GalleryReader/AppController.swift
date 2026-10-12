@@ -60,6 +60,8 @@ final class AppController {
     }
 
     func makeNavigation() -> LiveNavigationController {
+        // The screens come back as they were left, their images on the phone in the first frame.
+        pipeline.beginRestore()
         navigation = LiveNavigationController(file: root.appendingPathComponent("navigation.json"),
                                               factory: { [unowned self] route, state in screen(route, state: state) },
                                               root: ListScreen(app: self, kind: .favorites, state: nil))
@@ -138,6 +140,9 @@ final class AppController {
             }
         }
     }
+
+    func thumbnailFile(_ page: GalleryInfo.Page) -> URL? { images.localFile(page.thumbnail) }
+    func imageFile(_ page: GalleryInfo.Page) -> URL? { images.localFile("\(provider.id.rawValue):image:\(page.image)") }
 
     func image(_ page: GalleryInfo.Page, of gallery: Int) -> ImageSource {
         let images = images, provider = provider

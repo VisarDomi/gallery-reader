@@ -17,6 +17,13 @@ actor GalleryDetails {
         self.directory = directory.appendingPathComponent("galleries")
     }
 
+    // The phone's copy read on the calling thread (a relaunch shows rows and readers in their
+    // first frame).
+    nonisolated func infoNow(_ id: Int) -> GalleryInfo? {
+        guard let saved = try? DurableFile.readJSON(GalleryInfo.self, from: directory.appendingPathComponent("\(id).json")), !saved.pages.isEmpty else { return nil }
+        return saved
+    }
+
     func info(_ id: Int) async throws -> GalleryInfo {
         if let cached = memory[id] { return cached }
         let file = directory.appendingPathComponent("\(id).json")
@@ -63,6 +70,13 @@ actor ImageCache {
     }
 
     static func name(_ key: String) -> String { SHA256.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined() }
+
+    // The image's file when it is already on the phone (a relaunch decodes it for the first frame).
+    nonisolated func localFile(_ key: String) -> URL? {
+        let file = directory.appendingPathComponent(Self.name(key))
+        guard FileManager.default.fileExists(atPath: file.appendingPathExtension("mime").path), (DurableFile.size(file) ?? 0) > 0 else { return nil }
+        return file
+    }
 
     // `source` gives the URL and Referer; it is asked again with `stale` after a failure
     // (Hitomi's image hosts move).
@@ -160,9 +174,12 @@ actor SearchCache {
         self.provider = provider
     }
 
-    private func file(_ query: String) -> URL { directory.appendingPathComponent(ImageCache.name(provider.rawValue + ":" + query) + ".json") }
+    private nonisolated func file(_ query: String) -> URL { directory.appendingPathComponent(ImageCache.name(provider.rawValue + ":" + query) + ".json") }
 
-    func load(_ query: String) -> CachedSearch? { try? DurableFile.readJSON(CachedSearch.self, from: file(query)) }
+    func load(_ query: String) -> CachedSearch? { loadNow(query) }
+
+    // The same on the calling thread (a relaunch lists the kept results in its first frame).
+    nonisolated func loadNow(_ query: String) -> CachedSearch? { try? DurableFile.readJSON(CachedSearch.self, from: file(query)) }
 
     func save(_ search: CachedSearch) {
         do { try DurableFile.writeJSON(search, to: file(search.query)) }

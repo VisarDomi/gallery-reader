@@ -216,8 +216,11 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
         layoutHeader()
         if changed {
             table.reloadData()
-            table.layoutIfNeeded()
-            if let anchor { restore(anchor) }
+            // Before the first restore, no layout at the top: the rows are built at the anchor.
+            if let anchor {
+                table.layoutIfNeeded()
+                restore(anchor)
+            }
         }
         restoreIfReady()
     }
@@ -240,11 +243,12 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
     private var paged: Bool { app.provider.id == .imhentai }
 
     private func loadSearch(_ query: String) {
+        // The kept results at once (the first frame lists them), then the site's merged in.
+        if let kept = app.searches.loadNow(query) {
+            cached = kept
+            setIDs(kept.ids, countSuffix: " Results", total: kept.total)
+        }
         Task { [weak self, app] in
-            if let kept = await app.searches.load(query), let self {
-                cached = kept
-                setIDs(kept.ids, countSuffix: " Results", total: kept.total)
-            }
             do {
                 let fresh = try await app.provider.search(query, page: 1)
                 guard let self else { return }
@@ -316,6 +320,8 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
 
     private func configure(_ cell: ListRowCell, row: Int) {
         let id = ids[row]
+        // Details on the phone are read at once (a relaunch shows the row's strip, not a message).
+        if galleries[id] == nil, let saved = app.details.infoNow(id) { galleries[id] = saved }
         cell.configure(gallery: id, info: galleries[id], failure: failures[id]?.message, offset: CGFloat(strips[id] ?? 0),
                        favorite: app.state.isFavorite(id), app: app, delegate: self)
         if galleries[id] == nil && CACurrentMediaTime() - (failures[id]?.at ?? 0) > 5 { describe(id) }
@@ -364,7 +370,6 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
             if current { restored = true; pendingAnchor = nil }
             return
         }
-        table.layoutIfNeeded()
         restore(anchor)
         pendingAnchor = nil
         restored = true

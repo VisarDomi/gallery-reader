@@ -52,7 +52,8 @@ final class ReaderScreen: UIViewController, LiveScreen, StripReaderDelegate {
             guard let self else { return [:] }
             return ["gallery": gallery, "pages": info?.pages.count ?? -1, "message": message.isHidden ? "" : (message.text ?? ""), "strip": strip.state]
         }
-        Task { [weak self] in await self?.open() }
+        // The phone's copy at once: a relaunch shows the pages in its first frame.
+        if let saved = app.details.infoNow(gallery) { show(saved) } else { Task { [weak self] in await self?.open() } }
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -72,13 +73,7 @@ final class ReaderScreen: UIViewController, LiveScreen, StripReaderDelegate {
         var delay = 1.0
         while info == nil {
             do {
-                let info = try await app.details.info(gallery)
-                self.info = info
-                show(info.pages.isEmpty ? "This gallery has no images." : nil)
-                strip.setPages(info.pages.enumerated().map { index, page in
-                    StripPage(key: "\(app.provider.id.rawValue):image:\(page.image)",
-                              aspect: page.width > 0 && page.height > 0 ? CGFloat(page.width / page.height) : nil)
-                }, position: StripPosition(index: min(max(0, initial.index), max(0, info.pages.count - 1)), fraction: initial.fraction))
+                show(try await app.details.info(gallery))
                 return
             } catch {
                 show(Self.offline(error) ? "Waiting for the network…" : "Could not open the gallery: \(error.localizedDescription)\nTrying again…")
@@ -87,6 +82,15 @@ final class ReaderScreen: UIViewController, LiveScreen, StripReaderDelegate {
                 delay = min(delay * 2, 30)
             }
         }
+    }
+
+    private func show(_ info: GalleryInfo) {
+        self.info = info
+        show(info.pages.isEmpty ? "This gallery has no images." : nil)
+        strip.setPages(info.pages.enumerated().map { index, page in
+            StripPage(key: "\(app.provider.id.rawValue):image:\(page.image)",
+                      aspect: page.width > 0 && page.height > 0 ? CGFloat(page.width / page.height) : nil)
+        }, position: StripPosition(index: min(max(0, initial.index), max(0, info.pages.count - 1)), fraction: initial.fraction))
     }
 
     static func offline(_ error: Error) -> Bool {
@@ -112,6 +116,11 @@ final class ReaderScreen: UIViewController, LiveScreen, StripReaderDelegate {
     func strip(_ strip: StripReaderView, sourceFor index: Int) -> ImageSource {
         guard let info, info.pages.indices.contains(index) else { return .load { throw CancellationError() } }
         return app.image(info.pages[index], of: gallery)
+    }
+
+    func strip(_ strip: StripReaderView, localFileFor index: Int) -> URL? {
+        guard let info, info.pages.indices.contains(index) else { return nil }
+        return app.imageFile(info.pages[index])
     }
 
     // A page that could not load says why (it is asked again, sooner while on screen).
