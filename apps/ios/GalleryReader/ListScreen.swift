@@ -205,27 +205,20 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
         status.frame = CGRect(x: 20, y: 40, width: width - 40, height: 80)
     }
 
-    // Scrolling down slides the header away with the content; any scroll up brings it back.
+    // The header moves with the content, point for point: scrolling down slides it away, any
+    // scroll up brings it back at the same pace, and it stays wherever scrolling leaves it (no
+    // snapping: showing or hiding it takes a scroll). Near the top it is never further away
+    // than the content has scrolled, so it is fully back exactly when the list reaches its top.
     private func followScroll(_ scrollView: UIScrollView) {
         let offset = scrollView.contentOffset.y
         defer { lastOffset = offset }
         guard scrollView.isTracking || scrollView.isDecelerating, !header.isEditing else { return }
         let height = header.bounds.height
-        let top = -scrollView.adjustedContentInset.top
-        let delta = offset - lastOffset
-        if offset <= top { headerShift = 0 }
-        else if delta > 0 { headerShift = min(height, headerShift + delta) }
-        else if delta < 0 { headerShift = max(0, headerShift + delta * 2) }
+        let scrolled = offset + scrollView.adjustedContentInset.top
+        headerShift = min(max(0, headerShift + offset - lastOffset), height, max(0, scrolled))
         header.frame.origin.y = -headerShift
     }
 
-    // When the finger lifts, the header settles fully shown or fully away.
-    private func settleHeader() {
-        let height = header.bounds.height
-        guard headerShift > 0, headerShift < height else { return }
-        headerShift = headerShift > height / 2 && table.contentOffset.y > -table.adjustedContentInset.top + height ? height : 0
-        UIView.animate(withDuration: 0.2) { self.header.frame.origin.y = -self.headerShift }
-    }
 
     private func layoutFooter() {
         guard kind == .favorites else { return }
@@ -475,9 +468,9 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
     }
     func scrollViewWillBeginDragging(_ scrollView: UIScrollView) { monitor(true) }
     func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
-        if !decelerate { monitor(false); saveNow(); settleHeader(); applyWaiting() }
+        if !decelerate { monitor(false); saveNow(); applyWaiting() }
     }
-    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) { monitor(false); saveNow(); settleHeader(); applyWaiting() }
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) { monitor(false); saveNow(); applyWaiting() }
 
     private func applyWaiting() {
         if let waiting { setIDs(waiting.ids, countSuffix: waiting.countSuffix, total: waiting.total) }

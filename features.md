@@ -27,8 +27,10 @@ Example flows:
 How search looks like:
 
 1. The search box, the saved searches, the result count and **Favs** float on top of the list:
-   they slide away while you scroll down and come back with any scroll up, so search is always
-   at hand without returning to the top. Favs toggles: from a search it goes back to the
+   they move with the list, point for point: scrolling down slides them away, scrolling up
+   brings them back at the same pace, and they stay wherever the scroll leaves them (no
+   snapping). At the top of the list they are fully shown. Search is always at hand without
+   returning to the top. Favs toggles: from a search it goes back to the
    favorites (the search stays for a forward swipe or a tap on a saved search); on the
    favorites it is lit, and tapping it goes forward to the search again.
 2. The search box: one line like a saved search (a long query keeps its start and end, with "…"
