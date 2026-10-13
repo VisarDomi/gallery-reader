@@ -27,6 +27,12 @@ final class Prefetch {
     func start(_ new: Focus) {
         guard new != focus || worker == nil else { return }
         focus = new
+        // An open reader comes first; the list's work waits until its gallery is on the phone.
+        guard readerWorker == nil else { return }
+        runList(new)
+    }
+
+    private func runList(_ new: Focus) {
         worker?.cancel()
         let details = app.details, images = app.images, referer = app.provider.origin.absoluteString + "/"
         // Imhentai answers through Cloudflare: fewer and nearer.
@@ -113,6 +119,60 @@ final class Prefetch {
                 }
             }
         }
+    }
+
+    // MARK: the reader first
+
+    // An open reader comes before everything: its gallery's pages from where it is outwards, the
+    // way it reads, the nearest at high priority and the rest at normal priority (the pages on
+    // screen ask for themselves, first of all). Once all are on the phone, the list's work goes on
+    // where it was (low priority).
+    private var readingAt: (gallery: Int, index: Int)?
+    private var readerWorker: Task<Void, Never>?
+
+    func reading(_ gallery: Int, info: GalleryInfo, at index: Int) {
+        if let readingAt, readingAt.gallery == gallery, abs(readingAt.index - index) < 3 { return }
+        let forward = readingAt.map { $0.gallery != gallery || index >= $0.index } ?? true
+        readingAt = (gallery, index)
+        worker?.cancel()
+        worker = nil
+        stripWorker?.cancel()
+        stripWorker = nil
+        readerWorker?.cancel()
+        let images = app.images, provider = app.provider
+        let done: @Sendable () -> Void = { [weak self] in Task { @MainActor in self?.readerDone() } }
+        readerWorker = Task.detached(priority: .userInitiated) {
+            let order = Self.outwards(count: info.pages.count, center: index, window: info.pages.count, forward: forward)
+            await withTaskGroup(of: Void.self) { group in
+                var running = 0
+                for (rank, number) in order.enumerated() {
+                    if Task.isCancelled { break }
+                    if running >= 4 { await group.next(); running -= 1 }
+                    let page = info.pages[number]
+                    let priority = rank < 6 ? URLSessionTask.highPriority : URLSessionTask.defaultPriority
+                    group.addTask {
+                        await images.prefetch("\(provider.id.rawValue):image:\(page.image)", priority: priority) { stale in
+                            try await provider.image(page, of: gallery, stale: stale)
+                        }
+                    }
+                    running += 1
+                }
+            }
+            guard !Task.isCancelled else { return }
+            done()
+        }
+    }
+
+    private func readerDone() {
+        readerWorker = nil
+        if let focus { runList(focus) }
+    }
+
+    // The reader closed: the list (on screen again) starts its own work.
+    func closedReader() {
+        readerWorker?.cancel()
+        readerWorker = nil
+        readingAt = nil
     }
 
     // Covered by another screen (a reader): what that screen needs goes first.

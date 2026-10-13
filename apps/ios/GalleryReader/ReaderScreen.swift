@@ -60,6 +60,13 @@ final class ReaderScreen: UIViewController, LiveScreen, StripReaderDelegate {
         super.viewWillAppear(animated)
         // Back from the forward list while the gallery was still unknown: try again.
         if info == nil && !opening { Task { [weak self] in await self?.open() } }
+        // Back from the forward list with it known: its pages first again.
+        if let info { app.prefetch.reading(gallery, info: info, at: strip.currentPosition?.index ?? initial.index) }
+    }
+
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        if isMovingFromParent { app.prefetch.closedReader() }
     }
 
     private var opening = false
@@ -91,6 +98,8 @@ final class ReaderScreen: UIViewController, LiveScreen, StripReaderDelegate {
             StripPage(key: "\(app.provider.id.rawValue):image:\(page.image)",
                       aspect: page.width > 0 && page.height > 0 ? CGFloat(page.width / page.height) : nil)
         }, position: StripPosition(index: min(max(0, initial.index), max(0, info.pages.count - 1)), fraction: initial.fraction))
+        // The whole gallery onto the phone, from here outwards, before anything else.
+        app.prefetch.reading(gallery, info: info, at: initial.index)
     }
 
     static func offline(_ error: Error) -> Bool {
@@ -130,6 +139,7 @@ final class ReaderScreen: UIViewController, LiveScreen, StripReaderDelegate {
 
     func strip(_ strip: StripReaderView, settledAt position: StripPosition) {
         page = position.index + 1
+        if let info { app.prefetch.reading(gallery, info: info, at: position.index) }
         app.state.setReaderPosition(position, for: gallery)
         stateChanged()
     }

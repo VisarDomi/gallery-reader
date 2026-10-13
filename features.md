@@ -68,7 +68,10 @@ How reader looks like:
 3. Every page has its final height before its image arrives (the sizes are known), so nothing
    jumps while images load; the pages nearest the screen load first, and a list under the
    reader stops asking for its thumbnails meanwhile.
-4. Kill and offline robust: the exact point is saved as you read; pages already on the phone
+4. The reader comes first: the pages on screen, then the nearest ones the way you read (high
+   priority), then the rest of the gallery, all onto the phone; only then does the list's work
+   ahead go on (its thumbnails, low priority).
+5. Kill and offline robust: the exact point is saved as you read; pages already on the phone
    show without the network; a page that cannot load says why (waiting for the network, or
    the error) and is asked again by itself; a gallery not on the phone yet waits for the
    network and opens when it returns.
