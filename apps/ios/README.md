@@ -76,8 +76,8 @@ Each app keeps its data in `Library/Application Support/GalleryReader`:
 - `state.json`: favorites (newest first), saved searches (most recent first), list anchors
   (`favorites`, `search:<query>`: the row at the screen's middle and how far down it, so they
   survive different heights), reader positions (the page and how far down it; the last 500
-  galleries). `page`, `scroll` and a saved search's `page` are the web version's fields, kept
-  because the PC backups carry them.
+  galleries). `page`, `scroll` and a saved search's `page` belong to the backup record's
+  format; the app does not use them (its positions are the anchors above).
 - `navigation.json`: the screen stack, back and forward, with each screen's state (list
   anchor, strip offsets and open details; reader position).
 - `galleries/<id>.json`: gallery details (they do not change once published).
@@ -178,9 +178,9 @@ neither), asmhentai (neither), exhentai (its Japanese galleries were purged).
   Access, validation and storage errors stay on screen until a backup succeeds or they are
   tapped. A restore replaces favorites and saved searches and becomes a new, independent
   backup; the one restored from is never changed.
-- What is backed up: favorites and saved searches, in the web version's record
-  `{version: 1, indexedDB: {favorites, searches, page, scroll}}`, which the server validates.
-  List and reader positions are not backed up.
+- What is backed up: favorites and saved searches, in the record
+  `{version: 1, indexedDB: {favorites, searches, page, scroll}}`, which the server validates
+  (`page` and `scroll` are carried, unused). List and reader positions are not backed up.
 - Gallery Downloader sync: after every favorite or import change (0.1 s later) and after
   each successful backup, the complete favorites list goes to
   `PUT <GalleryServerURL>/api/favorites/<provider>` as `{ids}`, newest first; only once this
@@ -279,8 +279,9 @@ it prints why approval was skipped.
   When the kept results lack the anchor row, it waits for the fresh ones; if they lack it
   too, the list starts at the top.
 - Imhen: a `namespace:value` term counts only alone, or with a lone `language:` term (then
-  as a keyword); next to other terms it is dropped (`Imhentai.searchURL`). The result count
-  (`~N`) is pages times 20, an estimate.
+  as a keyword); next to other terms it is dropped (`Imhentai.searchURL`). This is intended:
+  the owner's long-standing search rules, kept exactly; do not change them unasked. The
+  result count (`~N`) is pages times 20, an estimate.
 - xcconfig treats `//` as a comment: `build.mjs` writes URLs as `https:/$()/…`.
 - The backup record is shared with the server: a change to `ReaderState.backupData` or
   `validate` needs the same change in `server/backups.mjs` (`contentCount`), and the PC's

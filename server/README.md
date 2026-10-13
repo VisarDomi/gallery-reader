@@ -10,8 +10,9 @@ Hitomi and Imhen back up their favorites and saved searches to this server, on H
 - `GET /api/reader-backups/gallery-reader/<provider>` lists the phones' backups, newest
   first; `PUT …/<provider>/<installation-id>` saves one (`{label, data, baseRevision}`).
   Providers: `hitomi`, `imhentai`.
-- `data` is `{version: 1, indexedDB: {favorites, searches, page, scroll}}` (the web
-  version's record, which the apps still send). Malformed data is rejected; bodies over
+- `data` is `{version: 1, indexedDB: {favorites, searches, page, scroll}}`: favorites and
+  saved searches (`page` and `scroll` are part of the format; the apps do not use them).
+  List and reader positions are not backed up. Malformed data is rejected; bodies over
   5 MB get 413.
 - Each phone has its own file, `<provider>/<installation-id>.json`, holding the current and
   at most one previous snapshot in one atomic file. Identical retries do not rotate; a stale
