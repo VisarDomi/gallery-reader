@@ -34,8 +34,10 @@ How search looks like:
 2. The search box: one line like a saved search (a long query keeps its start and end, with "…"
    in the middle) until tapped, then the whole query on as many lines as it needs. Hitomi
    suggests tags for the word being typed; a suggestion replaces
-   that word. Positive and negative terms; an empty query (Hitomi: or only negative terms)
-   searches language:japanese. Return or tapping a saved search runs the search and saves it.
+   that word. Hitomi: terms separated by spaces, a leading "-" excludes one. Imhen: terms
+   separated by commas, all required (the site cannot exclude). An empty query (Hitomi: or
+   only excluded terms) searches language:japanese. Return or tapping a saved search runs the
+   search and saves it.
 3. Saved searches right below the search box, one per line (a long one keeps its start and end,
    with "…" in the middle), with an x to remove it. 3 shown by default, "Show N more" expands.
    Most recent first.
@@ -51,7 +53,8 @@ How search looks like:
    then the rest of it. A thumbnail on screen never waits behind a slower download ahead.
 5. A heart (favorite) and an "i" (details) at each row's bottom right.
 6. Details: titles, artists, groups, series, type, characters, language, pages, date and tags.
-   Every value is a search in the gallery's language. Close or tap outside.
+   Every value except pages and date is a search in the gallery's language. Close or tap
+   outside.
 7. One continuous list instead of pages. A search shows the phone's copy of its results at once,
    searches again in the background, and merges the new results without moving the rows on
    screen (and not while the list is moving: that would stop a fling). Imhen loads its further
@@ -63,8 +66,9 @@ exported at the end of the list.
 
 How reader looks like:
 1. All pages in a vertical strip, full width on black, zoomed and panned like a web page.
-2. Opened from a thumbnail, that page's top sits at the screen's middle. Reopened (or relaunched)
-   it returns to the exact point: the page at the screen's middle and how far down that page.
+2. Opened from a thumbnail, that page's top sits at the screen's middle. Reopened from the
+   thumbnail of the page it was left on (or relaunched), it returns to the exact point: the
+   page at the screen's middle and how far down that page.
 3. Every page has its final height before its image arrives (the sizes are known), so nothing
    jumps while images load; the pages nearest the screen load first, and a list under the
    reader stops asking for its thumbnails meanwhile.
