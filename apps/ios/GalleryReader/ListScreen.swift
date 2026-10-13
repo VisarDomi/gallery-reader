@@ -141,11 +141,42 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         table.visibleCells.compactMap { $0 as? ListRowCell }.forEach { $0.pauseImages() }
+        if prefetching { app.prefetch.pause(); prefetching = false }
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         if kind == .favorites { app.favoritesVisited(from: self) }
+        prefetching = true
+        app.prefetch.ready = { [weak self] id, info in self?.arrived(id, info) }
+        updatePrefetch(force: true)
+    }
+
+    // MARK: ahead of the screen
+
+    private var prefetching = false
+    private var prefetchedAt: CFTimeInterval = 0
+    private var decodedAhead: [Int: [ImageTicket]] = [:]
+
+    // The prefetcher follows the row at the screen's middle (and where each strip was left).
+    private func updatePrefetch(force: Bool = false) {
+        guard prefetching, !ids.isEmpty else { return }
+        let now = CACurrentMediaTime()
+        guard force || now - prefetchedAt > 0.5 else { return }
+        prefetchedAt = now
+        let paths = table.indexPathsForVisibleRows ?? []
+        let center = paths.isEmpty ? 0 : paths[paths.count / 2].row
+        app.prefetch.start(Prefetch.Focus(ids: ids, center: center, strips: strips.mapValues { Int($0 / 100) }))
+        loadMoreIfNeeded(min(ids.count - 1, center + 100))
+    }
+
+    // Details fetched ahead: the row has its strip when it comes into view.
+    private func arrived(_ id: Int, _ info: GalleryInfo) {
+        guard galleries[id] == nil else { return }
+        galleries[id] = info
+        failures[id] = nil
+        if galleries.count > 1500, let far = galleries.keys.first(where: { !self.isVisible($0) }) { galleries[far] = nil }
+        if isVisible(id) { refreshRow(id) }
     }
 
     override func viewDidLayoutSubviews() {
@@ -208,13 +239,31 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
 
     // MARK: contents
 
+    // New results keep the rows on screen in place. More of them at the end (a next page) only
+    // reloads (nothing above moves); any other change waits while a finger or momentum moves
+    // the rows, as keeping them in place sets the offset, which would stop a fling dead.
+    private var waiting: (ids: [Int], countSuffix: String, total: Int)?
+    private var rowsMoving: Bool { table.isTracking || table.isDragging || table.isDecelerating }
+
     private func setIDs(_ new: [Int], countSuffix: String, total: Int) {
-        let anchor = restored ? currentAnchor : nil
+        FrameMonitor.shared.measure("list.set") { setIDsNow(new, countSuffix: countSuffix, total: total) }
+    }
+
+    private func setIDsNow(_ new: [Int], countSuffix: String, total: Int) {
         let changed = new != ids
+        let appended = changed && new.count > ids.count && new.starts(with: ids)
+        if changed && restored && !appended && rowsMoving {
+            if waiting == nil { applyWhenStill() }
+            waiting = (new, countSuffix, total)
+            return
+        }
+        waiting = nil
+        let anchor = restored && !appended ? currentAnchor : nil
         ids = new
         header.count = "~\(total)\(countSuffix)"
         layoutHeader()
         if changed {
+            defer { updatePrefetch(force: true) }
             table.reloadData()
             // Before the first restore, no layout at the top: the rows are built at the anchor.
             if let anchor {
@@ -223,6 +272,13 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
             }
         }
         restoreIfReady()
+    }
+
+    private func applyWhenStill() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self, let waiting else { return }
+            if rowsMoving { applyWhenStill() } else { setIDs(waiting.ids, countSuffix: waiting.countSuffix, total: waiting.total) }
+        }
     }
 
     private func reloadFavorites() {
@@ -252,7 +308,9 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
             do {
                 let fresh = try await app.provider.search(query, page: 1)
                 guard let self else { return }
-                let merged = SearchCache.merge(cached, fresh: fresh, query: query, paged: paged)
+                // Merged off the main thread (a search can hold tens of thousands of results).
+                let (kept, paged) = (cached, paged)
+                let merged = await Task.detached(priority: .userInitiated) { SearchCache.merge(kept, fresh: fresh, query: query, paged: paged) }.value
                 cached = merged
                 current = true
                 setIDs(merged.ids, countSuffix: " Results", total: merged.total)
@@ -272,7 +330,8 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
 
     // Imhentai: the next page of 20 once the end is near.
     private func loadMoreIfNeeded(_ row: Int) {
-        guard paged, case .search(let query) = kind, let current = cached, !current.complete, !loadingMore, row >= ids.count - 8 else { return }
+        // Long before the end: a fast scroll never reaches rows that are not there yet.
+        guard paged, case .search(let query) = kind, let current = cached, !current.complete, !loadingMore, row >= ids.count - 100 else { return }
         loadingMore = true
         Task { [weak self, app] in
             defer { self?.loadingMore = false }
@@ -320,8 +379,9 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
 
     private func configure(_ cell: ListRowCell, row: Int) {
         let id = ids[row]
-        // Details on the phone are read at once (a relaunch shows the row's strip, not a message).
-        if galleries[id] == nil, let saved = app.details.infoNow(id) { galleries[id] = saved }
+        // Details on the phone are read at once while relaunching (the row's strip is in the first
+        // frame); otherwise in the background (describe), never on the main thread while scrolling.
+        if galleries[id] == nil, app.pipeline.isRestoring, let saved = app.details.infoNow(id) { galleries[id] = saved }
         cell.configure(gallery: id, info: galleries[id], failure: failures[id]?.message, offset: CGFloat(strips[id] ?? 0),
                        favorite: app.state.isFavorite(id), app: app, delegate: self)
         if galleries[id] == nil && CACurrentMediaTime() - (failures[id]?.at ?? 0) > 5 { describe(id) }
@@ -332,14 +392,36 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int { ids.count }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "row", for: indexPath) as! ListRowCell
-        configure(cell, row: indexPath.row)
-        loadMoreIfNeeded(indexPath.row)
-        return cell
+        FrameMonitor.shared.measure("list.cell") {
+            let cell = tableView.dequeueReusableCell(withIdentifier: "row", for: indexPath) as! ListRowCell
+            configure(cell, row: indexPath.row)
+            loadMoreIfNeeded(indexPath.row)
+            return cell
+        }
     }
 
+    // Rows about to come into view: their details, and their strips' first thumbnails decoded
+    // (from the phone, where the prefetcher put them), so they arrive complete.
     func tableView(_ tableView: UITableView, prefetchRowsAt indexPaths: [IndexPath]) {
-        for path in indexPaths where ids.indices.contains(path.row) { describe(ids[path.row]) }
+        if decodedAhead.count > 200 { decodedAhead.removeAll() }
+        for path in indexPaths where ids.indices.contains(path.row) {
+            let id = ids[path.row]
+            describe(id)
+            guard let info = galleries[id], decodedAhead[id] == nil else { continue }
+            let first = Int((strips[id] ?? 0) / 100)
+            let pages = info.pages.indices.filter { $0 >= first && $0 < first + 5 }
+            decodedAhead[id] = pages.map { index in
+                let page = info.pages[index]
+                return app.pipeline.load(ImagePipeline.Request(key: page.thumbnail, source: app.thumbnail(page), fit: .cover(width: 300, height: 900),
+                                                               localFile: nil) { 1 }) { _ in }
+            }
+        }
+    }
+
+    func tableView(_ tableView: UITableView, cancelPrefetchingForRowsAt indexPaths: [IndexPath]) {
+        for path in indexPaths where ids.indices.contains(path.row) {
+            decodedAhead.removeValue(forKey: ids[path.row])?.forEach { $0.cancel() }
+        }
     }
 
     func tableView(_ tableView: UITableView, didEndDisplaying cell: UITableViewCell, forRowAt indexPath: IndexPath) {
@@ -382,17 +464,31 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
         }
         app.state.setAnchor(currentAnchor, for: anchorKey)
         stateChanged()
+        updatePrefetch(force: true)
     }
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         app.pipeline.prioritiesChanged()
         if scrollView.isTracking { header.hideSuggestions() }
         followScroll(scrollView)
+        updatePrefetch()
     }
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) { monitor(true) }
     func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
-        if !decelerate { saveNow(); settleHeader() }
+        if !decelerate { monitor(false); saveNow(); settleHeader(); applyWaiting() }
     }
-    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) { saveNow(); settleHeader() }
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) { monitor(false); saveNow(); settleHeader(); applyWaiting() }
+
+    private func applyWaiting() {
+        if let waiting { setIDs(waiting.ids, countSuffix: waiting.countSuffix, total: waiting.total) }
+    }
+
+    private var monitoring = false
+    private func monitor(_ moving: Bool) {
+        guard moving != monitoring else { return }
+        monitoring = moving
+        FrameMonitor.shared.scrolling(moving)
+    }
 
     // MARK: actions
 

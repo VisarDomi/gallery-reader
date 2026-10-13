@@ -48,6 +48,18 @@ actor GalleryDetails {
     }
 }
 
+final class NameMemo: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [String: String] = [:]
+    func value(_ key: String) -> String? { lock.withLock { values[key] } }
+    func set(_ key: String, _ value: String) {
+        lock.withLock {
+            if values.count > 50_000 { values.removeAll(keepingCapacity: true) }
+            values[key] = value
+        }
+    }
+}
+
 // Images on the phone (cache/<sha256(key)> with a .mime file, the web version's format):
 // read when saved, otherwise downloaded once (requests for the same image share it). The
 // folder is kept under a size limit, least recently used first.
@@ -63,13 +75,27 @@ actor ImageCache {
     private let directory: URL
     private let http: HTTPClient
     private var loading: [String: Transfer] = [:]
+    // Downloads ahead of the screen (Prefetch): low priority, nobody waiting, never given up when
+    // a row scrolls away. The screen asking for one joins it.
+    private var ahead: [String: Task<URL?, Never>] = [:]
 
     init(directory: URL, http: HTTPClient) {
         self.directory = directory.appendingPathComponent("cache")
         self.http = http
     }
 
-    static func name(_ key: String) -> String { SHA256.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined() }
+    // File names are hashes of their keys, asked for every thumbnail shown: each computed once.
+    static func name(_ key: String) -> String {
+        if let known = names.value(key) { return known }
+        let digits = Array("0123456789abcdef".utf8)
+        var hex = [UInt8](); hex.reserveCapacity(64)
+        for byte in SHA256.hash(data: Data(key.utf8)) { hex.append(digits[Int(byte >> 4)]); hex.append(digits[Int(byte & 15)]) }
+        let name = String(decoding: hex, as: UTF8.self)
+        names.set(key, name)
+        return name
+    }
+
+    private static let names = NameMemo()
 
     // The image's file when it is already on the phone (a relaunch decodes it for the first frame).
     nonisolated func localFile(_ key: String) -> URL? {
@@ -87,6 +113,7 @@ actor ImageCache {
             return file
         }
         try Task.checkCancellation()
+        if let early = ahead[key], let file = await early.value { return file }
         if loading[key] == nil { loading[key] = Transfer(task: Task { [http] in try await Self.fetch(file, http: http, source: source) }) }
         let caller = UUID()
         loading[key]!.callers.insert(caller)
@@ -107,14 +134,15 @@ actor ImageCache {
         loading[key] = nil
     }
 
-    private static func fetch(_ file: URL, http: HTTPClient, source: @Sendable (_ stale: Bool) async throws -> (url: URL, referer: String)) async throws -> URL {
+    private static func fetch(_ file: URL, http: HTTPClient, priority: Float = URLSessionTask.highPriority,
+                              source: @Sendable (_ stale: Bool) async throws -> (url: URL, referer: String)) async throws -> URL {
         var lastError: Error?
         for attempt in 0..<2 {
             let (url, referer) = try await source(attempt > 0)
             do {
                 // Two attempts, then the screen says why and asks again itself (offline, a page
                 // shows "waiting for the network" instead of staying blank).
-                let response = try await http.download(HTTPRequest(url, referer: referer, retry: RetryPolicy(maxAttempts: 2), priority: URLSessionTask.highPriority),
+                let response = try await http.download(HTTPRequest(url, referer: referer, retry: RetryPolicy(maxAttempts: 2), priority: priority),
                                                        to: file) { response in
                     guard response.statusCode == 200, response.mimeType?.hasPrefix("image/") == true else { throw URLError(.badServerResponse) }
                 }
@@ -125,6 +153,19 @@ actor ImageCache {
             }
         }
         throw lastError ?? URLError(.badServerResponse)
+    }
+
+    // Downloads an image ahead of the screen (low priority); one on the phone or already coming
+    // is left alone. Returns when it is on the phone (or failed: the screen asks again itself).
+    func prefetch(_ key: String, source: @escaping @Sendable (_ stale: Bool) async throws -> (url: URL, referer: String)) async {
+        let file = directory.appendingPathComponent(Self.name(key))
+        if FileManager.default.fileExists(atPath: file.appendingPathExtension("mime").path), (DurableFile.size(file) ?? 0) > 0 { return }
+        if loading[key] != nil { return }
+        if let early = ahead[key] { _ = await early.value; return }
+        let task = Task { [http] in try? await Self.fetch(file, http: http, priority: URLSessionTask.lowPriority, source: source) }
+        ahead[key] = task
+        _ = await task.value
+        ahead[key] = nil
     }
 
     private nonisolated func touch(_ file: URL) {

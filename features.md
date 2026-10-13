@@ -42,13 +42,18 @@ How search looks like:
 4. The most important part: the content. One gallery per row, full width and 300 points tall,
    scrolled sideways through its page thumbnails (100 points wide, cropped to fill). A thumbnail
    opens the reader at that page. Rows appear in the right order at once and fill in as their
-   details arrive; on-screen thumbnails load first.
+   details arrive; on-screen thumbnails load first. Ahead of the screen, in the background and at
+   low priority, the app fetches the details of the galleries around the row at the screen's
+   middle (outwards, below first), each with its strip's first screen of thumbnails, then the
+   whole strips of the nearest rows, so a fast scroll down the list or along a strip finds them
+   on the phone (Prefetch.swift; it follows the list as it moves and pauses under a reader).
 5. A heart (favorite) and an "i" (details) at each row's bottom right.
 6. Details: titles, artists, groups, series, type, characters, language, pages, date and tags.
    Every value is a search in the gallery's language. Close or tap outside.
 7. One continuous list instead of pages. A search shows the phone's copy of its results at once,
    searches again in the background, and merges the new results without moving the rows on
-   screen. Imhen loads its further pages as the end comes near.
+   screen (and not while the list is moving: that would stop a fling). Imhen loads its further
+   pages when the screen is within 100 rows of the end, so a fast scroll never reaches it.
 
 Favorites and search are the same list, except for where the galleries come from: favorites
 are the phone's list, search asks the site. Favorites can be imported (gallery IDs), merged and

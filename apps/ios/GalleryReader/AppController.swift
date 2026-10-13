@@ -26,6 +26,8 @@ final class AppController {
     let images: ImageCache
     let searches: SearchCache
     let pipeline = ImagePipeline(memoryLimit: 192 << 20, concurrency: 6)
+    // Details and thumbnails fetched ahead of the list on screen (Prefetch.swift).
+    lazy var prefetch = Prefetch(app: self)
     let root: URL
     private(set) var navigation: LiveNavigationController!
     private(set) var backup: PCBackup?
