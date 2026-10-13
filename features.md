@@ -47,6 +47,8 @@ How search looks like:
    middle (outwards, below first), each with its strip's first screen of thumbnails, then the
    whole strips of the nearest rows, so a fast scroll down the list or along a strip finds them
    on the phone (Prefetch.swift; it follows the list as it moves and pauses under a reader).
+   A strip being swiped comes first: its nearest thumbnails, the way it moves, at high priority,
+   then the rest of it. A thumbnail on screen never waits behind a slower download ahead.
 5. A heart (favorite) and an "i" (details) at each row's bottom right.
 6. Details: titles, artists, groups, series, type, characters, language, pages, date and tags.
    Every value is a search in the gallery's language. Close or tap outside.

@@ -326,6 +326,8 @@ protocol ListRowDelegate: AnyObject {
     func rowWantsInfo(_ row: ListRowCell)
     func rowToggledFavorite(_ row: ListRowCell)
     func rowStripSettled(_ row: ListRowCell)
+    // Its strip is being swiped, now at this thumbnail.
+    func rowStripScrolled(_ row: ListRowCell, at index: Int)
 }
 
 // One gallery: its strip of page thumbnails (or a message until its details arrive), the "i"
@@ -433,6 +435,7 @@ final class ListRowCell: UITableViewCell, ThumbnailStripDelegate {
 
     func strip(_ strip: ThumbnailStripView, didSelect index: Int) { delegate?.row(self, didSelectPage: index) }
     func stripDidSettle(_ strip: ThumbnailStripView) { delegate?.rowStripSettled(self) }
+    func stripDidScroll(_ strip: ThumbnailStripView) { delegate?.rowStripScrolled(self, at: strip.firstVisibleIndex) }
 }
 
 // Favorites' end: "Import / Merge" (gallery IDs pasted in any form; new ones go first) and

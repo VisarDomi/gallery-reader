@@ -77,7 +77,7 @@ actor ImageCache {
     private var loading: [String: Transfer] = [:]
     // Downloads ahead of the screen (Prefetch): low priority, nobody waiting, never given up when
     // a row scrolls away. The screen asking for one joins it.
-    private var ahead: [String: Task<URL?, Never>] = [:]
+    private var ahead: [String: (task: Task<URL?, Never>, priority: Float)] = [:]
 
     init(directory: URL, http: HTTPClient) {
         self.directory = directory.appendingPathComponent("cache")
@@ -113,7 +113,13 @@ actor ImageCache {
             return file
         }
         try Task.checkCancellation()
-        if let early = ahead[key], let file = await early.value { return file }
+        // The screen asks for one already coming ahead: joined when it comes as fast, otherwise
+        // given up for the screen's own (a thumbnail is small; waiting behind a slow one is not).
+        if let early = ahead[key] {
+            if early.priority >= URLSessionTask.highPriority, let file = await early.task.value { return file }
+            early.task.cancel()
+            ahead[key] = nil
+        }
         if loading[key] == nil { loading[key] = Transfer(task: Task { [http] in try await Self.fetch(file, http: http, source: source) }) }
         let caller = UUID()
         loading[key]!.callers.insert(caller)
@@ -157,15 +163,20 @@ actor ImageCache {
 
     // Downloads an image ahead of the screen (low priority); one on the phone or already coming
     // is left alone. Returns when it is on the phone (or failed: the screen asks again itself).
-    func prefetch(_ key: String, source: @escaping @Sendable (_ stale: Bool) async throws -> (url: URL, referer: String)) async {
+    func prefetch(_ key: String, priority: Float = URLSessionTask.lowPriority,
+                  source: @escaping @Sendable (_ stale: Bool) async throws -> (url: URL, referer: String)) async {
         let file = directory.appendingPathComponent(Self.name(key))
         if FileManager.default.fileExists(atPath: file.appendingPathExtension("mime").path), (DurableFile.size(file) ?? 0) > 0 { return }
         if loading[key] != nil { return }
-        if let early = ahead[key] { _ = await early.value; return }
-        let task = Task { [http] in try? await Self.fetch(file, http: http, priority: URLSessionTask.lowPriority, source: source) }
-        ahead[key] = task
+        if let early = ahead[key] {
+            // Coming already, as fast or faster: wait for it; slower: started again faster.
+            if early.priority >= priority { _ = await early.task.value; return }
+            early.task.cancel()
+        }
+        let task = Task { [http] in try? await Self.fetch(file, http: http, priority: priority, source: source) }
+        ahead[key] = (task, priority)
         _ = await task.value
-        ahead[key] = nil
+        if ahead[key]?.task == task { ahead[key] = nil }
     }
 
     private nonisolated func touch(_ file: URL) {

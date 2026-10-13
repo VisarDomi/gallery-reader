@@ -83,21 +83,57 @@ final class Prefetch {
         }
     }
 
+    // A strip being swiped: its thumbnails from where it is outwards, the way it moves first; the
+    // nearest at high priority, then the rest of it, ahead of the list's own work.
+    private var swiped: (id: Int, index: Int)?
+    private var stripWorker: Task<Void, Never>?
+
+    func strip(_ id: Int, info: GalleryInfo, at index: Int) {
+        if let swiped, swiped.id == id, abs(swiped.index - index) < 3 { return }
+        let forward = swiped.map { $0.id != id || index >= $0.index } ?? true
+        swiped = (id, index)
+        stripWorker?.cancel()
+        let images = app.images, referer = app.provider.origin.absoluteString + "/"
+        stripWorker = Task.detached(priority: .userInitiated) {
+            let order = Self.outwards(count: info.pages.count, center: index, window: info.pages.count, forward: forward)
+            await withTaskGroup(of: Void.self) { group in
+                var running = 0
+                for (rank, page) in order.enumerated() {
+                    if Task.isCancelled { break }
+                    if running >= 4 { await group.next(); running -= 1 }
+                    let raw = info.pages[page].thumbnail
+                    let priority = rank < 12 ? URLSessionTask.highPriority : URLSessionTask.defaultPriority
+                    group.addTask {
+                        await images.prefetch(raw, priority: priority) { _ in
+                            guard let url = URL(string: raw) else { throw ProviderError.invalid("Invalid thumbnail URL") }
+                            return (url, referer)
+                        }
+                    }
+                    running += 1
+                }
+            }
+        }
+    }
+
     // Covered by another screen (a reader): what that screen needs goes first.
     func pause() {
         worker?.cancel()
         worker = nil
+        stripWorker?.cancel()
+        stripWorker = nil
+        swiped = nil
     }
 
-    // Indices from `center` outwards (after, then before, alternately) within `window` of it.
-    nonisolated static func outwards(count: Int, center: Int, window: Int) -> [Int] {
+    // Indices from `center` outwards within `window` of it, alternately after and before (before
+    // and after when not `forward`).
+    nonisolated static func outwards(count: Int, center: Int, window: Int, forward: Bool = true) -> [Int] {
         guard count > 0 else { return [] }
         let center = min(max(0, center), count - 1)
         var result = [center]
         for distance in 1...max(1, window) {
-            if center + distance < count { result.append(center + distance) }
-            if center - distance >= 0 { result.append(center - distance) }
-            if center + distance >= count && center - distance < 0 { break }
+            let ahead = center + distance, behind = center - distance
+            for index in forward ? [ahead, behind] : [behind, ahead] where index >= 0 && index < count { result.append(index) }
+            if ahead >= count && behind < 0 { break }
         }
         return result
     }

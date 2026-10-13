@@ -544,6 +544,12 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
 
     func rowStripSettled(_ row: ListRowCell) { saveNow() }
 
+    // A strip being swiped comes before everything else ahead of the screen.
+    func rowStripScrolled(_ row: ListRowCell, at index: Int) {
+        guard let id = row.gallery, let info = galleries[id] else { return }
+        app.prefetch.strip(id, info: info, at: index)
+    }
+
     func header(_ header: SearchHeader, submit query: String) {
         view.endEditing(true)
         saveNow()
