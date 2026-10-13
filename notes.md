@@ -20,14 +20,22 @@ durable files, PC backups) come from ios-tools' NativeKit, vendored in
   tag suggestions) and Imhentai (its HTML pages), behind one `GalleryProvider`.
 - `Library.swift`: the phone's copies: gallery details (`galleries/`), images
   (`cache/`, trimmed to 2 GB, least recently used first; one transfer per image,
-  stopped once nobody waits for it) and searches (`search-cache/`).
+  stopped once nobody waits for it, except those fetched ahead) and searches
+  (`search-cache/`).
+- `Prefetch.swift`: what comes next, fetched ahead at low priority: an open reader's
+  whole gallery first (nearest pages at high priority), then a strip being swiped,
+  then the list's details and thumbnails outwards from the screen and whole strips
+  nearby.
 - `ReaderState.swift`: favorites, saved searches, list and reader positions
   (`state.json`, written durably off the main thread).
 - `ListScreen.swift`, `ListParts.swift`, `ReaderScreen.swift`, `Sheets.swift`: the
   screens.
 
 Everything the app writes goes through atomic, synced files, so a kill or power
-off leaves the previous or the new state, never a broken one.
+off leaves the previous or the new state, never a broken one. The main thread only
+shows: details and searches are read and merged off it (from disk at once only in a
+relaunch's first frames), list changes wait while the list moves, and NativeKit's
+FrameMonitor reports dropped frames in `debug-state.json` when the app leaves.
 
 ## search cache
 
