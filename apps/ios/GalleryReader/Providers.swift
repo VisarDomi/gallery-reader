@@ -228,11 +228,14 @@ actor GGCache {
     private var loadedAt = Date.distantPast
 
     func table(http: HTTPClient, refresh: Bool) async throws -> Table {
-        if refresh, Date().timeIntervalSince(loadedAt) > 5 { current = nil }
+        // Match the site's 30-minute refresh, so a long reading session does not wait
+        // for a failed image before learning that the CDN's routes changed.
+        let age = Date().timeIntervalSince(loadedAt)
+        if age >= 30 * 60 || (refresh && age > 5) { current = nil }
         if let current { return current }
         if let loading { return try await loading.value }
         let task = Task {
-            try Self.parse(try await http.send(HTTPRequest(URL(string: "https://ltn.\(Hitomi.domain)/gg.js")!, referer: "https://hitomi.la/")).text)
+            try Self.parse(try await http.send(HTTPRequest(URL(string: "https://ltn.\(Hitomi.domain)/gg.js")!, referer: "https://hitomi.la/", retry: RetryPolicy(maxAttempts: 2), timeout: 10)).text)
         }
         loading = task
         defer { loading = nil }

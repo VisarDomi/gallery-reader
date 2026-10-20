@@ -67,7 +67,7 @@ actor ImageCache {
     // One transfer per image, shared by its callers; it stops when every caller gave up (a
     // page scrolled away), so the screen's pages get the connections.
     private struct Transfer {
-        let id = UUID()
+        let id: UUID
         let task: Task<URL, Error>
         var callers: Set<UUID> = []
     }
@@ -75,13 +75,16 @@ actor ImageCache {
     private let directory: URL
     private let http: HTTPClient
     private var loading: [String: Transfer] = [:]
-    // Downloads ahead of the screen (Prefetch): low priority, nobody waiting, never given up when
-    // a row scrolls away. The screen asking for one joins it.
-    private var ahead: [String: (task: Task<URL?, Never>, priority: Float)] = [:]
+    private let originals: ImageTransferGate
+    private let thumbnails: ImageTransferGate
 
-    init(directory: URL, http: HTTPClient) {
+    init(directory: URL, http: HTTPClient, hitomi: Bool = false) {
         self.directory = directory.appendingPathComponent("cache")
         self.http = http
+        originals = ImageTransferGate(limit: hitomi ? 4 : 12, speculativeLimit: hitomi ? 2 : 4)
+        // Thumbnails can load eight alone, but that traffic makes originals return 503.
+        // Hitomi therefore shares one budget across thumbnails AND original hosts.
+        thumbnails = hitomi ? originals : ImageTransferGate(limit: 12, speculativeLimit: 4)
     }
 
     // File names are hashes of their keys, asked for every thumbnail shown: each computed once.
@@ -104,32 +107,49 @@ actor ImageCache {
         return file
     }
 
-    // `source` gives the URL and Referer; it is asked again with `stale` after a failure
-    // (Hitomi's image hosts move).
+    // Visible and speculative callers share the same transfer. Promotion changes the
+    // admission queue, never restarts bytes already arriving. Cancelling a prefetch worker
+    // drops its ownership too, so old galleries cannot occupy the reader's slots.
     func file(_ key: String, source: @escaping @Sendable (_ stale: Bool) async throws -> (url: URL, referer: String)) async throws -> URL {
+        try await load(key, priority: URLSessionTask.highPriority, speculative: false, source: source)
+    }
+
+    private func load(_ key: String, priority: Float, speculative: Bool,
+                      source: @escaping @Sendable (Bool) async throws -> (url: URL, referer: String)) async throws -> URL {
         let file = directory.appendingPathComponent(Self.name(key))
-        if FileManager.default.fileExists(atPath: file.appendingPathExtension("mime").path), (DurableFile.size(file) ?? 0) > 0 {
-            touch(file)
-            return file
-        }
+        if let saved = localFile(key) { touch(saved); return saved }
         try Task.checkCancellation()
-        // The screen asks for one already coming ahead: joined when it comes as fast, otherwise
-        // given up for the screen's own (a thumbnail is small; waiting behind a slow one is not).
-        if let early = ahead[key] {
-            if early.priority >= URLSessionTask.highPriority, let file = await early.task.value { return file }
-            early.task.cancel()
-            ahead[key] = nil
+        let gate = key.contains(":image:") ? originals : thumbnails
+        if loading[key] == nil {
+            let id = UUID()
+            let task = Task { [http] in
+                defer { if loading[key]?.id == id { loading[key] = nil } }
+                do {
+                    let result = try await Self.fetch(file, http: http, gate: gate, id: id,
+                                                      priority: priority, speculative: speculative, source: source)
+                    await gate.forget(id)
+                    return result
+                } catch { await gate.forget(id); throw error }
+            }
+            loading[key] = Transfer(id: id, task: task)
         }
-        if loading[key] == nil { loading[key] = Transfer(task: Task { [http] in try await Self.fetch(file, http: http, source: source) }) }
         let caller = UUID()
         loading[key]!.callers.insert(caller)
         let transfer = loading[key]!
-        defer { if loading[key]?.id == transfer.id { loading[key] = nil } }
         return try await withTaskCancellationHandler {
-            try await transfer.task.value
-        } onCancel: {
-            Task { await self.abandon(key, transfer: transfer.id, caller: caller) }
-        }
+            await gate.promote(transfer.id, priority: priority, interactive: !speculative)
+            do {
+                try Task.checkCancellation()
+                let result = try await transfer.task.value
+                await gate.forget(transfer.id)
+                try Task.checkCancellation()
+                return result
+            } catch {
+                // The transfer may have finished before this caller's promotion arrived.
+                if loading[key]?.id != transfer.id { await gate.forget(transfer.id) }
+                throw error
+            }
+        } onCancel: { Task { await self.abandon(key, transfer: transfer.id, caller: caller) } }
     }
 
     private func abandon(_ key: String, transfer: UUID, caller: UUID) {
@@ -140,43 +160,44 @@ actor ImageCache {
         loading[key] = nil
     }
 
-    private static func fetch(_ file: URL, http: HTTPClient, priority: Float = URLSessionTask.highPriority,
+    private static func fetch(_ file: URL, http: HTTPClient, gate: ImageTransferGate, id: UUID,
+                              priority: Float, speculative: Bool,
                               source: @Sendable (_ stale: Bool) async throws -> (url: URL, referer: String)) async throws -> URL {
         var lastError: Error?
-        for attempt in 0..<2 {
-            let (url, referer) = try await source(attempt > 0)
+        for attempt in 0..<3 {
+            try Task.checkCancellation()
+            try await gate.acquire(id, priority: priority, speculative: speculative)
             do {
-                // Two attempts, then the screen says why and asks again itself (offline, a page
-                // shows "waiting for the network" instead of staying blank).
-                let response = try await http.download(HTTPRequest(url, referer: referer, retry: RetryPolicy(maxAttempts: 2), priority: priority),
+                // Resolve after admission: a queued request must use the current routing table.
+                let (url, referer) = try await source(attempt > 0)
+                let response = try await http.download(HTTPRequest(url, referer: referer, retry: .never, priority: priority),
                                                        to: file) { response in
                     guard response.statusCode == 200, response.mimeType?.hasPrefix("image/") == true else { throw URLError(.badServerResponse) }
                 }
                 try DurableFile.write(Data((response.mimeType ?? "image/jpeg").utf8), to: file.appendingPathExtension("mime"))
+                await gate.release(id)
                 return file
-            } catch let error as HTTPStatusError where [403, 404].contains(error.status) {
+            } catch {
+                await gate.release(id, error: error)
+                try Task.checkCancellation()
                 lastError = error
+                if let status = error as? HTTPStatusError, [403, 404, 429, 503].contains(status.status) { continue }
+                throw error
             }
         }
         throw lastError ?? URLError(.badServerResponse)
     }
 
-    // Downloads an image ahead of the screen (low priority); one on the phone or already coming
-    // is left alone. Returns when it is on the phone (or failed: the screen asks again itself).
     func prefetch(_ key: String, priority: Float = URLSessionTask.lowPriority,
                   source: @escaping @Sendable (_ stale: Bool) async throws -> (url: URL, referer: String)) async {
-        let file = directory.appendingPathComponent(Self.name(key))
-        if FileManager.default.fileExists(atPath: file.appendingPathExtension("mime").path), (DurableFile.size(file) ?? 0) > 0 { return }
-        if loading[key] != nil { return }
-        if let early = ahead[key] {
-            // Coming already, as fast or faster: wait for it; slower: started again faster.
-            if early.priority >= priority { _ = await early.task.value; return }
-            early.task.cancel()
+        _ = try? await load(key, priority: priority, speculative: true, source: source)
+    }
+
+    var debugState: [String: [String: Int]] {
+        get async {
+            if originals === thumbnails { return ["shared": await originals.state] }
+            return ["originals": await originals.state, "thumbnails": await thumbnails.state]
         }
-        let task = Task { [http] in try? await Self.fetch(file, http: http, priority: priority, source: source) }
-        ahead[key] = (task, priority)
-        _ = await task.value
-        if ahead[key]?.task == task { ahead[key] = nil }
     }
 
     private nonisolated func touch(_ file: URL) {

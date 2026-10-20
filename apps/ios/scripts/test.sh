@@ -14,5 +14,10 @@ xcrun swiftc -parse-as-library -I "$test_dir" -L "$test_dir" -lKitCore -lKitNet 
   GalleryReader/Providers.swift Tests/ProviderTests.swift -o "$test_dir/provider-tests"
 "$test_dir/provider-tests" Tests/Fixtures
 xcrun swiftc -parse-as-library -I "$test_dir" -L "$test_dir" -lKitCore -lKitNet -Xlinker -rpath -Xlinker "$test_dir" \
-  GalleryReader/Providers.swift GalleryReader/Library.swift Tests/CacheTests.swift -o "$test_dir/cache-tests"
+  GalleryReader/Providers.swift GalleryReader/ImageTransferGate.swift GalleryReader/Library.swift Tests/CacheTests.swift -o "$test_dir/cache-tests"
 "$test_dir/cache-tests"
+if [[ "${1:-}" == --live ]]; then
+  xcrun swiftc -parse-as-library -I "$test_dir" -L "$test_dir" -lKitCore -lKitNet -Xlinker -rpath -Xlinker "$test_dir" \
+    GalleryReader/Providers.swift GalleryReader/ImageTransferGate.swift GalleryReader/Library.swift Tests/HitomiLiveTests.swift -o "$test_dir/hitomi-live-tests"
+  "$test_dir/hitomi-live-tests"
+fi

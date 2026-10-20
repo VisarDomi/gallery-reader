@@ -48,7 +48,7 @@ final class AppController {
         provider = providerID == .hitomi ? Hitomi(http: site) : Imhentai(http: site)
         state = ReaderState(directory: root)
         details = GalleryDetails(provider: provider, directory: root)
-        images = ImageCache(directory: root, http: HTTPClient(.init(cookies: cookies, connectionsPerHost: 12, requestTimeout: 25, resourceTimeout: 90)))
+        images = ImageCache(directory: root, http: HTTPClient(.init(cookies: cookies, connectionsPerHost: 12, requestTimeout: 25, resourceTimeout: 45)), hitomi: providerID == .hitomi)
         searches = SearchCache(directory: root, provider: providerID)
         galleryServer = URL(string: info["GalleryServerURL"] as? String ?? "https://192.168.1.197:7777")!
         let trust = LocalTrust(host: galleryServer.host ?? "", certificate: Bundle.main.url(forResource: "LocalCA", withExtension: "cer"))
@@ -71,7 +71,11 @@ final class AppController {
             guard let self else { return }
             navigation.flush()
             state.flush()
-            DebugState.shared.write(to: root)
+            Task { [images, root] in
+                let transfers = await images.debugState
+                DebugState.shared.register("downloads") { transfers }
+                DebugState.shared.write(to: root)
+            }
         }
         NotificationCenter.default.addObserver(forName: .favoritesChanged, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.scheduleFavoritesSync() }
@@ -92,6 +96,19 @@ final class AppController {
         TestHooks.shared.register("favorite") { [weak self] query in
             guard let self, let id = Int(query["id"] ?? "") else { return ["error": "id"] }
             return ["favorite": state.toggleFavorite(id)]
+        }
+        TestHooks.shared.register("open") { [weak self] query in
+            guard let self, let id = Int(query["gallery"] ?? ""), id > 0 else { return ["error": "gallery"] }
+            open(.reader(gallery: id, page: max(1, Int(query["page"] ?? "1") ?? 1)))
+            return ["ok": true]
+        }
+        TestHooks.shared.register("downloads") { [weak self] _ in
+            guard let self else { return ["requested": false] }
+            Task { [images] in
+                let transfers = await images.debugState
+                DebugState.shared.register("downloads") { transfers }
+            }
+            return ["requested": true]
         }
         TestHooks.shared.start()
         #endif

@@ -58,6 +58,7 @@ What the apps do for the owner: [features.md](../../features.md).
 | `AppDelegate.swift` | The scene and its dark window. |
 | `AppController.swift` | The provider, data folder and HTTP clients; routes (`favorites`, `search(query)`, `reader(gallery, page)`) and the navigation stack; image sources; the PC backup flow and the Gallery Downloader sync; the one-time WebKit migration; DebugState reporters and the simulator hook actions. |
 | `Providers.swift` | `GalleryProvider` and its two providers, `Hitomi` (with `GGCache`) and `Imhentai`. |
+| `ImageTransferGate.swift` | Admission queues across image hosts, visible-page priority, speculation budgets, shared 429/503 cooldowns and diagnostic counters. |
 | `Library.swift` | The phone's copies: `GalleryDetails` (`galleries/`), `ImageCache` (`cache/`), `SearchCache` (`search-cache/`, the merge rules). |
 | `Prefetch.swift` | Everything fetched ahead of the screen, by priority (below). |
 | `ReaderState.swift` | `state.json`: favorites, saved searches, list and reader positions; the backup record. |
@@ -105,7 +106,7 @@ No site JavaScript runs; the app reads Hitomi's data files. Every host derives f
 - Thumbnails: `https://tn.<domain>/webpsmalltn/<last hex digit>/<two before it>/<hash>.webp`.
 - Images: `gg.js` (`https://ltn.<domain>/gg.js`, parsed with regular expressions) gives each
   hash's host `w<n>` and the current base path. It is kept in memory only, never on disk, and
-  read again after a failed image (at most every 5 s).
+  refreshed every 30 minutes (as the site does), or after a failed image (at most every 5 s).
 - Suggestions: `https://tagindex.hitomi.la/<field>/<characters>.json` for the word at the
   cursor (404: none).
 
@@ -146,11 +147,23 @@ neither), asmhentai (neither), exhentai (its Japanese galleries were purged).
   page loads when the screen is within 100 rows of the end.
 - Details: a row asks for its gallery when it shows (a failure is asked again after 5 s
   while on screen); 400 are kept in memory, all on disk.
-- Images: one transfer per image, shared by its callers and stopped once none waits
-  (downloads ahead are never stopped that way). Two attempts, then the screen says why and
-  asks again itself. After a 403 or 404 the provider is asked again with `stale` (Hitomi
-  reads gg.js again).
-- Priorities, highest first:
+- Images: visible and speculative callers share one transfer. A visible caller promotes a
+  queued transfer without restarting its bytes; cancelling the last caller, including a
+  cancelled prefetch worker, stops the actual request. Up to three attempts, then the screen
+  says why and retries itself. Routing is resolved after admission, and asked again on retry.
+- **Hitomi admission limits:** four image requests total, shared across original hosts AND
+  thumbnails, of which at most two are speculative. Visible pages take the next slot ahead
+  of speculation. These are explicit conservative app budgets, not published provider
+  quotas. Imhen keeps a twelve-transfer budget per category, at most four speculative.
+  URLSession's per-host connection setting is not this budget: image hosts and thumbnails
+  exert shared upstream pressure, and HTTP/2 multiplexes requests.
+- A 429 or 503 pauses the whole Hitomi image queue (Imhen: the affected category), including
+  new requests, for at least `Retry-After`, otherwise 2 s, doubling up to 30 s. Each image makes
+  one network attempt per admission; no independent URLSession retry loop bypasses the
+  cooldown. Network errors return to the reader's retry loop. Image resource timeout is 45 s.
+  `debug-state.json` includes `downloads`: limits, active/queued requests, peaks, throttle
+  count and remaining cooldown (`shared` for Hitomi, separate categories for Imhen).
+- Priorities, highest first (the worker widths below feed the admission budgets above):
   1. What is on screen asks for itself, at high priority. A list covered by a reader stops
      asking.
   2. An open reader's gallery, from its page outwards the way it reads: the nearest 6 high,
@@ -164,8 +177,8 @@ neither), asmhentai (neither), exhentai (its Japanese galleries were purged).
      nearest 20 rows on each side (Imhen 10). It follows the list (at most every 0.5 s) and
      pauses under a reader.
 
-  A thumbnail on screen never waits behind a slower download ahead: that download is dropped
-  and the image fetched at the screen's priority. Rows about to appear get their first five
+  A thumbnail on screen promotes and joins a download already coming ahead, preserving its
+  bytes; a queued thumbnail is promoted ahead of speculation. Rows about to appear get their first five
   thumbnails decoded from the phone.
 
 ## The PC
@@ -243,12 +256,50 @@ ssh mac 'cd ~/Developer/gallery-reader/apps/ios && bash scripts/test.sh'   # aft
 
 `scripts/test.sh` checks the providers against saved responses (`Tests/Fixtures`: a Nozomi
 index, gg.js, a Hitomi gallery, Imhentai gallery and search pages, suggestions) and the image
-and search caches against a stub transport. When a site changes its format, take a new
-fixture and fix the parser.
+and search caches against a stub transport. This includes shared/prefetched transfer
+promotion and cancellation, admission limits, reserved visible slots and shared Retry-After.
+When a site changes its format, take a new fixture and fix the parser.
+
+`bash scripts/test.sh --live` on the Mac also checks real Nozomi intersection, two galleries,
+24 originals and 24 thumbnails, plus a mixed batch from a third gallery, through the
+production provider/cache and Apple's URLSession, then verifies disk reuse without another network request. All files are temporary; it never
+reads or modifies the phone's data.
+
+### Measured Hitomi behavior (2026-10-20)
+
+Bounded tests on the home connection reproduced HTTP 503 (no Retry-After), rather than a
+permanent block. Four simultaneous originals succeeded in repeated Linux and Mac URLSession
+batches; six on the Mac returned four 200s and two 503s. Linux batches of eight returned
+four to five 200s, including when split between w1 and w2. Five succeeded in one Linux batch;
+that is not a reliable advertised ceiling. The pattern is consistent with a shared client/IP
+or upstream admission limit; these tests cannot establish its scope or promise a fixed quota.
+Other devices or PC downloads can still compete for it, hence the shared cooldown.
+
+Thumbnails at 1/2/4/8 concurrent and gallery metadata at 1/4/6 all succeeded in these samples.
+An expired gg.js base path returned 404, while the current route returned 200. The site's
+common.js refreshes routing every 30 minutes. Search terms are still fetched six at a time;
+the metadata session retains its six connections per host setting. There was no evidence here for imposing an invented
+requests-per-minute quota.
+
+A first candidate with separate four-original/eight-thumbnail budgets passed isolated
+batches, but the mixed batch produced 14 original-image 503s and took 78.93 s. Sharing **one
+four-request budget across originals and thumbnails** removed those errors. The final Mac
+URLSession run saved 24 fresh originals in 6.98 s, 24 thumbnails in 1.89 s, then 12 originals
+and 12 thumbnails together from another gallery in 1.40 s: **zero 503/429s in all 72
+transfers**, peak admission four, queues drained. Reopening 24 originals took 0.013 s with
+no network. These are samples, not guarantees of every page's latency. The cache ownership
+tests also reproduce and prevent orphaned prefetch transfers and cancel/restart promotion,
+both of which previously inflated traffic.
+
+Both signed phone builds were installed over their existing apps and approved for renewal.
+The final iOS simulator build also passed, but this run could not check rendering/restoration:
+CoreSimulator installation exceeded 90 seconds on the Intel Mac, and the simulator was shut
+down. The live transfer tests above ran directly on the Mac without CoreSimulator.
 
 - Simulator: simulator builds include NativeKit's test hooks on `127.0.0.1:8765` (`/state`,
   `/tap`, `/scroll`, `/back`, `/forward`, `/layout`, `/timeline`) and this app's actions
-  `/action?name=search&query=…` and `/action?name=favorite&id=…`. From this PC, use ios-tools'
+  `/action?name=search&query=…`, `/action?name=open&gallery=…&page=…`,
+  `/action?name=downloads` (refreshes the diagnostic counters), and `/action?name=favorite&id=…`. From this PC, use ios-tools'
   `native/scripts/sim` (`install <app path on the Mac>`, `launch <bundle>`, `hook <path>`,
   `shot <out.png>`) and `native/scripts/restore-check <bundle>` (relaunch exactness; `--warm`
   for background and back). One app at a time; shut the simulator down afterwards: it loads
