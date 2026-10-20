@@ -109,6 +109,9 @@ No site JavaScript runs; the app reads Hitomi's data files. Every host derives f
   refreshed every 30 minutes (as the site does), or after a failed image (at most every 5 s).
 - Suggestions: `https://tagindex.hitomi.la/<field>/<characters>.json` for the word at the
   cursor (404: none).
+  The native autocomplete rows center full-height labels with the existing fonts; they do
+  not use the system content configuration's vertical margins inside a compact row. Long
+  names truncate horizontally and leave room for the count.
 
 ### Imhentai
 

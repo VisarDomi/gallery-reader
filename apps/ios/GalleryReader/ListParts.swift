@@ -89,11 +89,11 @@ final class SearchHeader: UIView, UITextViewDelegate, UITableViewDataSource, UIT
         suggestions.backgroundColor = UIColor(white: 0.133, alpha: 1)
         suggestions.layer.borderColor = UIColor(red: 0.27, green: 0.53, blue: 0.73, alpha: 1).cgColor
         suggestions.layer.borderWidth = 1
-        suggestions.rowHeight = 36
+        suggestions.rowHeight = SuggestionCell.rowHeight
         suggestions.dataSource = self
         suggestions.delegate = self
         suggestions.isHidden = true
-        suggestions.register(UITableViewCell.self, forCellReuseIdentifier: "suggestion")
+        suggestions.register(SuggestionCell.self, forCellReuseIdentifier: "suggestion")
         reloadSearches()
     }
 
@@ -290,17 +290,8 @@ final class SearchHeader: UIView, UITextViewDelegate, UITableViewDataSource, UIT
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int { results.count }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "suggestion", for: indexPath)
-        let result = results[indexPath.row]
-        var content = UIListContentConfiguration.valueCell()
-        let text = NSMutableAttributedString(string: result.name, attributes: [.foregroundColor: UIColor(white: 0.73, alpha: 1)])
-        text.append(NSAttributedString(string: " (\(result.namespace))", attributes: [.foregroundColor: UIColor(white: 0.47, alpha: 1)]))
-        content.attributedText = text
-        content.secondaryText = String(result.count)
-        content.secondaryTextProperties.color = UIColor(white: 0.4, alpha: 1)
-        content.secondaryTextProperties.font = .systemFont(ofSize: 12)
-        cell.contentConfiguration = content
-        cell.backgroundColor = .clear
+        let cell = tableView.dequeueReusableCell(withIdentifier: "suggestion", for: indexPath) as! SuggestionCell
+        cell.show(results[indexPath.row])
         return cell
     }
 
@@ -317,6 +308,53 @@ final class SearchHeader: UIView, UITextViewDelegate, UITableViewDataSource, UIT
         placeholder.isHidden = true
         hideSuggestions()
         delegate?.headerChangedHeight(self)
+    }
+}
+
+// A compact autocomplete row must not inherit UIListContentConfiguration's vertical
+// margins: those require more than the row's 36 points and clip both labels. Keep the
+// existing fonts, center their full intrinsic heights, and reserve the count's width.
+@MainActor
+private final class SuggestionCell: UITableViewCell {
+    private let title = UILabel()
+    private let count = UILabel()
+    private static var titleFont: UIFont { UIListContentConfiguration.valueCell().textProperties.font }
+    static var rowHeight: CGFloat { max(36, ceil(titleFont.lineHeight) + 12) }
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        backgroundColor = .clear
+        title.font = Self.titleFont
+        title.numberOfLines = 1
+        title.lineBreakMode = .byTruncatingTail
+        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        count.font = .systemFont(ofSize: 12)
+        count.textColor = UIColor(white: 0.4, alpha: 1)
+        count.textAlignment = .right
+        count.setContentCompressionResistancePriority(.required, for: .horizontal)
+        count.setContentHuggingPriority(.required, for: .horizontal)
+        for label in [title, count] {
+            label.translatesAutoresizingMaskIntoConstraints = false
+            contentView.addSubview(label)
+        }
+        NSLayoutConstraint.activate([
+            title.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            title.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            title.trailingAnchor.constraint(lessThanOrEqualTo: count.leadingAnchor, constant: -12),
+            count.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            count.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+        ])
+        isAccessibilityElement = true
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is unused") }
+
+    func show(_ result: Suggestion) {
+        let text = NSMutableAttributedString(string: result.name, attributes: [.foregroundColor: UIColor(white: 0.73, alpha: 1)])
+        text.append(NSAttributedString(string: " (\(result.namespace))", attributes: [.foregroundColor: UIColor(white: 0.47, alpha: 1)]))
+        title.attributedText = text
+        count.text = String(result.count)
+        accessibilityLabel = "\(result.name) (\(result.namespace)), \(result.count)"
     }
 }
 
