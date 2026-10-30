@@ -72,6 +72,10 @@ transport), `scripts/` (below), `Resources/Info.plist`.
 
 ## Data on the phone
 
+Reader zoom keeps the existing strip and image slices attached throughout the gesture.
+Sharper decodes, size corrections and appended pages apply after the pinch, preserving
+the page anchor. Resolution upgrades never become new page-size metadata.
+
 Each app keeps its data in `Library/Application Support/GalleryReader`:
 
 - `state.json`: favorites (newest first), saved searches (most recent first), list anchors
@@ -223,6 +227,7 @@ For each provider, one after the other (`imhentai` for Imhen):
 python3 apps/ios/scripts/deploy.py sync hitomi
 python3 apps/ios/scripts/deploy.py build hitomi
 python3 apps/ios/scripts/deploy.py install hitomi
+python3 apps/ios/scripts/deploy.py install hitomi --no-launch  # owner-led phone UI checks
 ```
 
 - `sync` writes the provider's settings into `build/<provider>/provider.xcconfig`

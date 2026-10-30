@@ -3,10 +3,13 @@
 simulator build in build/<provider>/native/Release-iphonesimulator, no lock)."""
 import fcntl,json,os,pathlib,subprocess,sys
 root=pathlib.Path(__file__).resolve().parents[1]
+if not os.environ.get('IOS_WORKLOAD_ACTIVE'):
+    guard=pathlib.Path.home()/'Developer/ios-tools/native/scripts/mac-workload'
+    os.execv(sys.executable,[sys.executable,str(guard),'build','--timeout','900','--',sys.executable,str(pathlib.Path(__file__).resolve()),*sys.argv[1:]])
 providers=json.loads((root/'providers.json').read_text())
 if len(sys.argv)!=2 or sys.argv[1] not in providers: raise SystemExit('Supply exactly one provider: hitomi or imhentai')
 provider=sys.argv[1]
-common=['xcodebuild','-project','GalleryReader.xcodeproj','-scheme','GalleryReader','-configuration','Release',
+common=['xcodebuild','-jobs','2','-project','GalleryReader.xcodeproj','-scheme','GalleryReader','-configuration','Release',
         '-xcconfig',str(root/'build'/provider/'provider.xcconfig'),'SYMROOT='+str(root/'build'/provider/'native'),
         '-derivedDataPath',str(root/'build'/provider/'DerivedData')]
 if os.environ.get('SIMULATOR'):
@@ -21,5 +24,5 @@ with lockpath.open('a') as lock:
         if (actual.st_dev,actual.st_ino)!=(expected.st_dev,expected.st_ino): raise SystemExit('Invalid inherited signing lock')
     else: fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     team=os.environ['DEVELOPMENT_TEAM'];device=os.environ['SIGNING_DEVICE']
-    subprocess.run(common+['-sdk','iphoneos','-destination','platform=iOS,id='+device,'-destination-timeout','30',
+    subprocess.run(common+['-sdk','iphoneos','-destination',os.environ.get('SIGNING_DESTINATION') or 'platform=iOS,id='+device,'-destination-timeout','30',
         'DEVELOPMENT_TEAM='+team,'-allowProvisioningUpdates','-allowProvisioningDeviceRegistration','build'],cwd=root,check=True)
