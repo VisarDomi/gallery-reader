@@ -11,3 +11,9 @@ Start here:
 5. [Mac and phone access](../../../environment/mac-access.md): SSH, the phone's UDID,
    signing.
 6. [Renewal](../../ios-tools/renewal/README.md): the monthly re-signing and its build inputs.
+
+The viewer follows the user directly: free continuous scrolling, content loading in place,
+and pinch zoom of the same content. Never add snapping, automatic centering, page landing,
+runways or repositioning when scrolling stops. Loading, refreshes and player reuse preserve
+the visible position. Cached next chapters must append during continuous scrolling; do not
+require a scroll-end or settled-page check. Explicit navigation and restoration are separate.
