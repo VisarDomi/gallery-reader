@@ -19,28 +19,36 @@ final class Prefetch {
     private let app: AppController
     private var focus: Focus?
     private var worker: Task<Void, Never>?
+    private var listOperation = OperationState()
+    private var stripOperation = OperationState()
+    private var readerOperation = OperationState()
     // Details as they arrive (the list keeps them, so a row coming into view has its strip).
     var ready: ((Int, GalleryInfo) -> Void)?
 
     init(app: AppController) { self.app = app }
 
     func start(_ new: Focus) {
-        guard new != focus || worker == nil else { return }
+        guard new != focus || listOperation.phase == .idle else { return }
         focus = new
         // An open reader comes first; the list's work waits until its gallery is on the phone.
-        guard readerWorker == nil else { return }
+        guard !readerOperation.isRunning else { return }
         runList(new)
     }
 
     private func runList(_ new: Focus) {
         worker?.cancel()
+        let operation = listOperation.begin()
         let details = app.details, images = app.images, referer = app.provider.origin.absoluteString + "/"
         // Imhentai answers through Cloudflare: fewer and nearer.
         let gentle = app.provider.id == .imhentai
         let window = gentle ? 60 : 150, width = gentle ? 2 : 4, strips = gentle ? 10 : 20, perScreen = 6
         let deliver: @Sendable (Int, GalleryInfo) -> Void = { [weak self] id, info in
-            Task { @MainActor in self?.ready?(id, info) }
+            Task { @MainActor in
+                guard let self, listOperation.owns(operation) else { return }
+                ready?(id, info)
+            }
         }
+        let done: @Sendable () -> Void = { [weak self] in Task { @MainActor in self?.listDone(operation) } }
         worker = Task.detached(priority: .utility) {
             let rows = Self.outwards(count: new.ids.count, center: new.center, window: window)
             // Details, then the first screen of each strip, a few rows at a time.
@@ -72,7 +80,13 @@ final class Prefetch {
                     running += 1
                 }
             }
+            if !Task.isCancelled { done() }
         }
+    }
+
+    private func listDone(_ operation: OperationState.ID) {
+        guard listOperation.finish(operation) else { return }
+        worker = nil
     }
 
     // A strip's thumbnails from `start` outwards, `count` of them, onto the phone.
@@ -99,6 +113,8 @@ final class Prefetch {
         let forward = swiped.map { $0.id != id || index >= $0.index } ?? true
         swiped = (id, index)
         stripWorker?.cancel()
+        let operation = stripOperation.begin()
+        let done: @Sendable () -> Void = { [weak self] in Task { @MainActor in self?.stripDone(operation) } }
         let images = app.images, referer = app.provider.origin.absoluteString + "/"
         stripWorker = Task.detached(priority: .userInitiated) {
             let order = Self.outwards(count: info.pages.count, center: index, window: info.pages.count, forward: forward)
@@ -118,7 +134,13 @@ final class Prefetch {
                     running += 1
                 }
             }
+            if !Task.isCancelled { done() }
         }
+    }
+
+    private func stripDone(_ operation: OperationState.ID) {
+        guard stripOperation.finish(operation) else { return }
+        stripWorker = nil
     }
 
     // MARK: the reader first
@@ -134,13 +156,14 @@ final class Prefetch {
         if let readingAt, readingAt.gallery == gallery, abs(readingAt.index - index) < 3 { return }
         let forward = readingAt.map { $0.gallery != gallery || index >= $0.index } ?? true
         readingAt = (gallery, index)
-        worker?.cancel()
+        worker?.cancel(); listOperation.cancel()
         worker = nil
-        stripWorker?.cancel()
+        stripWorker?.cancel(); stripOperation.cancel()
         stripWorker = nil
         readerWorker?.cancel()
+        let operation = readerOperation.begin()
         let images = app.images, provider = app.provider
-        let done: @Sendable () -> Void = { [weak self] in Task { @MainActor in self?.readerDone() } }
+        let done: @Sendable () -> Void = { [weak self] in Task { @MainActor in self?.readerDone(operation) } }
         readerWorker = Task.detached(priority: .userInitiated) {
             let order = Self.outwards(count: info.pages.count, center: index, window: info.pages.count, forward: forward)
             await withTaskGroup(of: Void.self) { group in
@@ -163,13 +186,15 @@ final class Prefetch {
         }
     }
 
-    private func readerDone() {
+    private func readerDone(_ operation: OperationState.ID) {
+        guard readerOperation.finish(operation) else { return }
         readerWorker = nil
         if let focus { runList(focus) }
     }
 
     // The reader closed: the list (on screen again) starts its own work.
     func closedReader() {
+        readerOperation.cancel()
         readerWorker?.cancel()
         readerWorker = nil
         readingAt = nil
@@ -177,6 +202,7 @@ final class Prefetch {
 
     // Covered by another screen (a reader): what that screen needs goes first.
     func pause() {
+        listOperation.cancel(); stripOperation.cancel()
         worker?.cancel()
         worker = nil
         stripWorker?.cancel()

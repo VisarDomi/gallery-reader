@@ -347,3 +347,13 @@ it prints why approval was skipped.
   existing backups must stay readable.
 - `GalleryServerURL` is in Info.plist, a renewal input: moving Gallery Downloader's server
   means redeploying both apps.
+
+## Explicit state transitions
+
+Runtime workflow states and ownership invariants are catalogued in
+[the shared state inventory](../../../../ios-tools/native/state-machines.json).
+Tasks may publish only for their current owner. A cancelled caller releases its
+own transfer lease, and callbacks from an older operation cannot finish a newer
+one. Playback intent, readiness, terminal media, foreground ownership and gesture
+visibility are separate machines. Recovery reuses the existing durable data and
+bundle identities; it does not clear sessions, progress or caches.

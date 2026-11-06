@@ -21,16 +21,26 @@ actor ImageTransferGate {
     private var active: [UUID: Rank] = [:]
     private var waiting: [Waiter] = []
     private var promoted: [UUID: Rank] = [:]
-    private var blockedUntil = Date.distantPast
-    private var throttleStreak = 0
+    private enum Availability: Codable {
+        case ready
+        case cooldown(until: Date, strikes: Int)
+        case probing(strikes: Int)
+        var deadline: Date { if case .cooldown(let until, _) = self { return until }; return .distantPast }
+        var strikes: Int { switch self { case .ready: return 0; case .cooldown(_, let n), .probing(let n): return n } }
+    }
+    private var availability = Availability.ready
+    private let journal: URL?
+    private var blockedUntil: Date { availability.deadline }
     private var wake: Task<Void, Never>?
     private var throttles = 0
     private var peak = 0
 
-    init(limit: Int, speculativeLimit: Int, firstCooldown: TimeInterval = 2) {
+    init(limit: Int, speculativeLimit: Int, firstCooldown: TimeInterval = 2, journal: URL? = nil) {
         self.limit = limit
         self.speculativeLimit = min(speculativeLimit, limit)
         self.firstCooldown = firstCooldown
+        self.journal = journal
+        if let journal { availability = (try? DurableFile.readJSON(Availability.self, from: journal)) ?? .ready }
     }
 
     func acquire(_ id: UUID, priority: Float, speculative: Bool) async throws {
@@ -57,14 +67,19 @@ actor ImageTransferGate {
         active[id] = nil
         if let error = error as? HTTPStatusError, [429, 503].contains(error.status) {
             throttles += 1
-            throttleStreak += 1
-            let delay = max(error.retryAfter ?? 0, min(30, firstCooldown * pow(2, Double(min(throttleStreak - 1, 4)))))
-            blockedUntil = max(blockedUntil, Date().addingTimeInterval(delay))
+            let strikes = availability.strikes + 1
+            let delay = max(error.retryAfter ?? 0, min(30, firstCooldown * pow(2, Double(min(strikes - 1, 4)))))
+            availability = .cooldown(until: max(blockedUntil, Date().addingTimeInterval(delay)), strikes: strikes)
+            persist()
             Log.network.info("Image HTTP \(error.status): shared cooldown \(delay)s; limit \(self.limit)")
         } else if error == nil, Date() >= blockedUntil {
-            throttleStreak = 0
+            if case .ready = availability {} else { availability = .ready; persist() }
         }
         pump()
+    }
+
+    private func persist() {
+        if let journal { try? DurableFile.writeJSON(availability, to: journal) }
     }
 
     func forget(_ id: UUID) { promoted[id] = nil }
@@ -88,6 +103,7 @@ actor ImageTransferGate {
             return
         }
         wake?.cancel(); wake = nil
+        if case .cooldown(_, let strikes) = availability { availability = .probing(strikes: strikes) }
         while active.count < limit {
             let ahead = active.values.filter { !$0.interactive }.count
             let candidates = waiting.indices.filter { waiting[$0].rank.interactive || ahead < speculativeLimit }

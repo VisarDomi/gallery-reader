@@ -34,8 +34,8 @@ final class AppController {
     private let pcHTTP: HTTPClient
     private let galleryServer: URL
     private var syncTimer: Timer?
-    private var syncing = false
-    private var syncPending = false
+    private var favoriteSync = CoalescedWork()
+    private var syncFailures = 0
     let toasts = Toasts()
 
     init() {
@@ -212,7 +212,12 @@ final class AppController {
     // Favorites go to Gallery Downloader shortly after a change (only once this phone chose
     // backup or restore); a failure waits for the next change or launch.
     func scheduleFavoritesSync(after delay: TimeInterval = 0.1) {
-        syncPending = true
+        favoriteSync.request()
+        guard !favoriteSync.isRunning else { return }
+        armFavoritesSync(after: delay)
+    }
+
+    private func armFavoritesSync(after delay: TimeInterval) {
         syncTimer?.invalidate()
         syncTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
             MainActor.assumeIsolated { self?.syncFavorites() }
@@ -220,16 +225,24 @@ final class AppController {
     }
 
     private func syncFavorites() {
-        guard !syncing, syncPending, backup?.enrolled == true else { return }
-        syncing = true
-        syncPending = false
+        guard !favoriteSync.isRunning, favoriteSync.isPending, backup?.enrolled == true,
+              favoriteSync.begin() else { return }
         let body = try? JSONSerialization.data(withJSONObject: ["ids": state.data.favorites])
         let url = galleryServer.appendingPathComponent("api/favorites/" + provider.id.rawValue)
         Task { [pcHTTP] in
-            do { _ = try await pcHTTP.send(HTTPRequest(url, method: "PUT", headers: ["Content-Type": "application/json"], body: body)) }
-            catch { Log.network.info("Favorites sync deferred: \(error.localizedDescription, privacy: .public)") }
-            self.syncing = false
-            if self.syncPending { self.syncFavorites() }
+            let succeeded: Bool
+            do {
+                _ = try await pcHTTP.send(HTTPRequest(url, method: "PUT", headers: ["Content-Type": "application/json"], body: body))
+                succeeded = true; syncFailures = 0
+            } catch {
+                succeeded = false; syncFailures += 1
+                favoriteSync.request()
+                Log.network.info("Favorites sync deferred: \(error.localizedDescription, privacy: .public)")
+            }
+            if favoriteSync.finish() {
+                if succeeded { syncFavorites() }
+                else { armFavoritesSync(after: min(300, pow(2, Double(min(syncFailures, 8))))) }
+            }
         }
     }
 

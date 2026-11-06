@@ -53,36 +53,49 @@ final class ReaderScreen: UIViewController, LiveScreen, StripReaderDelegate {
             return ["gallery": gallery, "pages": info?.pages.count ?? -1, "message": message.isHidden ? "" : (message.text ?? ""), "strip": strip.state]
         }
         // The phone's copy at once: a relaunch shows the pages in its first frame.
-        if let saved = app.details.infoNow(gallery) { show(saved) } else { Task { [weak self] in await self?.open() } }
+        if let saved = app.details.infoNow(gallery) { show(saved) } else { beginOpen() }
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         // Back from the forward list while the gallery was still unknown: try again.
-        if info == nil && !opening { Task { [weak self] in await self?.open() } }
+        if info == nil && !opening.isRunning { beginOpen() }
         // Back from the forward list with it known: its pages first again.
         if let info { app.prefetch.reading(gallery, info: info, at: strip.currentPosition?.index ?? initial.index) }
     }
 
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
-        if isMovingFromParent { app.prefetch.closedReader() }
+        if isMovingFromParent {
+            opening.cancel(); openingTask?.cancel(); openingTask = nil
+            app.prefetch.closedReader()
+        }
     }
 
-    private var opening = false
+    private var opening = OperationState()
+    private var openingTask: Task<Void, Never>?
+    private func beginOpen() {
+        guard info == nil, !opening.isRunning else { return }
+        let operation = opening.begin()
+        openingTask = Task { [weak self] in
+            guard let self else { return }
+            defer { if opening.finish(operation) { openingTask = nil } }
+            await open(operation)
+        }
+    }
 
     // The gallery's pages (the phone's copy at once; otherwise the site, asked again with a
     // growing pause while the network is away, as long as the screen is in the stack).
-    private func open() async {
-        guard info == nil, !opening else { return }
-        opening = true
-        defer { opening = false }
+    private func open(_ operation: OperationState.ID) async {
         var delay = 1.0
         while info == nil {
             do {
-                show(try await app.details.info(gallery))
+                let info = try await app.details.info(gallery)
+                guard opening.owns(operation), !Task.isCancelled else { return }
+                show(info)
                 return
             } catch {
+                guard opening.owns(operation), !Task.isCancelled else { return }
                 show(Self.offline(error) ? "Waiting for the network…" : "Could not open the gallery: \(error.localizedDescription)\nTrying again…")
                 guard navigationController != nil else { return }
                 try? await Task.sleep(for: .seconds(delay))

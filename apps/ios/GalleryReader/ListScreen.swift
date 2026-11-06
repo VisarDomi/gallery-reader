@@ -45,9 +45,13 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
     private var info: InfoSheet?
     private var pendingInfo: Int?
     private var restored = false
-    private var loadingMore = false
+    private var pagination = OperationState()
+    private var loadingMore: Bool { pagination.isRunning }
     // The newest results are in (favorites at once; a search once it searched again).
-    private var current = false
+    private enum Results { case kept, refreshing, available, failed }
+    private var results = Results.kept
+    private var current: Bool { results == .available || results == .failed }
+    private var searching = OperationState()
     // How far the floating header has slid up (0: fully shown).
     private var headerShift: CGFloat = 0
     private var lastOffset: CGFloat = 0
@@ -276,7 +280,7 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
 
     private func reloadFavorites() {
         let favorites = app.state.data.favorites
-        current = true
+        results = .available
         setIDs(favorites, countSuffix: " Favorites", total: favorites.count)
         status.text = favorites.isEmpty ? "No favorites yet." : nil
         status.isHidden = !favorites.isEmpty
@@ -292,6 +296,8 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
     private var paged: Bool { app.provider.id == .imhentai }
 
     private func loadSearch(_ query: String) {
+        let operation = searching.begin()
+        results = .refreshing
         // The kept results at once (the first frame lists them), then the site's merged in.
         if let kept = app.searches.loadNow(query) {
             cached = kept
@@ -304,15 +310,17 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
                 // Merged off the main thread (a search can hold tens of thousands of results).
                 let (kept, paged) = (cached, paged)
                 let merged = await Task.detached(priority: .userInitiated) { SearchCache.merge(kept, fresh: fresh, query: query, paged: paged) }.value
+                guard searching.owns(operation) else { return }
+                searching.finish(operation)
                 cached = merged
-                current = true
+                results = .available
                 setIDs(merged.ids, countSuffix: " Results", total: merged.total)
                 status.text = merged.ids.isEmpty ? "No results." : nil
                 status.isHidden = !merged.ids.isEmpty
                 await app.searches.save(merged)
             } catch {
-                guard let self else { return }
-                current = true
+                guard let self, searching.finish(operation) else { return }
+                results = .failed
                 restoreIfReady()
                 guard ids.isEmpty else { return }
                 status.text = "Search failed: \(error.localizedDescription)"
@@ -325,10 +333,10 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
     private func loadMoreIfNeeded(_ row: Int) {
         // Long before the end: a fast scroll never reaches rows that are not there yet.
         guard paged, case .search(let query) = kind, let current = cached, !current.complete, !loadingMore, row >= ids.count - 100 else { return }
-        loadingMore = true
+        let operation = pagination.begin()
         Task { [weak self, app] in
-            defer { self?.loadingMore = false }
-            guard let page = try? await app.provider.search(query, page: current.pages + 1), let self, cached == current else { return }
+            defer { _ = self?.pagination.finish(operation) }
+            guard let page = try? await app.provider.search(query, page: current.pages + 1), let self, pagination.owns(operation), cached == current else { return }
             let next = SearchCache.append(current, page: page)
             cached = next
             setIDs(next.ids, countSuffix: " Results", total: next.total)

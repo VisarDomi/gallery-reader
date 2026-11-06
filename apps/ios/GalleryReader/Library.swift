@@ -67,9 +67,9 @@ actor ImageCache {
     // One transfer per image, shared by its callers; it stops when every caller gave up (a
     // page scrolled away), so the screen's pages get the connections.
     private struct Transfer {
-        let id: UUID
+        var ownership: SharedWorkState
+        var id: UUID { ownership.id }
         let task: Task<URL, Error>
-        var callers: Set<UUID> = []
     }
 
     private let directory: URL
@@ -81,10 +81,10 @@ actor ImageCache {
     init(directory: URL, http: HTTPClient, hitomi: Bool = false) {
         self.directory = directory.appendingPathComponent("cache")
         self.http = http
-        originals = ImageTransferGate(limit: hitomi ? 4 : 12, speculativeLimit: hitomi ? 2 : 4)
+        originals = ImageTransferGate(limit: hitomi ? 4 : 12, speculativeLimit: hitomi ? 2 : 4, journal: directory.appendingPathComponent("original-transfer-state.json"))
         // Thumbnails can load eight alone, but that traffic makes originals return 503.
         // Hitomi therefore shares one budget across thumbnails AND original hosts.
-        thumbnails = hitomi ? originals : ImageTransferGate(limit: 12, speculativeLimit: 4)
+        thumbnails = hitomi ? originals : ImageTransferGate(limit: 12, speculativeLimit: 4, journal: directory.appendingPathComponent("thumbnail-transfer-state.json"))
     }
 
     // File names are hashes of their keys, asked for every thumbnail shown: each computed once.
@@ -131,10 +131,9 @@ actor ImageCache {
                     return result
                 } catch { await gate.forget(id); throw error }
             }
-            loading[key] = Transfer(id: id, task: task)
+            loading[key] = Transfer(ownership: SharedWorkState(id: id), task: task)
         }
-        let caller = UUID()
-        loading[key]!.callers.insert(caller)
+        guard let caller = loading[key]?.ownership.join() else { throw CancellationError() }
         let transfer = loading[key]!
         return try await withTaskCancellationHandler {
             await gate.promote(transfer.id, priority: priority, interactive: !speculative)
@@ -154,8 +153,7 @@ actor ImageCache {
 
     private func abandon(_ key: String, transfer: UUID, caller: UUID) {
         guard loading[key]?.id == transfer else { return }
-        loading[key]!.callers.remove(caller)
-        guard loading[key]!.callers.isEmpty else { return }
+        guard loading[key]?.ownership.leave(caller) == true else { return }
         loading[key]!.task.cancel()
         loading[key] = nil
     }
