@@ -150,10 +150,13 @@ final class Prefetch {
     // screen ask for themselves, first of all). Once all are on the phone, the list's work goes on
     // where it was (low priority).
     private var readingAt: (gallery: Int, index: Int)?
+    private var readingOwner: ObjectIdentifier?
     private var readerWorker: Task<Void, Never>?
 
-    func reading(_ gallery: Int, info: GalleryInfo, at index: Int) {
-        if let readingAt, readingAt.gallery == gallery, abs(readingAt.index - index) < 3 { return }
+    func reading(_ gallery: Int, info: GalleryInfo, at index: Int, owner: AnyObject) {
+        let owner = ObjectIdentifier(owner)
+        if readingOwner == owner, let readingAt, readingAt.gallery == gallery, abs(readingAt.index - index) < 3 { return }
+        readingOwner = owner
         let forward = readingAt.map { $0.gallery != gallery || index >= $0.index } ?? true
         readingAt = (gallery, index)
         worker?.cancel(); listOperation.cancel()
@@ -193,7 +196,11 @@ final class Prefetch {
     }
 
     // The reader closed: the list (on screen again) starts its own work.
-    func closedReader() {
+    func closedReader(owner: AnyObject) {
+        // UIKit may finish removing the previous screen after its replacement
+        // has already appeared. Only that screen's owner may release the work.
+        guard readingOwner == ObjectIdentifier(owner) else { return }
+        readingOwner = nil
         readerOperation.cancel()
         readerWorker?.cancel()
         readerWorker = nil
