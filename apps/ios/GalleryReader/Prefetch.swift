@@ -44,8 +44,8 @@ final class Prefetch {
         let window = gentle ? 60 : 150, width = gentle ? 2 : 4, strips = gentle ? 10 : 20, perScreen = 6
         let deliver: @Sendable (Int, GalleryInfo) -> Void = { [weak self] id, info in
             Task { @MainActor in
-                guard let self, listOperation.owns(operation) else { return }
-                ready?(id, info)
+                guard let self, self.listOperation.owns(operation) else { return }
+                self.ready?(id, info)
             }
         }
         let done: @Sendable () -> Void = { [weak self] in Task { @MainActor in self?.listDone(operation) } }
