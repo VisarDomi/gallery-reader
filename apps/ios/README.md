@@ -20,6 +20,8 @@ navigation/background suspension. Pending anchors survive incomplete startup dat
 Reader positions include zoom/pan and page geometry; older snapshots use the cached
 visible image's header before applying their fraction. The disk-cache policy below is
 unchanged. No higher-frequency save timer is used.
+Sideways thumbnail restoration waits for the strip's first usable layout, so a new
+row cannot replace its saved offset with a provisional zero.
 
 ## Rules
 
