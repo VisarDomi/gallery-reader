@@ -23,11 +23,11 @@ final class AppController {
     let provider: any GalleryProvider
     let state: ReaderState
     let details: GalleryDetails
-    let images: ImageCache
+    let media: GalleryMedia
     let searches: SearchCache
     let pipeline = ImagePipeline(memoryLimit: 192 << 20, concurrency: 6)
     // Details and thumbnails fetched ahead of the list on screen (Prefetch.swift).
-    lazy var prefetch = Prefetch(app: self)
+    lazy var prefetch = Prefetch(details: details, media: media)
     let root: URL
     private(set) var navigation: LiveNavigationController!
     private(set) var backup: PCBackup?
@@ -48,7 +48,7 @@ final class AppController {
         provider = providerID == .hitomi ? Hitomi(http: site) : Imhentai(http: site)
         state = ReaderState(directory: root)
         details = GalleryDetails(provider: provider, directory: root)
-        images = ImageCache(directory: root, http: HTTPClient(.init(cookies: cookies, connectionsPerHost: 12, requestTimeout: 25, resourceTimeout: 45)), hitomi: providerID == .hitomi)
+        media = GalleryMedia(provider: provider, directory: root, http: HTTPClient(.init(cookies: cookies, connectionsPerHost: 12, requestTimeout: 25, resourceTimeout: 45)))
         searches = SearchCache(directory: root, provider: providerID)
         galleryServer = URL(string: info["GalleryServerURL"] as? String ?? "https://192.168.1.197:7777")!
         let trust = LocalTrust(host: galleryServer.host ?? "", certificate: Bundle.main.url(forResource: "LocalCA", withExtension: "cer"))
@@ -66,7 +66,7 @@ final class AppController {
         root = checkRoot; self.provider = provider
         state = ReaderState(directory: root)
         details = GalleryDetails(provider: provider, directory: root)
-        images = ImageCache(directory: root, http: HTTPClient(.init()), hitomi: provider.id == .hitomi)
+        media = GalleryMedia(provider: provider, directory: root, http: HTTPClient(.init()))
         searches = SearchCache(directory: root, provider: provider.id)
         galleryServer = URL(string: "https://127.0.0.1:9")!
         pcHTTP = HTTPClient(.init(requestTimeout: 1, resourceTimeout: 1))
@@ -78,13 +78,11 @@ final class AppController {
         pipeline.beginRestore()
         navigation = LiveNavigationController(file: root.appendingPathComponent("navigation.json"),
                                               factory: { [unowned self] route, state in screen(route, state: state) },
-                                              root: ListScreen(app: self, kind: .favorites, state: nil))
+                                              root: ListScreen(app: self, kind: .favorites, state: nil), stateStore: state)
         AppLifecycle.shared.onResignActive { [weak self] in
             guard let self else { return }
-            navigation.flush()
-            state.flush()
-            Task { [images, root] in
-                let transfers = await images.debugState
+            Task { [media, root] in
+                let transfers = await media.statistics
                 DebugState.shared.register("downloads") { transfers }
                 DebugState.shared.write(to: root)
             }
@@ -116,8 +114,8 @@ final class AppController {
         }
         TestHooks.shared.register("downloads") { [weak self] _ in
             guard let self else { return ["requested": false] }
-            Task { [images] in
-                let transfers = await images.debugState
+            Task { [media] in
+                let transfers = await media.statistics
                 DebugState.shared.register("downloads") { transfers }
             }
             return ["requested": true]
@@ -125,7 +123,7 @@ final class AppController {
         TestHooks.shared.start()
         #endif
         migrateFromWebKit()
-        Task.detached(priority: .background) { [images] in await images.trim(limit: 2 << 30) }
+        Task.detached(priority: .background) { [media] in await media.trim() }
         return navigation
     }
 
@@ -161,26 +159,6 @@ final class AppController {
     }
 
     // MARK: images
-
-    func thumbnail(_ page: GalleryInfo.Page) -> ImageSource {
-        let images = images, referer = provider.origin.absoluteString + "/", raw = page.thumbnail
-        return .load {
-            try await images.file(raw) { _ in
-                guard let url = URL(string: raw) else { throw ProviderError.invalid("Invalid thumbnail URL") }
-                return (url, referer)
-            }
-        }
-    }
-
-    func thumbnailFile(_ page: GalleryInfo.Page) -> URL? { images.localFile(page.thumbnail) }
-    func imageFile(_ page: GalleryInfo.Page) -> URL? { images.localFile("\(provider.id.rawValue):image:\(page.image)") }
-
-    func image(_ page: GalleryInfo.Page, of gallery: Int) -> ImageSource {
-        let images = images, provider = provider
-        return .load {
-            try await images.file("\(provider.id.rawValue):image:\(page.image)") { stale in try await provider.image(page, of: gallery, stale: stale) }
-        }
-    }
 
     // MARK: the PC
 

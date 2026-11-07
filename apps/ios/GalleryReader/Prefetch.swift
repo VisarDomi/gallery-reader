@@ -16,7 +16,8 @@ final class Prefetch {
         var strips: [Int: Int]
     }
 
-    private let app: AppController
+    private let details: GalleryDetails
+    private let media: GalleryMedia
     private var focus: Focus?
     private var worker: Task<Void, Never>?
     private var listOperation = OperationState()
@@ -25,7 +26,7 @@ final class Prefetch {
     // Details as they arrive (the list keeps them, so a row coming into view has its strip).
     var ready: ((Int, GalleryInfo) -> Void)?
 
-    init(app: AppController) { self.app = app }
+    init(details: GalleryDetails, media: GalleryMedia) { self.details = details; self.media = media }
 
     func start(_ new: Focus) {
         guard new != focus || listOperation.phase == .idle else { return }
@@ -38,10 +39,10 @@ final class Prefetch {
     private func runList(_ new: Focus) {
         worker?.cancel()
         let operation = listOperation.begin()
-        let details = app.details, images = app.images, referer = app.provider.origin.absoluteString + "/"
+        let details = details, media = media
         // Imhentai answers through Cloudflare: fewer and nearer.
-        let gentle = app.provider.id == .imhentai
-        let window = gentle ? 60 : 150, width = gentle ? 2 : 4, strips = gentle ? 10 : 20, perScreen = 6
+        let policy = media.prefetchPolicy
+        let window = policy.window, width = policy.width, strips = policy.strips, perScreen = 6
         let deliver: @Sendable (Int, GalleryInfo) -> Void = { [weak self] id, info in
             Task { @MainActor in
                 guard let self, self.listOperation.owns(operation) else { return }
@@ -61,7 +62,7 @@ final class Prefetch {
                     group.addTask {
                         guard let info = try? await details.info(id), !Task.isCancelled else { return }
                         deliver(id, info)
-                        await Self.thumbnails(info, from: start, count: perScreen, images: images, referer: referer)
+                        await Self.thumbnails(info, from: start, count: perScreen, media: media)
                     }
                     running += 1
                 }
@@ -75,7 +76,7 @@ final class Prefetch {
                     let id = new.ids[row], start = new.strips[id] ?? 0
                     group.addTask {
                         guard let info = try? await details.info(id), !Task.isCancelled else { return }
-                        await Self.thumbnails(info, from: start, count: info.pages.count, images: images, referer: referer)
+                        await Self.thumbnails(info, from: start, count: info.pages.count, media: media)
                     }
                     running += 1
                 }
@@ -90,16 +91,12 @@ final class Prefetch {
     }
 
     // A strip's thumbnails from `start` outwards, `count` of them, onto the phone.
-    private nonisolated static func thumbnails(_ info: GalleryInfo, from start: Int, count: Int, images: ImageCache, referer: String) async {
+    private nonisolated static func thumbnails(_ info: GalleryInfo, from start: Int, count: Int, media: GalleryMedia) async {
         let pages = info.pages
         guard !pages.isEmpty else { return }
         for index in outwards(count: pages.count, center: min(max(0, start), pages.count - 1), window: count) {
             if Task.isCancelled { return }
-            let raw = pages[index].thumbnail
-            await images.prefetch(raw) { _ in
-                guard let url = URL(string: raw) else { throw ProviderError.invalid("Invalid thumbnail URL") }
-                return (url, referer)
-            }
+            await media.prefetch(.thumbnail(pages[index]))
         }
     }
 
@@ -115,7 +112,7 @@ final class Prefetch {
         stripWorker?.cancel()
         let operation = stripOperation.begin()
         let done: @Sendable () -> Void = { [weak self] in Task { @MainActor in self?.stripDone(operation) } }
-        let images = app.images, referer = app.provider.origin.absoluteString + "/"
+        let media = media
         stripWorker = Task.detached(priority: .userInitiated) {
             let order = Self.outwards(count: info.pages.count, center: index, window: info.pages.count, forward: forward)
             await withTaskGroup(of: Void.self) { group in
@@ -123,13 +120,10 @@ final class Prefetch {
                 for (rank, page) in order.enumerated() {
                     if Task.isCancelled { break }
                     if running >= 4 { await group.next(); running -= 1 }
-                    let raw = info.pages[page].thumbnail
+                    let item = GalleryMedia.Item.thumbnail(info.pages[page])
                     let priority = rank < 12 ? URLSessionTask.highPriority : URLSessionTask.defaultPriority
                     group.addTask {
-                        await images.prefetch(raw, priority: priority) { _ in
-                            guard let url = URL(string: raw) else { throw ProviderError.invalid("Invalid thumbnail URL") }
-                            return (url, referer)
-                        }
+                        await media.prefetch(item, priority: priority)
                     }
                     running += 1
                 }
@@ -165,7 +159,7 @@ final class Prefetch {
         stripWorker = nil
         readerWorker?.cancel()
         let operation = readerOperation.begin()
-        let images = app.images, provider = app.provider
+        let media = media
         let done: @Sendable () -> Void = { [weak self] in Task { @MainActor in self?.readerDone(operation) } }
         readerWorker = Task.detached(priority: .userInitiated) {
             let order = Self.outwards(count: info.pages.count, center: index, window: info.pages.count, forward: forward)
@@ -177,9 +171,7 @@ final class Prefetch {
                     let page = info.pages[number]
                     let priority = rank < 6 ? URLSessionTask.highPriority : URLSessionTask.defaultPriority
                     group.addTask {
-                        await images.prefetch("\(provider.id.rawValue):image:\(page.image)", priority: priority) { stale in
-                            try await provider.image(page, of: gallery, stale: stale)
-                        }
+                        await media.prefetch(.original(gallery: gallery, page: page), priority: priority)
                     }
                     running += 1
                 }

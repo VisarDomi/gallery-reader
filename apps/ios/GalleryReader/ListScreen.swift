@@ -423,7 +423,7 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
             let pages = info.pages.indices.filter { $0 >= first && $0 < first + 5 }
             decodedAhead[id] = pages.map { index in
                 let page = info.pages[index]
-                return app.pipeline.load(ImagePipeline.Request(key: page.thumbnail, source: app.thumbnail(page), fit: .cover(width: 300, height: 900),
+                return app.pipeline.load(ImagePipeline.Request(key: page.thumbnail, source: app.media.source(.thumbnail(page)), fit: .cover(width: 300, height: 900),
                                                                localFile: nil) { 1 }) { _ in }
             }
         }

@@ -114,7 +114,7 @@ final class ReaderScreen: UIViewController, LiveScreen, StripReaderDelegate {
         self.info = info
         show(info.pages.isEmpty ? "This gallery has no images." : nil)
         strip.setPages(info.pages.enumerated().map { index, page in
-            StripPage(key: "\(app.provider.id.rawValue):image:\(page.image)",
+            StripPage(key: app.media.key(for: .original(gallery: gallery, page: page)),
                       aspect: page.width > 0 && page.height > 0 ? CGFloat(page.width / page.height) : nil)
         }, position: StripPosition(index: min(max(0, initial.index), max(0, info.pages.count - 1)), fraction: initial.fraction, zoom: initial.zoom, aspect: initial.aspect, point: initial.point))
         // The whole gallery onto the phone, from here outwards, before anything else.
@@ -143,12 +143,12 @@ final class ReaderScreen: UIViewController, LiveScreen, StripReaderDelegate {
 
     func strip(_ strip: StripReaderView, sourceFor index: Int) -> ImageSource {
         guard let info, info.pages.indices.contains(index) else { return .load { throw CancellationError() } }
-        return app.image(info.pages[index], of: gallery)
+        return app.media.source(.original(gallery: gallery, page: info.pages[index]))
     }
 
     func strip(_ strip: StripReaderView, localFileFor index: Int) -> URL? {
         guard let info, info.pages.indices.contains(index) else { return nil }
-        return app.imageFile(info.pages[index])
+        return app.media.cachedFile(.original(gallery: gallery, page: info.pages[index]))
     }
 
     // A page that could not load says why (it is asked again, sooner while on screen).
@@ -159,11 +159,11 @@ final class ReaderScreen: UIViewController, LiveScreen, StripReaderDelegate {
     #if targetEnvironment(simulator)
     var checkViewportState: [String: Any] { strip.state }
     func checkViewport(y: Double?, scale: Double?, x: Double?) {
-        strip.scrollViewWillBeginDragging(strip.scrollView)
-        if let scale { strip.scrollView.setZoomScale(CGFloat(scale), animated: false) }
-        if let x { strip.scrollView.contentOffset.x = CGFloat(x) }
-        if let y { strip.scrollView.contentOffset.y = CGFloat(y) }
-        strip.scrollViewDidScroll(strip.scrollView)
+        strip.scrollViewWillBeginDragging(strip.testScrollView)
+        if let scale { strip.testScrollView.setZoomScale(CGFloat(scale), animated: false) }
+        if let x { strip.testScrollView.contentOffset.x = CGFloat(x) }
+        if let y { strip.testScrollView.contentOffset.y = CGFloat(y) }
+        strip.scrollViewDidScroll(strip.testScrollView)
     }
     #endif
 

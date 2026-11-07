@@ -48,7 +48,7 @@ enum StateError: LocalizedError {
 // The state, saved durably on every change (off the main thread, newest first): a kill or a
 // power-off loses nothing.
 @MainActor
-final class ReaderState {
+final class ReaderState: CheckpointStore {
     private(set) var data: ReaderData
     private let writer: BackgroundWriter
     private static let keepReaders = 500

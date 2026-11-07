@@ -463,12 +463,12 @@ final class ListRowCell: UITableViewCell, ThumbnailStripDelegate {
 
     func strip(_ strip: ThumbnailStripView, sourceFor index: Int) -> ImageSource {
         guard let info, info.pages.indices.contains(index), let app else { return .load { throw CancellationError() } }
-        return app.thumbnail(info.pages[index])
+        return app.media.source(.thumbnail(info.pages[index]))
     }
 
     func strip(_ strip: ThumbnailStripView, localFileFor index: Int) -> URL? {
         guard let info, info.pages.indices.contains(index), let app else { return nil }
-        return app.thumbnailFile(info.pages[index])
+        return app.media.cachedFile(.thumbnail(info.pages[index]))
     }
 
     func strip(_ strip: ThumbnailStripView, didSelect index: Int) { delegate?.row(self, didSelectPage: index) }

@@ -1,5 +1,11 @@
 # Hitomi and Imhen
 
+GalleryMedia owns image identity, provider URL/Referer resolution, stale-host retry,
+cache reuse and provider prefetch policy. Screens and Prefetch request thumbnail/original
+items without constructing cache keys or coordinating provider/cache callbacks. Navigation
+owns lifecycle checkpoints and drains ReaderState after capturing the current screen.
+
+
 One codebase and one Xcode target (`GalleryReader`) build two iPhone apps:
 
 | Provider | App | Bundle ID | Site |
@@ -68,6 +74,7 @@ row cannot replace its saved offset with a provisional zero.
 | `Providers.swift` | `GalleryProvider` and its two providers, `Hitomi` (with `GGCache`) and `Imhentai`. |
 | `ImageTransferGate.swift` | Admission queues across image hosts, visible-page priority, speculation budgets, shared 429/503 cooldowns and diagnostic counters. |
 | `Library.swift` | The phone's copies: `GalleryDetails` (`galleries/`), `ImageCache` (`cache/`), `SearchCache` (`search-cache/`, the merge rules). |
+| `GalleryMedia.swift` | Image/cache/provider boundary and prefetch policy. |
 | `Prefetch.swift` | Everything fetched ahead of the screen, by priority (below). |
 | `ReaderState.swift` | `state.json`: favorites, saved searches, list and reader positions; the backup record. |
 | `ListScreen.swift` | Favorites and search results: one list, the floating header, positions, merges, the details. |
