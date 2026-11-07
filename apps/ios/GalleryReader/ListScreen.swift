@@ -45,6 +45,7 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
     private var info: InfoSheet?
     private var pendingInfo: Int?
     private var restored = false
+    private var capturedAnchor: ScrollAnchor?
     private var pagination = OperationState()
     private var loadingMore: Bool { pagination.isRunning }
     // The newest results are in (favorites at once; a search once it searched again).
@@ -80,7 +81,16 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
         }
     }
 
-    func savedState() -> Data? { try? JSONEncoder().encode(State(anchor: currentAnchor, strips: strips, info: info?.gallery ?? pendingInfo)) }
+    func savedState() -> Data? { try? JSONEncoder().encode(State(anchor: pendingAnchor ?? currentAnchor ?? capturedAnchor, strips: strips, info: info?.gallery ?? pendingInfo)) }
+
+    func captureState() {
+        guard isViewLoaded, restored else { return }
+        for cell in table.visibleCells.compactMap({ $0 as? ListRowCell }) where cell.isPopulated {
+            if let id = cell.gallery { strips[id] = Double(cell.stripOffset) }
+        }
+        capturedAnchor = currentAnchor ?? capturedAnchor
+        app.state.setAnchor(capturedAnchor, for: anchorKey)
+    }
 
     private var anchorKey: String {
         switch kind {
@@ -454,16 +464,14 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
             return
         }
         restore(anchor)
+        capturedAnchor = anchor
         pendingAnchor = nil
         restored = true
     }
 
     private func saveNow() {
         guard restored else { return }
-        for cell in table.visibleCells.compactMap({ $0 as? ListRowCell }) where cell.isPopulated {
-            if let id = cell.gallery { strips[id] = Double(cell.stripOffset) }
-        }
-        app.state.setAnchor(currentAnchor, for: anchorKey)
+        captureState()
         stateChanged()
         updatePrefetch(force: true)
     }
@@ -474,7 +482,10 @@ final class ListScreen: UIViewController, LiveScreen, UITableViewDataSource, UIT
         followScroll(scrollView)
         updatePrefetch()
     }
-    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) { monitor(true) }
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        pendingAnchor = nil; restored = true
+        monitor(true)
+    }
     func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
         if !decelerate { monitor(false); saveNow(); applyWaiting() }
     }

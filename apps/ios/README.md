@@ -15,6 +15,12 @@ reader, thumbnail strips, HTTP client and cookie jar, durable files, PC backups)
 NativeKit, vendored in `Kit/`: see the [NativeKit guide](../../../../ios-tools/native/README.md).
 What the apps do for the owner: [features.md](../../features.md).
 
+Restoration captures the live reader, row anchor and visible horizontal strips before
+navigation/background suspension. Pending anchors survive incomplete startup data.
+Reader positions include zoom/pan and page geometry; older snapshots use the cached
+visible image's header before applying their fraction. The disk-cache policy below is
+unchanged. No higher-frequency save timer is used.
+
 ## Rules
 
 - Never uninstall an app to update it. `deploy.py install` installs over the same bundle

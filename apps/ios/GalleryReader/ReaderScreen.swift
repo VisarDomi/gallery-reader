@@ -37,7 +37,13 @@ final class ReaderScreen: UIViewController, LiveScreen, StripReaderDelegate {
     var allowsEdgeBack: Bool { !strip.isZoomed }
 
     var route: Data { (try? JSONEncoder().encode(Route.reader(gallery: gallery, page: page))) ?? Data() }
-    func savedState() -> Data? { try? JSONEncoder().encode(strip.currentPosition ?? initial) }
+    func savedState() -> Data? { try? JSONEncoder().encode(strip.savedPosition ?? initial) }
+
+    func captureState() {
+        guard isViewLoaded, let position = strip.currentPosition else { return }
+        page = position.index + 1
+        app.state.setReaderPosition(position, for: gallery)
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -110,7 +116,7 @@ final class ReaderScreen: UIViewController, LiveScreen, StripReaderDelegate {
         strip.setPages(info.pages.enumerated().map { index, page in
             StripPage(key: "\(app.provider.id.rawValue):image:\(page.image)",
                       aspect: page.width > 0 && page.height > 0 ? CGFloat(page.width / page.height) : nil)
-        }, position: StripPosition(index: min(max(0, initial.index), max(0, info.pages.count - 1)), fraction: initial.fraction))
+        }, position: StripPosition(index: min(max(0, initial.index), max(0, info.pages.count - 1)), fraction: initial.fraction, zoom: initial.zoom, aspect: initial.aspect, point: initial.point))
         // The whole gallery onto the phone, from here outwards, before anything else.
         app.prefetch.reading(gallery, info: info, at: initial.index, owner: self)
     }
@@ -149,6 +155,17 @@ final class ReaderScreen: UIViewController, LiveScreen, StripReaderDelegate {
     func strip(_ strip: StripReaderView, failureTextFor index: Int, error: Error) -> String? {
         Self.offline(error) ? "Page \(index + 1): waiting for the network…" : "Page \(index + 1) could not load: \(error.localizedDescription)"
     }
+
+    #if targetEnvironment(simulator)
+    var checkViewportState: [String: Any] { strip.state }
+    func checkViewport(y: Double?, scale: Double?, x: Double?) {
+        strip.scrollViewWillBeginDragging(strip.scrollView)
+        if let scale { strip.scrollView.setZoomScale(CGFloat(scale), animated: false) }
+        if let x { strip.scrollView.contentOffset.x = CGFloat(x) }
+        if let y { strip.scrollView.contentOffset.y = CGFloat(y) }
+        strip.scrollViewDidScroll(strip.scrollView)
+    }
+    #endif
 
     func strip(_ strip: StripReaderView, settledAt position: StripPosition) {
         page = position.index + 1

@@ -61,6 +61,18 @@ final class AppController {
         }
     }
 
+    #if targetEnvironment(simulator)
+    init(checkRoot: URL, provider: any GalleryProvider) {
+        root = checkRoot; self.provider = provider
+        state = ReaderState(directory: root)
+        details = GalleryDetails(provider: provider, directory: root)
+        images = ImageCache(directory: root, http: HTTPClient(.init()), hitomi: provider.id == .hitomi)
+        searches = SearchCache(directory: root, provider: provider.id)
+        galleryServer = URL(string: "https://127.0.0.1:9")!
+        pcHTTP = HTTPClient(.init(requestTimeout: 1, resourceTimeout: 1))
+    }
+    #endif
+
     func makeNavigation() -> LiveNavigationController {
         // The screens come back as they were left, their images on the phone in the first frame.
         pipeline.beginRestore()
