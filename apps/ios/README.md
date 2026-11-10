@@ -292,7 +292,7 @@ SIMULATOR=1 /usr/bin/python3 scripts/build-provider.py hitomi
 
 ```sh
 npm run test:server                                                        # the backup server, here
-ssh mac 'cd ~/Developer/gallery-reader/apps/ios && bash scripts/test.sh'   # after deploy.py sync
+bash apps/ios/scripts/test.sh                                              # here: Swift for Linux, ~10 s
 ```
 
 `scripts/test.sh` checks the providers against saved responses (`Tests/Fixtures`: a Nozomi
@@ -301,7 +301,7 @@ and search caches against a stub transport. This includes shared/prefetched tran
 promotion and cancellation, admission limits, reserved visible slots and shared Retry-After.
 When a site changes its format, take a new fixture and fix the parser.
 
-`bash scripts/test.sh --live` on the Mac also checks real Nozomi intersection, two galleries,
+`bash scripts/test.sh --live` (here or on the Mac) also checks real Nozomi intersection, two galleries,
 24 originals and 24 thumbnails, plus a mixed batch from a third gallery, through the
 production provider/cache and Apple's URLSession, then verifies disk reuse without another network request. All files are temporary; it never
 reads or modifies the phone's data.
