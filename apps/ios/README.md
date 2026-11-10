@@ -236,7 +236,25 @@ Mac as `visar@192.168.1.198` with the trusted known-hosts file (`mac-connect` fi
 Ethernet or Wi-Fi). Phone UDID `00008101-000639912881401E`; paid team `65U58U86DD`; Mac
 mirror `/Users/visar/Developer/gallery-reader/apps/ios`.
 
-For each provider, one after the other (`imhentai` for Imhen):
+Routine delivery uses the durable queue from the repository root
+([ios-push](../../../../ios-tools/push/README.md)); it prepares the provider settings,
+freezes the source, builds, signs, installs in place and approves renewal without
+launching the app:
+
+```sh
+ios-push gallery-reader:hitomi
+ios-push gallery-reader:imhentai
+ios-push status JOB         # only "installed" confirms the phone has it
+```
+
+Both providers compile the same target under one module name (`PRODUCT_MODULE_NAME =
+GalleryReader` on the app target; the command-line xcconfig sets only the product name) in
+the shared `build/shared/DerivedData` and `build/shared/native`; each bundle is cloned to
+`build/<provider>/native/`. ios-push builds both in one stable compiler workspace (`shared` in
+ios-tools `push/projects.json`), so the second provider of a batch reuses the first one's compiled
+module: 44 s instead of 134–214 s on the Intel Mac (signed validation build).
+
+The lower-level commands remain for diagnosis, one provider at a time (`imhentai` for Imhen):
 
 ```sh
 python3 apps/ios/scripts/deploy.py sync hitomi
