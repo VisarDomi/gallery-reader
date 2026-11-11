@@ -15,7 +15,7 @@ for provider, product in json.loads((root / 'providers.json').read_text()).items
     apps.append(dict(name=provider, root=str(root),
                      app='build/' + provider + '/native/Release-iphoneos/' + product['name'] + '.app',
                      bundleIds=[product['bundleId']],
-                     inputs=['GalleryReader', 'GalleryReader.xcodeproj', 'Kit', 'Resources/Info.plist',
+                     inputs=['GalleryReader', 'Core', 'GalleryReader.xcodeproj', 'Kit', 'Resources/Info.plist',
                              'Resources/LocalCA.cer', 'providers.json',
                              'build/' + provider + '/provider.xcconfig', 'scripts/build.sh', 'scripts/build-provider.py'],
                      build=['/bin/bash', 'scripts/build.sh', provider],

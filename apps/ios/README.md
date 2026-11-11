@@ -63,19 +63,57 @@ row cannot replace its saved offset with a provisional zero.
 - On the phone, the owner's favorites are real data: never import, replace or delete them
   while testing, and undo any favorite you toggle.
 
+## Modules
+
+The code is two Swift modules. A release build optimizes each module as a whole, so a single
+app module re-optimized everything on every edit. Now an edit to a function body recompiles
+only its own module.
+
+| Module | Folder | What | Imports |
+|---|---|---|---|
+| `GalleryCore` | `Core/Sources/GalleryCore` | The providers, the phone's copies and caches, image transfers, prefetching. | Kit |
+| `GalleryReader` (app target) | `GalleryReader/` | The UIKit screens, reader state and the app object only. | `GalleryCore`, Kit |
+
+`Core/` is a local Swift package in `GalleryReader.xcodeproj`, like `Kit/`.
+
+Measured November 11 (unsigned release device build on the Mac). The ios-push case is a fresh
+build folder with a warm compile cache.
+
+| Edit (a function body) | Before (one module) | After |
+|---|---|---|
+| A screen (`Sheets.swift`) | 25 s, ios-push 39 s | 18 s, ios-push 32 s |
+| The core (`Library.swift`) | 25 s, ios-push 39 s | 18 s, ios-push 31 s |
+| A new declaration in `GalleryCore` | ios-push 38 s | ios-push 43 s (it and the app target) |
+| Nothing cached (cold) | 72 s | 77 s |
+
+Rules that keep it fast:
+
+- New code that does not need UIKit goes into `GalleryCore`, not `GalleryReader/`. Do not move
+  code back into the app target.
+- What the app uses from `GalleryCore` is `public`, with an explicit `public init` where the
+  app builds it (Swift's memberwise initializer is never public).
+- Changing a function body rebuilds one module. Adding or changing a declaration in
+  `GalleryCore` rebuilds the app module too.
+- Split a module that grows past about 3,000 lines along its dependencies.
+
 ## Code
 
-`GalleryReader/`:
+`Core/Sources/GalleryCore/` (module `GalleryCore`):
 
 | File | What it owns |
 |---|---|
-| `AppDelegate.swift` | The scene and its dark window. |
-| `AppController.swift` | The provider, data folder and HTTP clients; routes (`favorites`, `search(query)`, `reader(gallery, page)`) and the navigation stack; image sources; the PC backup flow and the Gallery Downloader sync; the one-time WebKit migration; DebugState reporters and the simulator hook actions. |
 | `Providers.swift` | `GalleryProvider` and its two providers, `Hitomi` (with `GGCache`) and `Imhentai`. |
 | `ImageTransferGate.swift` | Admission queues across image hosts, visible-page priority, speculation budgets, shared 429/503 cooldowns and diagnostic counters. |
 | `Library.swift` | The phone's copies: `GalleryDetails` (`galleries/`), `ImageCache` (`cache/`), `SearchCache` (`search-cache/`, the merge rules). |
 | `GalleryMedia.swift` | Image/cache/provider boundary and prefetch policy. |
 | `Prefetch.swift` | Everything fetched ahead of the screen, by priority (below). |
+
+`GalleryReader/` (app target):
+
+| File | What it owns |
+|---|---|
+| `AppDelegate.swift` | The scene and its dark window. |
+| `AppController.swift` | The provider, data folder and HTTP clients; routes (`favorites`, `search(query)`, `reader(gallery, page)`) and the navigation stack; image sources; the PC backup flow and the Gallery Downloader sync; the one-time WebKit migration; DebugState reporters and the simulator hook actions. |
 | `ReaderState.swift` | `state.json`: favorites, saved searches, list and reader positions; the backup record. |
 | `ListScreen.swift` | Favorites and search results: one list, the floating header, positions, merges, the details. |
 | `ListParts.swift` | `SearchHeader` (search box, Hitomi's suggestions, saved searches, count, Favs), `ListRowCell` (a gallery's strip, "i" and heart), `FavoritesFooter` (import/merge, export). |

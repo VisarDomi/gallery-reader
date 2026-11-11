@@ -5,26 +5,26 @@ import KitNet
 
 // Gallery details, kept on the phone so rows, readers and info sheets show at once and offline
 // (galleries/<id>.json; details do not change once published).
-actor GalleryDetails {
+public actor GalleryDetails {
     private let provider: any GalleryProvider
     private let directory: URL
     private var memory: [Int: GalleryInfo] = [:]
     private var order: [Int] = []
     private var loading: [Int: Task<GalleryInfo, Error>] = [:]
 
-    init(provider: any GalleryProvider, directory: URL) {
+    public init(provider: any GalleryProvider, directory: URL) {
         self.provider = provider
         self.directory = directory.appendingPathComponent("galleries")
     }
 
     // The phone's copy read on the calling thread (a relaunch shows rows and readers in their
     // first frame).
-    nonisolated func infoNow(_ id: Int) -> GalleryInfo? {
+    public nonisolated func infoNow(_ id: Int) -> GalleryInfo? {
         guard let saved = try? DurableFile.readJSON(GalleryInfo.self, from: directory.appendingPathComponent("\(id).json")), !saved.pages.isEmpty else { return nil }
         return saved
     }
 
-    func info(_ id: Int) async throws -> GalleryInfo {
+    public func info(_ id: Int) async throws -> GalleryInfo {
         if let cached = memory[id] { return cached }
         let file = directory.appendingPathComponent("\(id).json")
         if let saved = try? DurableFile.readJSON(GalleryInfo.self, from: file), !saved.pages.isEmpty {
@@ -226,21 +226,21 @@ actor ImageCache {
 }
 
 // A search's results as the phone keeps them (search-cache/<sha256(provider:query)>.json).
-struct CachedSearch: Codable, Sendable, Equatable {
+public struct CachedSearch: Codable, Sendable, Equatable {
     var query: String
-    var ids: [Int]
-    var total: Int
-    var complete: Bool
+    public var ids: [Int]
+    public var total: Int
+    public var complete: Bool
     // Imhentai: how many pages of 20 were read.
-    var pages: Int
-    var savedAt: Date
+    public var pages: Int
+    public var savedAt: Date
 }
 
-actor SearchCache {
+public actor SearchCache {
     private let directory: URL
     private let provider: ProviderID
 
-    init(directory: URL, provider: ProviderID) {
+    public init(directory: URL, provider: ProviderID) {
         self.directory = directory.appendingPathComponent("search-cache")
         self.provider = provider
     }
@@ -250,9 +250,9 @@ actor SearchCache {
     func load(_ query: String) -> CachedSearch? { loadNow(query) }
 
     // The same on the calling thread (a relaunch lists the kept results in its first frame).
-    nonisolated func loadNow(_ query: String) -> CachedSearch? { try? DurableFile.readJSON(CachedSearch.self, from: file(query)) }
+    public nonisolated func loadNow(_ query: String) -> CachedSearch? { try? DurableFile.readJSON(CachedSearch.self, from: file(query)) }
 
-    func save(_ search: CachedSearch) {
+    public func save(_ search: CachedSearch) {
         do { try DurableFile.writeJSON(search, to: file(search.query)) }
         catch { Log.store.error("Search not cached: \(error.localizedDescription, privacy: .public)") }
     }
@@ -260,7 +260,7 @@ actor SearchCache {
     // A fresh first answer merged into what was kept: Hitomi answers with every result, which
     // replaces the list; Imhentai's first page puts its new galleries in front of the kept
     // ones (or replaces them when nothing overlaps: the results moved on).
-    static func merge(_ cached: CachedSearch?, fresh: SearchPage, query: String, paged: Bool) -> CachedSearch {
+    public static func merge(_ cached: CachedSearch?, fresh: SearchPage, query: String, paged: Bool) -> CachedSearch {
         guard paged, let cached else {
             return CachedSearch(query: query, ids: fresh.ids, total: fresh.total, complete: fresh.complete, pages: 1, savedAt: Date())
         }
@@ -275,7 +275,7 @@ actor SearchCache {
     }
 
     // The next page of a paged search, appended without repeats.
-    static func append(_ cached: CachedSearch, page: SearchPage) -> CachedSearch {
+    public static func append(_ cached: CachedSearch, page: SearchPage) -> CachedSearch {
         var next = cached
         var seen = Set(cached.ids)
         next.ids += page.ids.filter { seen.insert($0).inserted }

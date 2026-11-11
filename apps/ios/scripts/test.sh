@@ -11,12 +11,12 @@ build_linux_shims "$test_dir"
 kit_libraries "$test_dir" "-swift-version 6" KitCore KitNet
 # The programs compile first (concurrently on the PC), then run in order.
 compile provider-tests ${SHIM_FLAGS[@]+"${SHIM_FLAGS[@]}"} -swift-version 6 -parse-as-library -I "$test_dir" -L "$test_dir" -lKitCore -lKitNet -Xlinker -rpath -Xlinker "$test_dir" \
-  GalleryReader/Providers.swift Tests/ProviderTests.swift
+  Core/Sources/GalleryCore/Providers.swift Tests/ProviderTests.swift
 compile cache-tests ${SHIM_FLAGS[@]+"${SHIM_FLAGS[@]}"} -swift-version 6 -parse-as-library -I "$test_dir" -L "$test_dir" -lKitCore -lKitNet -Xlinker -rpath -Xlinker "$test_dir" \
-  GalleryReader/Providers.swift GalleryReader/ImageTransferGate.swift GalleryReader/Library.swift Tests/CacheTests.swift
+  Core/Sources/GalleryCore/Providers.swift Core/Sources/GalleryCore/ImageTransferGate.swift Core/Sources/GalleryCore/Library.swift Tests/CacheTests.swift
 if [[ "${1:-}" == --live ]]; then
   compile hitomi-live-tests ${SHIM_FLAGS[@]+"${SHIM_FLAGS[@]}"} -swift-version 6 -parse-as-library -I "$test_dir" -L "$test_dir" -lKitCore -lKitNet -Xlinker -rpath -Xlinker "$test_dir" \
-    GalleryReader/Providers.swift GalleryReader/ImageTransferGate.swift GalleryReader/Library.swift Tests/HitomiLiveTests.swift
+    Core/Sources/GalleryCore/Providers.swift Core/Sources/GalleryCore/ImageTransferGate.swift Core/Sources/GalleryCore/Library.swift Tests/HitomiLiveTests.swift
 fi
 finish_compiles
 "$test_dir/provider-tests" Tests/Fixtures

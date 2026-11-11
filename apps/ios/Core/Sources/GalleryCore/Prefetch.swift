@@ -8,12 +8,14 @@ import KitCore
 // screen. What the screen shows asks for itself, at high priority and ahead of all this; the
 // work here is low priority, a few at a time, and starts over from wherever the list is.
 @MainActor
-final class Prefetch {
-    struct Focus: Equatable {
+public final class Prefetch {
+    public struct Focus: Equatable, Sendable {
         var ids: [Int]
         var center: Int
         // Where each strip was left: its first visible thumbnail.
         var strips: [Int: Int]
+
+        public init(ids: [Int], center: Int, strips: [Int: Int]) { self.ids = ids; self.center = center; self.strips = strips }
     }
 
     private let details: GalleryDetails
@@ -24,11 +26,11 @@ final class Prefetch {
     private var stripOperation = OperationState()
     private var readerOperation = OperationState()
     // Details as they arrive (the list keeps them, so a row coming into view has its strip).
-    var ready: ((Int, GalleryInfo) -> Void)?
+    public var ready: ((Int, GalleryInfo) -> Void)?
 
-    init(details: GalleryDetails, media: GalleryMedia) { self.details = details; self.media = media }
+    public init(details: GalleryDetails, media: GalleryMedia) { self.details = details; self.media = media }
 
-    func start(_ new: Focus) {
+    public func start(_ new: Focus) {
         guard new != focus || listOperation.phase == .idle else { return }
         focus = new
         // An open reader comes first; the list's work waits until its gallery is on the phone.
@@ -105,7 +107,7 @@ final class Prefetch {
     private var swiped: (id: Int, index: Int)?
     private var stripWorker: Task<Void, Never>?
 
-    func strip(_ id: Int, info: GalleryInfo, at index: Int) {
+    public func strip(_ id: Int, info: GalleryInfo, at index: Int) {
         if let swiped, swiped.id == id, abs(swiped.index - index) < 3 { return }
         let forward = swiped.map { $0.id != id || index >= $0.index } ?? true
         swiped = (id, index)
@@ -147,7 +149,7 @@ final class Prefetch {
     private var readingOwner: ObjectIdentifier?
     private var readerWorker: Task<Void, Never>?
 
-    func reading(_ gallery: Int, info: GalleryInfo, at index: Int, owner: AnyObject) {
+    public func reading(_ gallery: Int, info: GalleryInfo, at index: Int, owner: AnyObject) {
         let owner = ObjectIdentifier(owner)
         if readingOwner == owner, let readingAt, readingAt.gallery == gallery, abs(readingAt.index - index) < 3 { return }
         readingOwner = owner
@@ -188,7 +190,7 @@ final class Prefetch {
     }
 
     // The reader closed: the list (on screen again) starts its own work.
-    func closedReader(owner: AnyObject) {
+    public func closedReader(owner: AnyObject) {
         // UIKit may finish removing the previous screen after its replacement
         // has already appeared. Only that screen's owner may release the work.
         guard readingOwner == ObjectIdentifier(owner) else { return }
@@ -200,7 +202,7 @@ final class Prefetch {
     }
 
     // Covered by another screen (a reader): what that screen needs goes first.
-    func pause() {
+    public func pause() {
         listOperation.cancel(); stripOperation.cancel()
         worker?.cancel()
         worker = nil

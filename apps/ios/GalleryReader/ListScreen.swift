@@ -3,6 +3,7 @@ import KitCore
 import KitImages
 import KitLists
 import KitNavigation
+import GalleryCore
 
 enum ListKind: Equatable {
     case favorites

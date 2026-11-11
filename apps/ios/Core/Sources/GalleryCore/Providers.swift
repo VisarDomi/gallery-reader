@@ -2,43 +2,43 @@ import Foundation
 import KitCore
 import KitNet
 
-enum ProviderID: String, Codable, Sendable { case hitomi, imhentai }
+public enum ProviderID: String, Codable, Sendable { case hitomi, imhentai }
 
 // A gallery as both providers describe it. `thumbnail` is the page's thumbnail URL; `image`
 // what the provider needs for the original (Hitomi: the file hash; Imhentai: its URL).
-struct GalleryInfo: Codable, Sendable, Equatable {
-    struct Tag: Codable, Sendable, Hashable { var tag: String; var female = false; var male = false }
-    struct Page: Codable, Sendable, Equatable { var thumbnail: String; var image: String; var width: Double; var height: Double }
+public struct GalleryInfo: Codable, Sendable, Equatable {
+    public struct Tag: Codable, Sendable, Hashable { public var tag: String; public var female = false; public var male = false }
+    public struct Page: Codable, Sendable, Equatable { public var thumbnail: String; public var image: String; public var width: Double; public var height: Double }
     var id: Int
-    var title = ""
-    var titleJpn = ""
-    var type = ""
-    var language = ""
-    var date = ""
-    var artists: [String] = []
-    var groups: [String] = []
-    var parody: [String] = []
-    var characters: [String] = []
-    var tags: [Tag] = []
-    var pages: [Page] = []
+    public var title = ""
+    public var titleJpn = ""
+    public var type = ""
+    public var language = ""
+    public var date = ""
+    public var artists: [String] = []
+    public var groups: [String] = []
+    public var parody: [String] = []
+    public var characters: [String] = []
+    public var tags: [Tag] = []
+    public var pages: [Page] = []
 }
 
 // One answer to a search: Hitomi answers with every result at once (`complete`); Imhentai
 // one page of 20 at a time, with the number of pages.
-struct SearchPage: Sendable, Equatable {
+public struct SearchPage: Sendable, Equatable {
     var ids: [Int]
     var total: Int
     var complete: Bool
 }
 
-struct Suggestion: Sendable, Equatable { var name: String; var count: Int; var namespace: String }
+public struct Suggestion: Sendable, Equatable { public var name: String; public var count: Int; public var namespace: String }
 
 enum ProviderError: LocalizedError {
     case invalid(String)
     var errorDescription: String? { if case .invalid(let message) = self { return message }; return nil }
 }
 
-protocol GalleryProvider: Sendable {
+public protocol GalleryProvider: Sendable {
     var id: ProviderID { get }
     var origin: URL { get }
     var name: String { get }
@@ -58,16 +58,18 @@ protocol GalleryProvider: Sendable {
 // Hitomi's own data (no site JavaScript runs): search through its binary Nozomi indexes
 // (positive terms intersected, negative ones removed, ordered as the last positive term),
 // galleries from galleries/<id>.js, image hosts from gg.js, suggestions from tagindex.
-struct Hitomi: GalleryProvider {
+public struct Hitomi: GalleryProvider {
     static let domain = "gold-usergeneratedcontent.net"
-    let id = ProviderID.hitomi
-    let origin = URL(string: "https://hitomi.la")!
-    let name = "Hitomi"
-    let supportsSuggestions = true
+    public let id = ProviderID.hitomi
+    public let origin = URL(string: "https://hitomi.la")!
+    public let name = "Hitomi"
+    public let supportsSuggestions = true
     let http: HTTPClient
+
+    public init(http: HTTPClient) { self.http = http }
     let gg = GGCache()
 
-    func search(_ query: String, page: Int) async throws -> SearchPage {
+    public func search(_ query: String, page: Int) async throws -> SearchPage {
         let (positive, negative) = Self.parse(query)
         // Only exclusions: they narrow the Japanese galleries.
         let ids = try await intersect(positive: positive.isEmpty ? ["language:japanese"] : positive, negative: negative)
@@ -135,7 +137,7 @@ struct Hitomi: GalleryProvider {
         return results.map { $0! }
     }
 
-    func gallery(_ id: Int) async throws -> GalleryInfo {
+    public func gallery(_ id: Int) async throws -> GalleryInfo {
         let url = URL(string: "https://ltn.\(Self.domain)/galleries/\(id).js")!
         let text = try await http.send(HTTPRequest(url, referer: "https://hitomi.la/reader/\(id).html")).text
         return try Self.parseGallery(text, id: id)
@@ -170,12 +172,12 @@ struct Hitomi: GalleryProvider {
         return "https://tn.\(domain)/webpsmalltn/\(last)/\(pair)/\(hash).webp"
     }
 
-    func image(_ page: GalleryInfo.Page, of gallery: Int, stale: Bool) async throws -> (url: URL, referer: String) {
+    public func image(_ page: GalleryInfo.Page, of gallery: Int, stale: Bool) async throws -> (url: URL, referer: String) {
         let table = try await gg.table(http: http, refresh: stale)
         return (try table.url(hash: page.image), "https://hitomi.la/reader/\(gallery).html")
     }
 
-    func suggestions(_ text: String) async throws -> [Suggestion] {
+    public func suggestions(_ text: String) async throws -> [Suggestion] {
         let query = text.lowercased().replacingOccurrences(of: "_", with: " ")
         let field: String, term: String
         if let colon = query.firstIndex(of: ":") { field = String(query[..<colon]); term = String(query[query.index(after: colon)...]) }
@@ -199,7 +201,7 @@ struct Hitomi: GalleryProvider {
         }
     }
 
-    func tagQuery(namespace: String, value: String, language: String) -> String {
+    public func tagQuery(namespace: String, value: String, language: String) -> String {
         let prefix = !language.isEmpty && namespace != "language" ? "language:\(language) " : ""
         return prefix + namespace + ":" + value.replacingOccurrences(of: " ", with: "_")
     }
@@ -277,18 +279,20 @@ actor GGCache {
 
 // Imhentai's HTML: search pages of 20 (a path for one namespace or a language, the search
 // endpoint otherwise) and gallery pages (images from the inline JSON of extensions and sizes).
-struct Imhentai: GalleryProvider {
+public struct Imhentai: GalleryProvider {
     static let domain = "imhentai.xxx"
     static let languages: [(String, String)] = [("japanese", "jp"), ("english", "en"), ("spanish", "es"), ("french", "fr"),
                                                 ("korean", "kr"), ("german", "de"), ("russian", "ru")]
-    let id = ProviderID.imhentai
-    let origin = URL(string: "https://imhentai.xxx")!
-    let name = "Imhen"
-    let supportsSuggestions = false
+    public let id = ProviderID.imhentai
+    public let origin = URL(string: "https://imhentai.xxx")!
+    public let name = "Imhen"
+    public let supportsSuggestions = false
     let http: HTTPClient
+
+    public init(http: HTTPClient) { self.http = http }
     static let pageSize = 20
 
-    func search(_ query: String, page: Int) async throws -> SearchPage {
+    public func search(_ query: String, page: Int) async throws -> SearchPage {
         let html = try await http.send(HTTPRequest(Self.searchURL(query, page: page), referer: origin.absoluteString + "/")).text
         return Self.parseSearch(html, page: page)
     }
@@ -343,7 +347,7 @@ struct Imhentai: GalleryProvider {
         return components.url!
     }
 
-    func gallery(_ id: Int) async throws -> GalleryInfo {
+    public func gallery(_ id: Int) async throws -> GalleryInfo {
         let html = try await http.send(HTTPRequest(URL(string: "https://\(Self.domain)/gallery/\(id)/")!, referer: origin.absoluteString + "/")).text
         return Self.parseGallery(html, id: id)
     }
@@ -414,14 +418,14 @@ struct Imhentai: GalleryProvider {
                            tags: values("tag").map { GalleryInfo.Tag(tag: $0) })
     }
 
-    func image(_ page: GalleryInfo.Page, of gallery: Int, stale: Bool) async throws -> (url: URL, referer: String) {
+    public func image(_ page: GalleryInfo.Page, of gallery: Int, stale: Bool) async throws -> (url: URL, referer: String) {
         guard let url = URL(string: page.image) else { throw ProviderError.invalid("Invalid image URL") }
         return (url, "https://\(Self.domain)/view/\(gallery)/1/")
     }
 
-    func suggestions(_ text: String) async throws -> [Suggestion] { [] }
+    public func suggestions(_ text: String) async throws -> [Suggestion] { [] }
 
-    func tagQuery(namespace: String, value: String, language: String) -> String {
+    public func tagQuery(namespace: String, value: String, language: String) -> String {
         namespace == "language" ? "language:\(value)" : "language:\(language),\(value)"
     }
 }

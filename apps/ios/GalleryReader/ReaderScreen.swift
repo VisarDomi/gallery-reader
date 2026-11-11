@@ -3,6 +3,7 @@ import KitCore
 import KitImages
 import KitNavigation
 import KitReader
+import GalleryCore
 
 // A gallery's pages, full width on black with half a screen above the first and below the
 // last, zoomed and panned as Safari zooms a page. Opened from a thumbnail, that page's top sits

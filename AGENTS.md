@@ -17,3 +17,8 @@ and pinch zoom of the same content. Never add snapping, automatic centering, pag
 runways or repositioning when scrolling stops. Loading, refreshes and player reuse preserve
 the visible position. Cached next chapters must append during continuous scrolling; do not
 require a scroll-end or settled-page check. Explicit navigation and restoration are separate.
+
+Build speed depends on the module split (apps/ios/README.md, "Modules"). Code that does not
+need UIKit lives in the `apps/ios/Core` package module `GalleryCore`; the app target holds only
+the screens. Do not move code back into the app target. What crosses modules is `public`, with
+explicit `public init`s. Split a module that grows past about 3,000 lines.

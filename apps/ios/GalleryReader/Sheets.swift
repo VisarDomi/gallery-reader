@@ -1,5 +1,6 @@
 import UIKit
 import KitBackup
+import GalleryCore
 
 // A gallery's details over a dimmed list: its titles (Japanese first), then artists,
 // groups, series, type, characters, language, pages, date and tags. Every value is a search

@@ -1,6 +1,7 @@
 import UIKit
 import KitImages
 import KitLists
+import GalleryCore
 
 @MainActor
 protocol SearchHeaderDelegate: AnyObject {

@@ -18,6 +18,7 @@
 		B10000000000000000000017 /* KitTestHooks in Frameworks */ = {isa = PBXBuildFile; productRef = B50000000000000000000017 /* KitTestHooks */; };
 		B10000000000000000000018 /* KitMigration in Frameworks */ = {isa = PBXBuildFile; productRef = B50000000000000000000018 /* KitMigration */; };
 		B10000000000000000000019 /* KitBackup in Frameworks */ = {isa = PBXBuildFile; productRef = B50000000000000000000019 /* KitBackup */; };
+		B10000000000000000000020 /* GalleryCore in Frameworks */ = {isa = PBXBuildFile; productRef = B50000000000000000000020 /* GalleryCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -45,6 +46,7 @@
 				B10000000000000000000017 /* KitTestHooks in Frameworks */,
 				B10000000000000000000018 /* KitMigration in Frameworks */,
 				B10000000000000000000019 /* KitBackup in Frameworks */,
+				B10000000000000000000020 /* GalleryCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -99,6 +101,7 @@
 				B50000000000000000000017 /* KitTestHooks */,
 				B50000000000000000000018 /* KitMigration */,
 				B50000000000000000000019 /* KitBackup */,
+				B50000000000000000000020 /* GalleryCore */,
 			);
 			productName = GalleryReader;
 			productReference = B20000000000000000000009 /* GalleryReader.app */;
@@ -125,6 +128,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				B50000000000000000000001 /* XCLocalSwiftPackageReference "Kit" */,
+				B50000000000000000000002 /* XCLocalSwiftPackageReference "Core" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B60000000000000000000002 /* Products */;
@@ -249,6 +253,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Kit;
 		};
+		B50000000000000000000002 /* XCLocalSwiftPackageReference "Core" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Core;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -291,6 +299,10 @@
 		B50000000000000000000019 /* KitBackup */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = KitBackup;
+		};
+		B50000000000000000000020 /* GalleryCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = GalleryCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

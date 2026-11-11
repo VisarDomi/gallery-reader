@@ -7,6 +7,7 @@ import KitMigration
 import KitNavigation
 import KitNet
 import KitTestHooks
+import GalleryCore
 
 // Where a screen is.
 enum Route: Codable, Hashable, Sendable {
