@@ -26,8 +26,14 @@
 	<string>$(READER_BACKUP_KEY)</string>
 	<key>BackupURL</key>
 	<string>$(READER_BACKUP_URL)</string>
+	<key>BackupPublicURL</key>
+	<string>$(READER_BACKUP_PUBLIC_URL)</string>
 	<key>GalleryServerURL</key>
 	<string>https://192.168.1.197:7777</string>
+	<key>GalleryServerPublicURL</key>
+	<string>$(READER_FAVORITES_PUBLIC_URL)</string>
+	<key>GalleryServerKey</key>
+	<string>$(READER_FAVORITES_KEY)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>

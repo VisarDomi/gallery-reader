@@ -3,10 +3,12 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { spawnSync } from 'node:child_process';
+import { providerSettings } from './provider-settings.mjs';
 
 // Prepares one provider's build settings (build/<provider>/provider.xcconfig): its name,
-// bundle ID, and the PC: Gallery Downloader's favorites server and this repository's backup
-// server with its access key (which stays out of Git, in the ignored build folder).
+// bundle ID, and the PC: this repository's backup server with its access key, and the public
+// addresses both servers have away from home, with the favorites server's key there. The keys
+// stay out of Git, in the ignored build folder; they are read from their files, never printed.
 const app = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const registry = JSON.parse(await readFile(resolve(app, 'providers.json'), 'utf8'));
 const args = process.argv.slice(2), provider = args.find(arg => !arg.startsWith('--'));
@@ -14,14 +16,18 @@ if (!registry[provider] || args.filter(arg => !arg.startsWith('--')).length !== 
     throw new Error('Usage: npm run build:ios -- <hitomi|imhentai> [--prepare-only]');
 }
 const config = registry[provider];
-const backupURL = process.env.VITE_READER_BACKUP_URL || 'https://192.168.1.197:7722';
-const key = process.env.VITE_READER_BACKUP_KEY || (await readFile(resolve(homedir(), '.local/share/gallery-reader/backups/access-key'), 'utf8')).trim();
-// xcconfig treats "//" as a comment: "/$()/" keeps URLs whole.
-const escape = value => value.replaceAll('//', '/$()/');
+// A key from its file under the home folder, unless the environment gives it.
+const secret = async (override, file) => override || (await readFile(resolve(homedir(), file), 'utf8').catch(error => {
+    throw new Error(`Cannot read ~/${file} (${error.code}). The build needs this key: see apps/ios/README.md ("The PC").`);
+})).trim();
 await mkdir(resolve(app, 'build', provider), { recursive: true });
-await writeFile(resolve(app, 'build', provider, 'provider.xcconfig'), [
-    `READER_DISPLAY_NAME = ${config.name}`, `READER_PROVIDER = ${provider}`, `PRODUCT_BUNDLE_IDENTIFIER = ${config.bundleId}`,
-    `PRODUCT_NAME = ${config.name}`, `READER_BACKUP_URL = ${escape(backupURL)}`, `READER_BACKUP_KEY = ${key}`, ''].join('\n'));
+await writeFile(resolve(app, 'build', provider, 'provider.xcconfig'), providerSettings(provider, config, {
+    backupURL: process.env.VITE_READER_BACKUP_URL || 'https://192.168.1.197:7722',
+    backupKey: await secret(process.env.VITE_READER_BACKUP_KEY, '.local/share/gallery-reader/backups/access-key'),
+    backupPublicURL: process.env.VITE_READER_BACKUP_PUBLIC_URL || 'https://pc-apps.veron3.space/gallery-backups',
+    favoritesPublicURL: process.env.VITE_READER_FAVORITES_PUBLIC_URL || 'https://pc-apps.veron3.space/gallery',
+    favoritesKey: await secret(process.env.VITE_READER_FAVORITES_KEY, '.local/share/hetzner-pc/keys/gallery-favorites.key'),
+}));
 console.log(`Prepared ${config.name} (${provider})`);
 if (!args.includes('--prepare-only')) {
     if (process.platform !== 'darwin') throw new Error('Settings prepared. Build/sign on the documented Mac, or use --prepare-only on Linux.');

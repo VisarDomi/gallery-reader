@@ -263,6 +263,16 @@ neither), asmhentai (neither), exhentai (its Japanese galleries were purged).
   `Resources/Info.plist`; the backup URL (`https://192.168.1.197:7722`, or
   `VITE_READER_BACKUP_URL`) and key come from the xcconfig. Both trust the PC through
   `Resources/LocalCA.cer`.
+- Away from home (`PCRoute` in GalleryCore): each request goes to the home address first for
+  2 s, trusting only the bundled CA for that host. On a transport failure the same request goes
+  to the public address with the system's certificate trust: backups to
+  `https://pc-apps.veron3.space/gallery-backups`, favorites to
+  `https://pc-apps.veron3.space/gallery`, which also asks for `X-PC-Apps-Key`
+  (`~/.local/share/hetzner-pc/keys/gallery-favorites.key` on the PC, baked in by `build.mjs` as
+  `GalleryServerKey`; environment `services/hetzner-pc`, "pc-apps"). Home is then skipped for
+  45 s. An HTTP status from either address is final. NativeKit's `PCBackup` is unchanged: the
+  route is put under its client (`carrier()`). `DebugState` "pc" shows which address answered
+  last. Only these small calls go outside; nothing else of the PC is reachable from there.
 - The first launch moves the web version's favorites, saved searches, positions and backup
   identity out of WebKit's IndexedDB, once (`migrateFromWebKit`, `KitMigration`); removing it
   is a NativeKit open item.

@@ -32,8 +32,9 @@ final class AppController {
     let root: URL
     private(set) var navigation: LiveNavigationController!
     private(set) var backup: PCBackup?
-    private let pcHTTP: HTTPClient
-    private let galleryServer: URL
+    private var backupServer: PCRoute?
+    // Gallery Downloader's favorites server: at home, or through its public address (PCRoute).
+    private let favoritesServer: PCRoute
     private var syncTimer: Timer?
     private var favoriteSync = CoalescedWork()
     private var syncFailures = 0
@@ -51,14 +52,25 @@ final class AppController {
         details = GalleryDetails(provider: provider, directory: root)
         media = GalleryMedia(provider: provider, directory: root, http: HTTPClient(.init(cookies: cookies, connectionsPerHost: 12, requestTimeout: 25, resourceTimeout: 45)))
         searches = SearchCache(directory: root, provider: providerID)
-        galleryServer = URL(string: info["GalleryServerURL"] as? String ?? "https://192.168.1.197:7777")!
+        // A setting from the build (provider.xcconfig); an unset one arrives empty.
+        let setting: (String) -> String? = { name in (info[name] as? String).flatMap { $0.isEmpty ? nil : $0 } }
+        let galleryServer = URL(string: setting("GalleryServerURL") ?? "https://192.168.1.197:7777")!
         let trust = LocalTrust(host: galleryServer.host ?? "", certificate: Bundle.main.url(forResource: "LocalCA", withExtension: "cer"))
-        pcHTTP = HTTPClient(.init(trust: trust, connectionsPerHost: 2, requestTimeout: 8, resourceTimeout: 8))
-        if let base = (info["BackupURL"] as? String).flatMap(URL.init(string:)), let key = info["BackupKey"] as? String, !key.isEmpty {
+        // Both servers are the PC: at home on the LAN, away through their public addresses. The
+        // favorites one asks for its own key there; without a key it stays home-only.
+        let gate = HomeGate()
+        let favoritesKey = setting("GalleryServerKey")
+        favoritesServer = PCRoute(home: galleryServer, trust: trust,
+                                  away: favoritesKey == nil ? nil : setting("GalleryServerPublicURL").flatMap(URL.init(string:)),
+                                  awayHeaders: favoritesKey.map { ["X-PC-Apps-Key": $0] } ?? [:], gate: gate)
+        if let base = setting("BackupURL").flatMap(URL.init(string:)), let key = setting("BackupKey") {
+            let route = PCRoute(home: base, trust: trust, away: setting("BackupPublicURL").flatMap(URL.init(string:)), gate: gate)
+            backupServer = route
             backup = PCBackup(scope: "gallery-reader:" + providerID.rawValue, base: base, key: key, trust: trust, directory: root,
                               capture: { [unowned self] in state.backupData() },
                               restore: { [unowned self] data in state.replace(with: try ReaderState.validateBackup(data)) },
-                              stats: { try ReaderState.describe(ReaderState.validateBackup($0)) })
+                              stats: { try ReaderState.describe(ReaderState.validateBackup($0)) },
+                              configure: route.carrier())
         }
     }
 
@@ -69,8 +81,7 @@ final class AppController {
         details = GalleryDetails(provider: provider, directory: root)
         media = GalleryMedia(provider: provider, directory: root, http: HTTPClient(.init()))
         searches = SearchCache(directory: root, provider: provider.id)
-        galleryServer = URL(string: "https://127.0.0.1:9")!
-        pcHTTP = HTTPClient(.init(requestTimeout: 1, resourceTimeout: 1))
+        favoritesServer = PCRoute(home: URL(string: "https://127.0.0.1:9")!, trust: nil, away: nil, gate: HomeGate(), homeTimeout: 1)
     }
     #endif
 
@@ -97,6 +108,10 @@ final class AppController {
         DebugState.shared.register("state") { [weak self] in
             guard let self else { return [:] }
             return ["favorites": state.data.favorites.count, "searches": state.data.searches.map(\.query), "pipeline": pipeline.state]
+        }
+        // Which of the PC's addresses answered each server last: "home 200 <time>" or "public 200 <time>".
+        DebugState.shared.register("pc") { [weak self] in
+            ["backups": self?.backupServer?.lastAnswer ?? "", "favorites": self?.favoritesServer.lastAnswer ?? ""]
         }
         #if targetEnvironment(simulator)
         TestHooks.shared.back = { [weak self] in _ = self?.navigation.popViewController(animated: true) }
@@ -219,11 +234,11 @@ final class AppController {
         guard !favoriteSync.isRunning, favoriteSync.isPending, backup?.enrolled == true,
               favoriteSync.begin() else { return }
         let body = try? JSONSerialization.data(withJSONObject: ["ids": state.data.favorites])
-        let url = galleryServer.appendingPathComponent("api/favorites/" + provider.id.rawValue)
-        Task { [pcHTTP] in
+        let url = favoritesServer.home.appendingPathComponent("api/favorites/" + provider.id.rawValue)
+        Task { [favoritesServer] in
             let succeeded: Bool
             do {
-                _ = try await pcHTTP.send(HTTPRequest(url, method: "PUT", headers: ["Content-Type": "application/json"], body: body))
+                _ = try await favoritesServer.send(HTTPRequest(url, method: "PUT", headers: ["Content-Type": "application/json"], body: body))
                 succeeded = true; syncFailures = 0
             } catch {
                 succeeded = false; syncFailures += 1

@@ -18,7 +18,10 @@ if [[ "${1:-}" == --live ]]; then
   compile hitomi-live-tests ${SHIM_FLAGS[@]+"${SHIM_FLAGS[@]}"} -swift-version 6 -parse-as-library -I "$test_dir" -L "$test_dir" -lKitCore -lKitNet -Xlinker -rpath -Xlinker "$test_dir" \
     Core/Sources/GalleryCore/Providers.swift Core/Sources/GalleryCore/ImageTransferGate.swift Core/Sources/GalleryCore/Library.swift Tests/HitomiLiveTests.swift
 fi
+compile pc-route-tests ${SHIM_FLAGS[@]+"${SHIM_FLAGS[@]}"} -swift-version 6 -parse-as-library -I "$test_dir" -L "$test_dir" -lKitCore -lKitNet -Xlinker -rpath -Xlinker "$test_dir" \
+  Core/Sources/GalleryCore/PCRoute.swift Tests/PCRouteTests.swift
 finish_compiles
 "$test_dir/provider-tests" Tests/Fixtures
 "$test_dir/cache-tests"
+"$test_dir/pc-route-tests"
 if [[ "${1:-}" == --live ]]; then "$test_dir/hitomi-live-tests"; fi
